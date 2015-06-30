@@ -1,15 +1,14 @@
 {
   "name": "OpenHalon",
   "version": "0.1.8",
-  "cksum": "4152576483 45471",
   "tables": {
     "Open_vSwitch": {
       "columns": {
         "subsystems": {
+          "category": "child",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "child",
               "refTable": "Subsystem"
             },
             "min": 0,
@@ -17,10 +16,10 @@
           }
         },
         "bridges": {
+          "category": "child",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "child",
               "refTable": "Bridge"
             },
             "min": 0,
@@ -28,10 +27,10 @@
           }
         },
         "vrfs": {
+          "category": "child",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "child",
               "refTable": "VRF"
             },
             "min": 0,
@@ -39,10 +38,10 @@
           }
         },
         "management_vrf": {
+          "category": "child",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "child",
               "refTable": "VRF"
             },
             "min": 0,
@@ -50,10 +49,10 @@
           }
         },
         "daemons": {
+          "category": "child",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "child",
               "refTable": "Daemon"
             },
             "min": 0,
@@ -61,10 +60,10 @@
           }
         },
         "ssl": {
+          "category": "child",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "child",
               "refTable": "SSL"
             },
             "min": 0,
@@ -155,10 +154,10 @@
           }
         },
         "manager_options": {
+          "category": "child",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "child",
               "refTable": "Manager"
             },
             "min": 0,
@@ -228,10 +227,10 @@
           "type": "string"
         },
         "interfaces": {
+          "category": "child",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "child",
               "refTable": "Interface"
             },
             "min": 0,
@@ -239,10 +238,10 @@
           }
         },
         "leds": {
+          "category": "child",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "child",
               "refTable": "LED"
             },
             "min": 0,
@@ -250,10 +249,10 @@
           }
         },
         "fans": {
+          "category": "child",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "child",
               "refTable": "Fan"
             },
             "min": 0,
@@ -261,10 +260,10 @@
           }
         },
         "temp_sensors": {
+          "category": "child",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "child",
               "refTable": "Temp_sensor"
             },
             "min": 0,
@@ -272,10 +271,10 @@
           }
         },
         "power_supplies": {
+          "category": "child",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "child",
               "refTable": "Power_supply"
             },
             "min": 0,
@@ -331,10 +330,10 @@
           "mutable": false
         },
         "ports": {
+          "category": "reference",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "reference",
               "refTable": "Port"
             },
             "min": 0,
@@ -342,10 +341,10 @@
           }
         },
         "vlans": {
+          "category": "child",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "child",
               "refTable": "VLAN"
             },
             "min": 0,
@@ -419,10 +418,10 @@
           "mutable": false
         },
         "ports": {
+          "category": "reference",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "reference",
               "refTable": "Port"
             },
             "min": 0,
@@ -430,10 +429,10 @@
           }
         },
         "bgp_routers": {
+          "category": "child",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "child",
               "refTable": "BGP_Router"
             },
             "min": 0,
@@ -488,10 +487,10 @@
     "RIB": {
       "columns": {
         "vrf": {
+          "category": "parent",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "parent",
               "refTable": "VRF"
             },
             "min": 1,
@@ -503,10 +502,10 @@
            "type": "boolean"
         },
         "selected_to_FIB": {
+          "category": "child",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "child",
               "refTable": "FIB"
             },
             "min": 0,
@@ -609,10 +608,10 @@
           }
         },
         "interface_list": {
+          "category": "reference",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "reference",
               "refTable": "Interface"
             },
             "min": 0,
@@ -722,10 +721,10 @@
           "mutable": false
         },
         "port": {
+          "category": "reference",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "reference",
               "refTable": "Port"
             },
             "min": 0,
@@ -867,10 +866,10 @@
           }
         },
         "neighbors": {
+          "category": "child",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "child",
               "refTable": "BGP_neighbor"
             },
             "min": 0,
@@ -1355,10 +1354,10 @@
           "mutable": false
         },
         "interfaces": {
+          "category": "reference",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "reference",
               "refTable": "Interface"
             },
             "min": 1,
@@ -1643,10 +1642,10 @@
           "ephemeral": true
         },
         "split_parent": {
+          "category": "reference",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "reference",
               "refTable": "Interface"
             },
             "min": 0,
@@ -1654,10 +1653,10 @@
           }
         },
         "split_children": {
+          "category": "reference",
           "type": {
             "key": {
               "type": "uuid",
-              "relation": "reference",
               "refTable": "Interface"
             },
             "min": 0,
