@@ -58,7 +58,7 @@ class OVSReference(object):
         base_type = type.key
 
         # Name of the table being referenced
-        self.table = base_type.ref_table_name
+        self.ref_table = base_type.ref_table_name
 
         # Relationship of the referenced to the current table
         # one of child, parent or reference
@@ -177,6 +177,17 @@ class RESTSchema(object):
         for tableName, tableJson in tablesJson.iteritems():
             tables[tableName] = OVSTable.from_json(tableJson, tableName)
 
+        # Backfill the parent/child relationship info, mostly for
+        # parent pointers which cannot be handled in place.
+        for tableName, table in tables.iteritems():
+            for columnName, column in table.references.iteritems():
+                if column.relation == "child":
+                    table.children.append(columnName)
+                    if tables[column.ref_table].parent is None:
+                        tables[column.ref_table].parent = tableName
+                elif column.relation == "parent":
+                    tables[column.ref_table].children.append(tableName)
+
         return RESTSchema(name, version, tables)
 
 
@@ -236,6 +247,7 @@ if __name__ == "__main__":
         schema = parseSchema(args[0])
         for table_name, table in schema.ovs_tables.iteritems():
             print("Table %s: " % table_name)
+            print("Parent  = %s" % table.parent)
             print("Configuration attributes: ")
             for column_name, column in table.config.iteritems():
                 print("Col name = %s: %s" % (column_name, "plural" if column.is_list else "singular"))
