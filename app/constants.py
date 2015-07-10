@@ -14,3 +14,7 @@ SUCCESS = Transaction.SUCCESS
 TRY_AGAIN = Transaction.TRY_AGAIN
 NOT_LOCKED = Transaction.NOT_LOCKED
 ERROR = Transaction.ERROR
+
+# Ovsdb schema constants
+OVSDB_SCHEMA_TOP_LEVEL_TABLE = 'Open_vSwitch'
+OVSDB_SCHEMA_TOP_LEVEL_URL_PATH = 'system'

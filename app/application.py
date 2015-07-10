@@ -6,11 +6,13 @@ from ovs.poller import Poller
 import functools
 import json
 from manager import OvsdbConnectionManager
+import restparser
 
 class OvsdbApiApplication(Application):
     def __init__(self, settings):
         self.settings = settings
         self.manager = OvsdbConnectionManager(self.settings.get('ovs_remote'), self.settings.get('ovs_schema'))
+        self.restschema = restparser.parseSchema(self.settings.get('ext_schema'))
         self._url_patterns = self._get_url_patterns()
         Application.__init__(self, self._url_patterns, **self.settings)
 

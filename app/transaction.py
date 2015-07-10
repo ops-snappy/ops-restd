@@ -17,3 +17,6 @@ class OvsdbTransaction:
     def commit(self):
         self.status = self.txn.commit()
         return self.status
+
+    def insert(self, table):
+        return self.txn.insert(table)

@@ -73,17 +73,12 @@ class OvsdbConnectionManager:
         self.idl_run()
         IOLoop.current().add_callback(self.monitor_connection)
 
-    # TODO: This could be a blocking call
     def idl_run(self):
-
-        while True:
-            self.idl.run()
-            if self.idl.change_seqno != self.curr_seqno:
-                self.curr_seqno = self.idl.change_seqno
+        self.idl.run()
+        if self.idl.change_seqno != self.curr_seqno:
+            self.curr_seqno = self.idl.change_seqno
+            if len(self.transactions.txn_list):
                 self.check_transactions()
-            else:
-                break
-        return
 
     def check_transactions(self):
 

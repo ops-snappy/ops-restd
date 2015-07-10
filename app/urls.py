@@ -1,5 +1,5 @@
-from handlers import bridge
+from handlers import base
 
 url_patterns = [
-        (r"/bridge", bridge.BridgeHandler),
+        (r'/.*', base.AutoHandler),
 ]

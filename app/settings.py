@@ -13,4 +13,5 @@ settings = {}
 settings["static_path"] = os.path.join(os.path.dirname(__file__), "static")
 settings["template_path"] = os.path.join(os.path.dirname(__file__), "templates")
 settings['ovs_remote'] = 'unix:/usr/local/var/run/openvswitch/db.sock'
-settings['ovs_schema'] = '/home/ali/Documents/Projects/OVS/ovs/vswitchd/vswitch.ovsschema'
+settings['ovs_schema'] = 'vswitch.ovsschema'
+settings['ext_schema'] = 'vswitch.extschema'
