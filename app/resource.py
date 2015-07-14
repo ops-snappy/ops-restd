@@ -43,7 +43,7 @@ class Resource(object):
 
         # is next key a subresource of resource?
         if path[1] in resource_table.references:
-            reftable = resource_table.references[path[1]].table
+            reftable = resource_table.references[path[1]].ref_table
             resource.name = None
             resource.datatype = None
             resource.reference = {'name': path[1], 'relation':

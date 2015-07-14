@@ -42,8 +42,6 @@ class AutoHandler(BaseHandler):
             table = self.ref_object.manager.idl.tables[resource.table]
             schema = self.ref_object.restschema.ovs_tables[resource.table]
 
-            Resource.print_r(resource)
-
             # only return config, status, stats datatype
             if resource.datatype == 'config':
                 keys = schema.config.keys()

@@ -30,7 +30,7 @@ import ovs.db.idl
 
 class OVSColumn(object):
     """__init__() functions as the class constructor"""
-    def __init__(self, type, can_update = True):
+    def __init__(self, type, is_optional=True, can_update = True):
         # Possible values
         self.enum = set([])
 
@@ -51,6 +51,8 @@ class OVSColumn(object):
         # The number of instances
         self.is_list = (type.n_max != 1)
 
+        # is this column entry optional
+        self.is_optional = is_optional
 
 class OVSReference(object):
     """__init__() functions as the class constructor"""
@@ -135,12 +137,18 @@ class OVSTable(object):
             type_ = types.Type.from_json(parser.get("type", [dict, str, unicode]))
             parser.finish()
 
+            is_optional = False
+            if isinstance(column_json['type'], dict):
+                if 'min' in column_json['type'] and column_json['type']['min'] == 0:
+                    is_optional = True
+
+
             if category == "config":
-                table.config[column_name] = OVSColumn(type_)
+                table.config[column_name] = OVSColumn(type_, is_optional)
             elif category == "status":
-                table.status[column_name] = OVSColumn(type_)
+                table.status[column_name] = OVSColumn(type_, is_optional)
             elif category == "stats":
-                table.stats[column_name] = OVSColumn(type_)
+                table.stats[column_name] = OVSColumn(type_, is_optional)
             elif category == "child":
                 table.references[column_name] = OVSReference(type_, category)
             elif category == "parent":
