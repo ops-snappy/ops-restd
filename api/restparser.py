@@ -142,12 +142,11 @@ class OVSTable(object):
                 if 'min' in column_json['type'] and column_json['type']['min'] == 0:
                     is_optional = True
 
-
-            if category == "config":
+            if category == "configuration":
                 table.config[column_name] = OVSColumn(type_, is_optional)
             elif category == "status":
                 table.status[column_name] = OVSColumn(type_, is_optional)
-            elif category == "stats":
+            elif category == "statistics":
                 table.stats[column_name] = OVSColumn(type_, is_optional)
             elif category == "child":
                 table.references[column_name] = OVSReference(type_, category)

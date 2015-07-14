@@ -71,11 +71,11 @@
           }
         },
         "hostname": {
-          "category": "config",
+          "category": "configuration",
           "type": "string"
         },
         "dns_servers": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "string"
@@ -97,7 +97,7 @@
           "type": "integer"
         },
         "statistics": {
-          "category": "stats",
+          "category": "statistics",
           "type": {
             "key": "string",
             "value": "string",
@@ -107,7 +107,7 @@
           "ephemeral": true
         },
         "lldp_statistics": {
-          "category": "stats",
+          "category": "statistics",
           "type": {
             "key": "string",
             "value": "string",
@@ -141,7 +141,7 @@
           }
         },
         "asset_tag_number": {
-          "category": "config",
+          "category": "configuration",
           "type": "string"
         },
         "software_info": {
@@ -165,7 +165,7 @@
           }
         },
         "other_config": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -174,7 +174,7 @@
           }
         },
         "external_ids": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -199,7 +199,7 @@
     "Subsystem": {
       "columns": {
         "name": {
-          "category": "config",
+          "category": "configuration",
           "type": "string",
           "mutable": false
         },
@@ -282,7 +282,7 @@
           }
         },
         "asset_tag_number": {
-          "category": "config",
+          "category": "configuration",
           "type": "string"
         },
         "hw_desc_dir": {
@@ -298,7 +298,7 @@
           }
         },
         "other_config": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -307,7 +307,7 @@
           }
         },
         "external_ids": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -325,7 +325,7 @@
     "Bridge": {
       "columns": {
         "name": {
-          "category": "config",
+          "category": "configuration",
           "type": "string",
           "mutable": false
         },
@@ -352,7 +352,7 @@
           }
         },
         "datapath_type": {
-          "category": "config",
+          "category": "configuration",
           "type": "string"
         },
         "datapath_version": {
@@ -379,7 +379,7 @@
           "ephemeral": true
         },
         "other_config": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -388,7 +388,7 @@
           }
         },
         "external_ids": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -406,7 +406,7 @@
     "VRF": {
       "columns": {
         "name": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "string",
@@ -440,7 +440,7 @@
           }
         },
         "other_config": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -449,7 +449,7 @@
           }
         },
         "external_ids": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -467,7 +467,7 @@
     "Daemon": {
       "columns": {
         "name": {
-          "category": "config",
+          "category": "configuration",
           "type": "string",
           "mutable": false
         },
@@ -513,7 +513,7 @@
           }
         },
         "prefix": {
-          "category": "config",
+          "category": "configuration",
           "type": "string"
         },
         "prefix_len": {
@@ -632,12 +632,12 @@
     "FIB": {
       "columns": {
         "prefix": {
-          "category": "config",
+          "category": "configuration",
           "type": "string",
           "mutable": false
         },
         "nexthop": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "uuid",
@@ -649,7 +649,7 @@
           "mutable": false
         },
         "origin": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "string",
@@ -677,7 +677,7 @@
           "ephemeral": true
         },
         "other_config": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -686,7 +686,7 @@
           }
         },
         "external_ids": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -699,7 +699,7 @@
     "Nexthop": {
       "columns": {
         "ip_address": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "string"
@@ -710,7 +710,7 @@
           "mutable": false
         },
         "mac_address": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "string"
@@ -743,7 +743,7 @@
           "ephemeral": true
         },
         "other_config": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -752,7 +752,7 @@
           }
         },
         "external_ids": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -766,7 +766,7 @@
     "BGP_Router": {
       "columns": {
         "asn": {
-          "category": "config",
+          "category": "configuration",
           "type": {
              "key": {
               "type": "integer",
@@ -778,7 +778,7 @@
           }
         },
         "router_id": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "string",
@@ -789,7 +789,7 @@
           }
         },
         "networks": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "string",
@@ -887,7 +887,7 @@
           "ephemeral": true
         },
         "other_config": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -896,7 +896,7 @@
           }
         },
         "external_ids": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -1154,7 +1154,7 @@
           "ephemeral": true
         },
         "other_config": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -1222,7 +1222,7 @@
           }
         },
         "external_ids": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -1235,12 +1235,12 @@
     "VLAN": {
       "columns": {
         "name": {
-          "category": "config",
+          "category": "configuration",
           "type": "string",
           "mutable": false
         },
         "id": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": { "type": "integer",
                      "minInteger": 1,
@@ -1249,7 +1249,7 @@
           "mutable": false
         },
         "description": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "min": 0,
@@ -1257,7 +1257,7 @@
           }
         },
         "admin": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "string",
@@ -1319,7 +1319,7 @@
           }
         },
         "other_config": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -1328,7 +1328,7 @@
           }
         },
         "external_ids": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -1349,7 +1349,7 @@
     "Port": {
       "columns": {
         "name": {
-          "category": "config",
+          "category": "configuration",
           "type": "string",
           "mutable": false
         },
@@ -1365,7 +1365,7 @@
           }
         },
         "trunks": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "integer",
@@ -1377,7 +1377,7 @@
           }
         },
         "tag": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "integer",
@@ -1389,7 +1389,7 @@
           }
         },
         "vlan_mode": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "string",
@@ -1408,7 +1408,7 @@
           }
         },
         "vlan_options": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -1417,7 +1417,7 @@
           }
         },
         "mac": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "string"
@@ -1427,7 +1427,7 @@
           }
         },
         "ip_address": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "string",
@@ -1438,7 +1438,7 @@
           }
         },
         "ip_address_secondary": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "string",
@@ -1449,7 +1449,7 @@
           }
         },
         "ip6_address": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "string",
@@ -1460,7 +1460,7 @@
           }
         },
         "ip6_address_secondary": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "string",
@@ -1471,7 +1471,7 @@
           }
         },
         "bond_mode": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "string",
@@ -1489,7 +1489,7 @@
           }
         },
         "bond_options": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -1498,7 +1498,7 @@
           }
         },
         "lacp": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "string",
@@ -1516,7 +1516,7 @@
           }
         },
         "bond_active_slave": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "string"
@@ -1536,7 +1536,7 @@
           "ephemeral": true
         },
         "statistics": {
-          "category": "stats",
+          "category": "statistics",
           "type": {
             "key": "string",
             "value": "integer",
@@ -1554,7 +1554,7 @@
           }
         },
         "other_config": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -1563,7 +1563,7 @@
           }
         },
         "external_ids": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -1581,12 +1581,12 @@
     "Interface": {
       "columns": {
         "name": {
-          "category": "config",
+          "category": "configuration",
           "type": "string",
           "mutable": false
         },
         "type": {
-          "category": "config",
+          "category": "configuration",
           "type": "string"
         },
         "mac_in_use": {
@@ -1612,7 +1612,7 @@
           "ephemeral": true
         },
         "statistics": {
-          "category": "stats",
+          "category": "statistics",
           "type": {
             "key": "string",
             "value": "integer",
@@ -1622,7 +1622,7 @@
           "ephemeral": true
         },
         "lldp_statistics": {
-          "category": "stats",
+          "category": "statistics",
           "type": {
             "key": "string",
             "value": "integer",
@@ -1709,7 +1709,7 @@
           "ephemeral": true
         },
         "link_resets": {
-          "category": "stats",
+          "category": "statistics",
           "type": {
             "key": {
               "type": "integer"
@@ -1784,7 +1784,7 @@
           }
         },
         "options": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -1793,7 +1793,7 @@
           }
         },
         "other_config": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -1811,7 +1811,7 @@
           }
         },
         "user_config": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -1854,7 +1854,7 @@
           }
         },
         "external_ids": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -1872,12 +1872,12 @@
     "Fan": {
       "columns": {
         "name": {
-          "category": "config",
+          "category": "configuration",
           "type": "string",
           "mutable": false
         },
         "speed": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "string",
@@ -1897,7 +1897,7 @@
           }
         },
         "direction": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "string",
@@ -1952,7 +1952,7 @@
           }
         },
         "other_config": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -1961,7 +1961,7 @@
           }
         },
         "external_ids": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -1974,12 +1974,12 @@
     "LED": {
       "columns": {
         "id": {
-          "category": "config",
+          "category": "configuration",
           "type": "string",
           "mutable": false
         },
         "state": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "string",
@@ -2024,7 +2024,7 @@
           }
         },
         "other_config": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -2033,7 +2033,7 @@
           }
         },
         "external_ids": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -2118,7 +2118,7 @@
           }
         },
         "other_config": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -2127,7 +2127,7 @@
           }
         },
         "external_ids": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -2179,7 +2179,7 @@
           }
         },
         "other_config": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -2188,7 +2188,7 @@
           }
         },
         "external_ids": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -2206,11 +2206,11 @@
     "Manager": {
       "columns": {
         "target": {
-          "category": "config",
+          "category": "configuration",
           "type": "string"
         },
         "max_backoff": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "integer",
@@ -2221,7 +2221,7 @@
           }
         },
         "inactivity_probe": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "integer",
             "min": 0,
@@ -2229,7 +2229,7 @@
           }
         },
         "connection_mode": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": {
               "type": "string",
@@ -2246,7 +2246,7 @@
           }
         },
         "other_config": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -2255,7 +2255,7 @@
           }
         },
         "external_ids": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
@@ -2288,23 +2288,23 @@
     "SSL": {
       "columns": {
         "private_key": {
-          "category": "config",
+          "category": "configuration",
           "type": "string"
         },
         "certificate": {
-          "category": "config",
+          "category": "configuration",
           "type": "string"
         },
         "ca_cert": {
-          "category": "config",
+          "category": "configuration",
           "type": "string"
         },
         "bootstrap_ca_cert": {
-          "category": "config",
+          "category": "configuration",
           "type": "boolean"
         },
         "external_ids": {
-          "category": "config",
+          "category": "configuration",
           "type": {
             "key": "string",
             "value": "string",
