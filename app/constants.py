@@ -16,5 +16,9 @@ NOT_LOCKED = Transaction.NOT_LOCKED
 ERROR = Transaction.ERROR
 
 # Ovsdb schema constants
-OVSDB_SCHEMA_TOP_LEVEL_TABLE = 'Open_vSwitch'
-OVSDB_SCHEMA_TOP_LEVEL_URL_PATH = 'system'
+OVSDB_SCHEMA_SYSTEM_TABLE = 'Open_vSwitch'
+OVSDB_SCHEMA_SYSTEM_URI = 'system'
+OVSDB_SCHEMA_SELECTORS = ['config', 'stats', 'status']
+OVSDB_SCHEMA_CHILD = 'child'
+OVSDB_SCHEMA_REFERENCE = 'reference'
+OVSDB_SCHEMA_TOP_LEVEL = 'toplevel'

@@ -82,6 +82,9 @@ class OVSTable(object):
     def __init__(self, name, is_many = True, index = 'name'):
         self.name = name
 
+        # list of all column names
+        self.columns = []
+
         # What is the name of the index column
         self.index = index
 
@@ -142,6 +145,7 @@ class OVSTable(object):
                 if 'min' in column_json['type'] and column_json['type']['min'] == 0:
                     is_optional = True
 
+            table.columns.append(column_name)
             if category == "configuration":
                 table.config[column_name] = OVSColumn(type_, is_optional)
             elif category == "status":
@@ -164,8 +168,15 @@ class RESTSchema(object):
     def __init__(self, name, version, tables):
         self.name = name
         self.version = version
-        # A doctionary of table name to OVSTable object mappings
+        # A dictionary of table name to OVSTable object mappings
         self.ovs_tables = tables
+
+        # get a table name map for all references
+        self.reference_map = {}
+        for table in self.ovs_tables:
+            for k,v in self.ovs_tables[table].references.iteritems():
+                if k not in self.reference_map:
+                    self.reference_map[k] = v.ref_table
 
     @staticmethod
     def from_json(json):
