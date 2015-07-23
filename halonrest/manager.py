@@ -3,8 +3,9 @@ from tornado.ioloop import IOLoop
 
 from ovs.db.idl import Idl, SchemaHelper
 from ovs.poller import Poller
-from transaction import OvsdbTransactionList, OvsdbTransaction
-from constants import *
+
+from halonrest.transaction import OvsdbTransactionList, OvsdbTransaction
+from halonrest.constants import *
 
 class OvsdbConnectionManager:
     def __init__(self, remote, schema, *args, **kwargs):

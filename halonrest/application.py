@@ -1,12 +1,12 @@
 from tornado.web import Application, RequestHandler
 from tornado.ioloop import IOLoop
+
 from ovs.db.idl import Idl
 from ovs.db.idl import SchemaHelper
 from ovs.poller import Poller
-import functools
-import json
-from manager import OvsdbConnectionManager
-import restparser
+
+from halonrest.manager import OvsdbConnectionManager
+from halonlib import restparser
 
 class OvsdbApiApplication(Application):
     def __init__(self, settings):

@@ -1,11 +1,10 @@
 from tornado.ioloop import IOLoop
 from tornado import web, gen, locks
-import ovs.db.idl
 
-from constants import *
 import json
-from resource import Resource
-from utils.utils import *
+
+from halonrest.constants import *
+from halonrest.resource import Resource
 
 class BaseHandler(web.RequestHandler):
 

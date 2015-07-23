@@ -19,6 +19,7 @@ setup(
     name='restd',
     version='1.0',
     py_modules=['restd'],
+    packages=['halonrest', 'halonrest.handlers', 'halonrest.utils', 'halonlib'],
     entry_points={
         'console_scripts': ['restd = restd:main',]
     }

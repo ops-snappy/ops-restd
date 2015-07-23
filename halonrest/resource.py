@@ -1,7 +1,8 @@
-from restparser import *
+from halonlib.restparser import *
+
 import json
-from utils.utils import *
-from constants import *
+
+from halonrest.constants import *
 
 class Resource(object):
     def __init__(self, table, row=None, column=None, sub=None):
