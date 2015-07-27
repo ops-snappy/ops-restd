@@ -1,8 +1,10 @@
-from halonlib.restparser import *
-
 import json
 
+from halonlib.restparser import *
 from halonrest.constants import *
+from halonrest.utils import utils
+import ovs.ovsuuid
+import types
 
 class Resource(object):
     def __init__(self, table, row=None, column=None, sub=None):
@@ -13,123 +15,91 @@ class Resource(object):
         self.next = None
 
     @staticmethod
-    def parse_url_path(path, restschema, idl):
-
-
-        # capture the URI path in the form of a list
+    def split_path(path):
         path = path.split('/')
-        path = [i for i in path if i != '']
+        path = [i for i in path if i!= '']
+        return path
 
+    @staticmethod
+    def parse_url_path(path, schema, idl):
+
+        path = Resource.split_path(path)
         if not path:
             return None
-
-        table_names = restschema.ovs_tables.keys()
-        reference_map = restschema.reference_map
-        ovs_tables = restschema.ovs_tables
 
         # we only serve URIs that begin with 'system'
         if path[0] != OVSDB_SCHEMA_SYSTEM_URI:
             return None
-
-        path[0] = OVSDB_SCHEMA_SYSTEM_TABLE
-        resource = Resource(path[0])
-        for row in idl.tables[OVSDB_SCHEMA_SYSTEM_TABLE].rows.itervalues():
-            resource.row = str(row.uuid)
-
-        # /system
-        if len(path) == 1:
-            return resource
-
-        if path[1] in ovs_tables[path[0]].columns:
-            resource.column = path[1]
-
-            # e.g. /system/status
-            if path[1] not in ovs_tables[path[0]].references:
-                if len(path) > 2:
-                    return None
-                else:
-                    return resource
-            else:
-                if path[1] in ovs_tables[path[0]].children:
-                    resource.relation = OVSDB_SCHEMA_CHILD
-                else:
-                    resource.relation = OVSDB_SCHEMA_REFERENCE
-            # e.g. /system/bridges/*
-            path = path[1:]
-        elif path[1] in table_names:
-            resource.column = path[1]
-            # e.g. /system/ports/*
-            # Table exists. Proceed only if 'Parent' is None
-            if ovs_tables[path[1]].parent is not None:
-                return None
-            resource.relation = OVSDB_SCHEMA_TOP_LEVEL
-            path = path[1:]
-        elif path[1] in reference_map:
-            resource.column = path[1]
-            if ovs_tables[reference_map[path[1]]].parent is not None:
-                return None
-            resource.relation = OVSDB_SCHEMA_TOP_LEVEL
-            path = path[1:]
         else:
-            # all other cases do not proceed further
-            return None
+            path[0] = OVSDB_SCHEMA_SYSTEM_TABLE
 
-        # we now have the path after /system.
-        try:
-            resource.next = Resource.parse(path, restschema)
-            return resource
-        except:
-            return None
+        return Resource.parse(path, schema, idl)
 
     # recursive routine that compares the URI path with the extended schema
     # and builds resource/subresource relationship. If the relationship
-    # referenced by the URI doesn't match with the extended schema and
-    # exception is raised.
+    # referenced by the URI doesn't match with the extended schema we return False
     @staticmethod
-    def parse(path, restschema):
+    def parse(path, schema, idl):
 
-        if not path:
+        table_names = schema.ovs_tables.keys()
+        reference_map = schema.reference_map
+        ovs_tables = schema.ovs_tables
+
+        # /system
+        # /system/bridges
+        # /system/ports
+
+        if path[0] is OVSDB_SCHEMA_SYSTEM_TABLE:
+            resource = Resource(path[0])
+            resource.row = idl.tables[OVSDB_SCHEMA_SYSTEM_TABLE].rows.keys()[0]
+
+        elif path[0] in table_names:
+            resource = Resource(path[0])
+
+        elif path[0] in reference_map:
+            resource = Resource(reference_map[path[0]])
+
+        else:
             return None
 
-        table_names = restschema.ovs_tables.keys()
-        reference_map = restschema.reference_map
-        ovs_tables = restschema.ovs_tables
-
-        # e.g. /system/bridges/*, /system/ports/*
-        # it is possible to have either a table or a reference name here
-        if path[0] in table_names:
-            table = path[0]
-        elif path[0] in reference_map:
-            table = reference_map[path[0]]
-        else:
-            # if there is no such table we bail out
-            raise Exception('Incorrect URL')
-
-        resource = Resource(table)
-
-        # e.g. URI: /system/bridges
         if len(path) == 1:
             return resource
 
-        # we have the table name. Now we must have the ID
-        # e.g. /system/bridges/UUID/*
-        re_uuid = re.compile(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', re.I)
-        if re_uuid.match(path[1]):
-            resource.row = path[1]
+        if resource.table is OVSDB_SCHEMA_SYSTEM_TABLE:
+            system_table = ovs_tables[resource.table]
 
-            # is there more after the UUID?
+            if path[1] in system_table.columns:
+                resource.column = path[1]
+                if resource.column not in system_table.references:
+                    if len(path) > 2:
+                        return None
+                    else:
+                        return resource
+                else:
+                    if resource.column in system_table.children:
+                        resource.relation = OVSDB_SCHEMA_CHILD
+                    else:
+                        resource.relation = OVSDB_SCHEMA_RFERENCE
+            else:
+                # /system/Port
+                if ovs_tables[path[1]].parent is not None:
+                    return None
+                else:
+                    resource.relation = OVSDB_SCHEMA_TOP_LEVEL
+            path = path[1:]
+
+        elif ovs.ovsuuid.is_valid_string(path[1]):
+            resource.row = ovs.ovsuuid.from_string(path[1])
+
+            # there's more after UUID
             if len(path) > 2:
-                # is the next element a column of this table?
-                # e.g. /system/bridges/UUID/ports, /system/bridges/UUID/name
                 if path[2] in ovs_tables[resource.table].columns:
                     resource.column = path[2]
 
-                    # e.g. /system/bridges/UUID/name
                     if resource.column not in ovs_tables[resource.table].references:
-                        # the URI must end here as there is no further table
-                        # referenced in case of a URI that ends with a non-table name
+                        # the URI must end here
                         if len(path) > 3:
-                            raise Exception('Incorrect URI')
+                            return None
                         else:
                             # we are done here
                             return resource
@@ -140,144 +110,190 @@ class Resource(object):
                             resource.relation = OVSDB_SCHEMA_REFERENCE
                     path = path[2:]
                 else:
-                    # if the next element is not
-                    raise Exception('Incorrect URI')
+                    return None
             else:
                 # we are done here
                 return resource
         else:
-            raise Exception('Incorrect URI')
+            return None
 
-        resource.next = Resource.parse(path, restschema)
-        return resource
+        result = Resource.parse(path, schema, idl)
+        if result:
+            resource.next = result
+            return resource
+
+        return None
 
     @staticmethod
-    def verify_table_entry(idl, table, uuid):
+    def verify_table_entry(table, uuid, idl):
         if table not in idl.tables:
             return False
 
-        for item in idl.tables[table].rows.itervalues():
-            if str(item.uuid) == uuid:
-                return True
+        if uuid in idl.tables[table].rows:
+            return True
         return False
 
     @staticmethod
-    def verify_reference_entry(idl, table, row, column, ref_uuid):
+    def verify_reference_entry(table, row, column, ref_uuid, idl):
         if table not in idl.tables:
             return False
 
-        for item in idl.tables[table].rows.itervalues():
-            if str(item.uuid) == row:
-                references = item._data[column].to_string()[1:-1].split(', ')
-                if ref_uuid in references:
+        idl.tables[table].rows[row].__getattr__(column)
+        if row in idl.tables[table].rows:
+            references = idl.tables[table].rows[row].__getattr__(column)
+            for item in references:
+                if item.uuid == ref_uuid:
                     return True
         return False
 
     # Verify if the resources referenced in the URI are valid DB entries.
-    # Upon error raise an exception
     @staticmethod
-    def verify_resource_path(idl, resource, restschema):
+    def verify_resource_path(resource, schema, idl):
         if resource is None:
-            return None
+            return True
 
         if resource.row is not None:
-            if Resource.verify_table_entry(idl, resource.table, resource.row) is False:
-                raise Exception('Resource verification failed')
+            if Resource.verify_table_entry(resource.table, resource.row, idl) is False:
+                return False
+
         if resource.column is not None:
-            # is this a reference?
-            if resource.column in restschema.ovs_tables[resource.table].references:
-                if resource.next is not None and resource.next.row is not None:
-                    # check in resource.column if a reference to the next resource is mentioned
-                    if Resource.verify_reference_entry(idl, resource.table, resource.row, resource.column, resource.next.row) is False:
-                        raise Exception('Resource verification failed')
-        return Resource.verify_resource_path(idl, resource.next, restschema)
+            if resource.column in schema.ovs_tables[resource.table].references:
+                if resource.next is not None:
+                    if resource.next.row is not None:
+                        # check in resource.column if a reference to the next resource is mentioned
+                        if Resource.verify_reference_entry(resource.table, resource.row, resource.column, resource.next.row, idl) is False:
+                            return False
+                    else:
+                        # for POST, verification ends here.
+                        return True
+
+        return Resource.verify_resource_path(resource.next, schema, idl)
 
     @staticmethod
-    def get_resource(idl, resource, restschema, uri):
+    def post_resource(idl, txn, resource, restschema, data):
 
         if resource is None:
             return None
 
-        # case 1: only one resource
+        # we don't allow this right now
         if resource.next is None:
-            pass
+            return None
 
-        # case 2: more than one resource
         while True:
             if resource.next.next is None:
                 break
             resource = resource.next
 
-        # URI determination
-        if resource.relation is not OVSDB_SCHEMA_CHILD:
-            # TODO: this may be wrong in some cases. e.g. if reference of a table has more than one name
-            uri = resource.column
-
-        # check what part of table do we want
-        if resource.next.row is None:
-            # is this coming from a reference/child
-            if resource.relation is not OVSDB_SCHEMA_TOP_LEVEL:
-                # get only the references from the resource
-                return Resource.get_table_item_select(idl, resource, uri)
+        if resource.relation == OVSDB_SCHEMA_REFERENCE:
+            if 'referenced_by' not in data.keys():
+                return False
             else:
-                return Resource.get_table_item(idl, resource.table, uri)
-                # get entire table
+                # confirm these resources exist
+                reference_list = []
+                for uri in data['referenced_by']:
+                    resource_path = Resource.parse_url_path(uri, restschema, idl)
+                    if resource_path:
+                        if Resource.verify_resource_path(idl, resource_path, restschema):
+                            reference_list.append(resource_path)
+                        else:
+                            return False
+                    else:
+                        return False
 
-            return Resource.get_table_item(idl, resource.table, uri)
+        # add new entry to the table
+        table = idl.tables[resource.next.table]
+        new_row = txn.insert(idl.tables[resource.next.table])
+
+        # TODO: POST data validation
+        for key, value in data.iteritems():
+            new_row.__setattr__(key, value)
+
+        # add the references
+        if resource.relation == OVSDB_SCHEMA_CHILD:
+            Resource.add_reference_to_table(idl, resource, new_row)
+        elif resource.relation == OVSDB_SCHEMA_REFERENCE:
+            for resource in reference_list:
+                while True:
+                    if resource.next.next is None:
+                        break
+                    resource = resource.next
+                Resource.add_reference_to_table(idl, resource, new_row)
+
+        return txn.commit()
+
+    @staticmethod
+    def add_reference_to_table(idl, resource, reference):
+
+        row = idl.tables[resource.table].rows[resource.row]
+        references = []
+        for item in row.__getattr__(resource.column):
+            references.append(item)
+        references.append(reference)
+        row.__setattr__(resource.column, references)
+
+    @staticmethod
+    def get_resource(idl, resource, restschema, uri=None):
+
+        if resource is None:
+            return None
+
+        # /system
+        if resource.next is None:
+            return Resource.get_row_item(idl, resource.table, resource.row, uri)
+
+        while True:
+            if resource.next.next is None:
+                break
+            resource = resource.next
+
+        if resource.relation is OVSDB_SCHEMA_REFERENCE:
+            uri = OVSDB_BASE_URI + resource.next.table
+        elif resource.relation is OVSDB_SCHEMA_CHILD:
+            uri = uri + '/' + relation.column
+
+        if resource.next.row is None:
+            return Resource.get_column_item(idl, resource.table, resource.row, resource.column, uri)
         elif resource.next.column is None:
-            # we need a row
             return Resource.get_row_item(idl, resource.next.table, resource.next.row, uri)
         else:
-            # we need a particular column entry
             return Resource.get_column_item(idl, resource.next.table, resource.next.row, resource.next.column, uri)
 
     @staticmethod
-    def get_column_item(idl, table, row, column, uri):
+    def get_column_item(idl, table, uuid, column, uri=None):
 
-        table = idl.tables[table]
-        data = {}
+        data = utils.to_json(idl.tables[table].rows[uuid].__getattr__(column), uri)
 
-        for item in table.rows.itervalues():
-            if str(item.uuid) == row:
-                data[column] = str(item.__getattr__(column))
-                return data
-
-    @staticmethod
-    def get_row_item(idl, table, row, uri):
-        data = {}
-        table = idl.tables[table]
-        column_keys = table.columns.keys()
-
-        for item in table.rows.itervalues():
-            if str(item.uuid) == row:
-                for key in column_keys:
-                    data[key] = '/' + uri.strip('/') + '/' + key
         return data
 
     @staticmethod
-    def get_table_item(idl, table, uri):
+    def get_row_item(idl, table, uuid, uri=None):
+
+        column_keys = idl.tables[table].columns.keys()
+        row = idl.tables[table].rows[uuid]
+        data = utils.row_to_json(row, column_keys, uri)
+
+        return data
+
+    @staticmethod
+    def get_table_item(idl, table, uri=None):
+
         table = idl.tables[table]
         data = []
-        for item in table.rows.itervalues():
-            value = '/' + uri.strip('/') + '/' + str(item.uuid)
-            data.append(value)
+        for row in table.rows.itervalues():
+            if uri:
+                data.append(uri + '/' + str(row.uuid))
+            else:
+                data.append(str(row.uuid))
+
         return data
 
     @staticmethod
-    def get_table_item_select(idl, resource, uri):
+    def get_table_item_select(idl, resource, uri=None):
+
         # get list of references we want
-        table = idl.tables[resource.table]
-        for item in table.rows.itervalues():
-            if str(item.uuid) == resource.row:
-                refdata = item.__getattr__(resource.column)
-                # this is a list of references
-                reflist = []
-                for i in range(0,len(refdata)):
-                    reflist.append(str(refdata[i].uuid))
-        # TODO: Do we really have to check? If its a reference it must be there
-        # or else OVSDB's garbage collection will clean it up.
         data = []
-        for item in reflist:
-            value = '/' + uri.strip('/') + '/' + str(item)
-            data.append(value)
+        references = idl.tables[resource.table].rows[resource.row].__getattr__(resource.column)
+        for r in references:
+            data.append(str(r.uuid))
+
         return data
