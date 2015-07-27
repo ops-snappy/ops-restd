@@ -10,6 +10,6 @@ define("debug", default=False, help="debug mode")
 settings = {}
 settings["static_path"] = os.path.join(os.path.dirname(__file__), "static")
 settings["template_path"] = os.path.join(os.path.dirname(__file__), "templates")
-settings['ovs_remote'] = 'unix:/usr/local/var/run/openvswitch/db.sock'
+settings['ovs_remote'] = 'unix:/var/run/openvswitch/db.sock'
 settings['ovs_schema'] = '/usr/share/openvswitch/vswitch.ovsschema'
 settings['ext_schema'] = '/usr/share/openvswitch/vswitch.extschema'
