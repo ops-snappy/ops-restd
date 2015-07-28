@@ -41,6 +41,9 @@ class Resource(object):
     @staticmethod
     def parse(path, schema, idl):
 
+        if path is None:
+            return None
+
         table_names = schema.ovs_tables.keys()
         reference_map = schema.reference_map
         ovs_tables = schema.ovs_tables
@@ -70,6 +73,7 @@ class Resource(object):
 
             if path[1] in system_table.columns:
                 resource.column = path[1]
+
                 if resource.column not in system_table.references:
                     if len(path) > 2:
                         return None
@@ -79,50 +83,44 @@ class Resource(object):
                     if resource.column in system_table.children:
                         resource.relation = OVSDB_SCHEMA_CHILD
                     else:
-                        resource.relation = OVSDB_SCHEMA_RFERENCE
-            else:
-                # /system/Port
-                if ovs_tables[path[1]].parent is not None:
-                    return None
-                else:
-                    resource.relation = OVSDB_SCHEMA_TOP_LEVEL
-            path = path[1:]
-
-        elif ovs.ovsuuid.is_valid_string(path[1]):
-            resource.row = ovs.ovsuuid.from_string(path[1])
-
-            # there's more after UUID
-            if len(path) > 2:
-                if path[2] in ovs_tables[resource.table].columns:
-                    resource.column = path[2]
-
-                    if resource.column not in ovs_tables[resource.table].references:
-                        # the URI must end here
-                        if len(path) > 3:
-                            return None
-                        else:
-                            # we are done here
-                            return resource
-                    else:
-                        if path[2] in ovs_tables[resource.table].children:
-                            resource.relation = OVSDB_SCHEMA_CHILD
-                        else:
-                            resource.relation = OVSDB_SCHEMA_REFERENCE
-                    path = path[2:]
-                else:
-                    return None
-            else:
-                # we are done here
-                return resource
+                        resource.relation = OVSDB_SCHEMA_REFERENCE
+                    path[1] = schema.reference_map[path[1]]
+                    path = path[1:]
         else:
-            return None
+            # not the system table
+            if ovs.ovsuuid.is_valid_string(path[1]):
+                resource.row = ovs.ovsuuid.from_string(path[1])
 
-        result = Resource.parse(path, schema, idl)
-        if result:
-            resource.next = result
-            return resource
+                # there's more after UUID
+                if len(path) > 2:
+                    if path[2] in ovs_tables[resource.table].columns:
+                        resource.column = path[2]
 
-        return None
+                        if resource.column not in ovs_tables[resource.table].references:
+                            # the URI must end here
+                            if len(path) > 3:
+                                return None
+                            else:
+                                # we are done here
+                                return resource
+                        else:
+                            if path[2] in ovs_tables[resource.table].children:
+                                resource.relation = OVSDB_SCHEMA_CHILD
+                            else:
+                                resource.relation = OVSDB_SCHEMA_REFERENCE
+                            path[2] = schema.reference_map[path[2]]
+                            path = path[2:]
+                    else:
+                        # bail if its not a column
+                        return None
+                else:
+                    # we are done here
+                    return resource
+            else:
+                return None
+
+        resource.next = Resource.parse(path, schema, idl)
+        return resource
 
     @staticmethod
     def verify_table_entry(table, uuid, idl):
@@ -248,8 +246,6 @@ class Resource(object):
 
         if resource.relation is OVSDB_SCHEMA_REFERENCE:
             uri = OVSDB_BASE_URI + resource.next.table
-        elif resource.relation is OVSDB_SCHEMA_CHILD:
-            uri = uri + '/' + relation.column
 
         if resource.next.row is None:
             return Resource.get_column_item(idl, resource.table, resource.row, resource.column, uri)
