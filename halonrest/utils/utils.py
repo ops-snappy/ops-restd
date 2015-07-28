@@ -4,22 +4,22 @@ import ovs
 import ovs.db.types
 import types
 
-def row_to_json(row, column_keys, uri=None):
+def row_to_json(row, column_keys):
 
     data_json = {}
     for key in column_keys:
-        data_json[key] = to_json(row.__getattr__(key), uri)
+        data_json[key] = to_json(row.__getattr__(key))
 
     return data_json
 
-def to_json(data, uri=None):
+def to_json(data):
     type_ = type(data)
 
     if type_ is types.DictType:
         return dict_to_json(data)
 
     elif type_ is types.ListType:
-        return list_to_json(data, uri)
+        return list_to_json(data)
 
     elif type_ is types.UnicodeType:
         return str(data)
@@ -48,7 +48,7 @@ def dict_to_json(data):
 
     return data_json
 
-def list_to_json(data, uri=None):
+def list_to_json(data):
     if not data:
         return data
 
@@ -57,11 +57,19 @@ def list_to_json(data, uri=None):
         type_ = type(value)
 
         if isinstance(value, ovs.db.idl.Row):
-            if uri:
-                data_json.append(uri + '/' + str(value.uuid))
-            else:
-                data_json.append(str(value.uuid))
+            data_json.append(str(value.uuid))
         else:
             data_json.append(str(value))
 
     return data_json
+
+def uuid_to_uri(uuid_list, uri, key=None):
+
+    uri_list = []
+    for item in uuid_list:
+        if key:
+            uri_list.append(uri + '/' + key + '/' + item)
+        else:
+            uri_list.append(uri + '/' + item)
+
+    return uri_list

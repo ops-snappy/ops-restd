@@ -14,12 +14,14 @@ class Resource(object):
         self.relation = None
         self.next = None
 
+    # URI to a list
     @staticmethod
     def split_path(path):
         path = path.split('/')
         path = [i for i in path if i!= '']
         return path
 
+    # parse the URI into a linked list of Resource structures
     @staticmethod
     def parse_url_path(path, schema, idl):
 
@@ -37,7 +39,7 @@ class Resource(object):
 
     # recursive routine that compares the URI path with the extended schema
     # and builds resource/subresource relationship. If the relationship
-    # referenced by the URI doesn't match with the extended schema we return False
+    # referenced by the URI doesn't match with the extended schema we return None
     @staticmethod
     def parse(path, schema, idl):
 
@@ -48,23 +50,23 @@ class Resource(object):
         reference_map = schema.reference_map
         ovs_tables = schema.ovs_tables
 
-        # /system
-        # /system/bridges
-        # /system/ports
-
+        # Linked List starting with Open_vSwitch
         if path[0] is OVSDB_SCHEMA_SYSTEM_TABLE:
             resource = Resource(path[0])
             resource.row = idl.tables[OVSDB_SCHEMA_SYSTEM_TABLE].rows.keys()[0]
 
+        # Linked List starting with Bridge/Port etc tables
         elif path[0] in table_names:
             resource = Resource(path[0])
 
+        # Linked List starting with bridges/ports etc reference names for tables
         elif path[0] in reference_map:
             resource = Resource(reference_map[path[0]])
 
         else:
             return None
 
+        # URI: /system
         if len(path) == 1:
             return resource
 
@@ -74,6 +76,7 @@ class Resource(object):
             if path[1] in system_table.columns:
                 resource.column = path[1]
 
+                # URI: /system/db_version
                 if resource.column not in system_table.references:
                     if len(path) > 2:
                         return None
@@ -81,13 +84,31 @@ class Resource(object):
                         return resource
                 else:
                     if resource.column in system_table.children:
+                        # URI: /system/bridges
                         resource.relation = OVSDB_SCHEMA_CHILD
                     else:
+                        # URI: We don't have any here in current extschema
+                        # TODO: Do we need this?
                         resource.relation = OVSDB_SCHEMA_REFERENCE
-                    path[1] = schema.reference_map[path[1]]
+
+                    path[1] = reference_map[path[1]]
                     path = path[1:]
+
+            # URI: /system/Port
+            # Some tables are accessed directly. They do not have a parent
+            elif path[1] in reference_map.values():
+                if ovs_tables[path[1]].parent is None:
+                    resource.relation = OVSDB_SCHEMA_TOP_LEVEL
+                    resource.column = path[1]
+
+                    if len(path) < 2:
+                        resource.next = Resource(path[1])
+                        return resource
+                    else:
+                        path = path[1:]
+
         else:
-            # not the system table
+            # URI: /system/bridges/UUID types will enter this block in the second recursive call
             if ovs.ovsuuid.is_valid_string(path[1]):
                 resource.row = ovs.ovsuuid.from_string(path[1])
 
@@ -168,7 +189,7 @@ class Resource(object):
         return Resource.verify_resource_path(resource.next, schema, idl)
 
     @staticmethod
-    def post_resource(idl, txn, resource, restschema, data):
+    def post_resource(idl, txn, resource, schema, data):
 
         if resource is None:
             return None
@@ -189,9 +210,9 @@ class Resource(object):
                 # confirm these resources exist
                 reference_list = []
                 for uri in data['referenced_by']:
-                    resource_path = Resource.parse_url_path(uri, restschema, idl)
+                    resource_path = Resource.parse_url_path(uri, schema, idl)
                     if resource_path:
-                        if Resource.verify_resource_path(idl, resource_path, restschema):
+                        if Resource.verify_resource_path(idl, resource_path, schema):
                             reference_list.append(resource_path)
                         else:
                             return False
@@ -230,14 +251,17 @@ class Resource(object):
         row.__setattr__(resource.column, references)
 
     @staticmethod
-    def get_resource(idl, resource, restschema, uri=None):
+    def get_resource(idl, resource, schema, uri=None):
 
         if resource is None:
             return None
 
         # /system
         if resource.next is None:
-            return Resource.get_row_item(idl, resource.table, resource.row, uri)
+            if resource.column is None:
+                return Resource.get_row_item(idl, schema, resource.table, resource.row, uri)
+            else:
+                return Resource.get_column_item(idl, schema, resource.table, resource.row, resource.column, uri)
 
         while True:
             if resource.next.next is None:
@@ -248,40 +272,57 @@ class Resource(object):
             uri = OVSDB_BASE_URI + resource.next.table
 
         if resource.next.row is None:
-            return Resource.get_column_item(idl, resource.table, resource.row, resource.column, uri)
+            if resource.relation is OVSDB_SCHEMA_TOP_LEVEL:
+                return Resource.get_table_item(idl, resource.next.table, uri)
+            else:
+                return Resource.get_column_item(idl, schema, resource.table, resource.row, resource.column, uri)
+
         elif resource.next.column is None:
-            return Resource.get_row_item(idl, resource.next.table, resource.next.row, uri)
+            return Resource.get_row_item(idl, schema, resource.next.table, resource.next.row, uri)
+
         else:
             return Resource.get_column_item(idl, resource.next.table, resource.next.row, resource.next.column, uri)
 
     @staticmethod
-    def get_column_item(idl, table, uuid, column, uri=None):
+    def get_column_item(idl, schema, table, uuid, column, uri):
 
-        data = utils.to_json(idl.tables[table].rows[uuid].__getattr__(column), uri)
+        data = utils.to_json(idl.tables[table].rows[uuid].__getattr__(column))
+
+        # UUID to URI
+        if column in schema.ovs_tables[table].references:
+            data = utils.uuid_to_uri(data, uri)
 
         return data
 
     @staticmethod
-    def get_row_item(idl, table, uuid, uri=None):
+    def get_row_item(idl, schema, table, uuid, uri):
 
         column_keys = idl.tables[table].columns.keys()
         row = idl.tables[table].rows[uuid]
-        data = utils.row_to_json(row, column_keys, uri)
+        data = utils.row_to_json(row, column_keys)
+
+        # UUID to URI
+        table_schema = schema.ovs_tables[table]
+        references = table_schema.references.keys()
+        for key in references:
+            if key in table_schema.children:
+                if key in data:
+                    data[key] = utils.uuid_to_uri(data[key], uri, key)
+            else:
+                uri  = OVSDB_BASE_URI + schema.reference_map[key]
+                data[key] = utils.uuid_to_uri(data[key], uri)
 
         return data
 
     @staticmethod
-    def get_table_item(idl, table, uri=None):
+    def get_table_item(idl, table, uri):
 
         table = idl.tables[table]
         data = []
         for row in table.rows.itervalues():
-            if uri:
-                data.append(uri + '/' + str(row.uuid))
-            else:
-                data.append(str(row.uuid))
+            data.append(str(row.uuid))
 
-        return data
+        return utils.uuid_to_uri(data, uri)
 
     @staticmethod
     def get_table_item_select(idl, resource, uri=None):
