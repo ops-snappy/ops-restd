@@ -22,3 +22,4 @@ OVSDB_SCHEMA_SELECTORS = ['config', 'stats', 'status']
 OVSDB_SCHEMA_CHILD = 'child'
 OVSDB_SCHEMA_REFERENCE = 'reference'
 OVSDB_SCHEMA_TOP_LEVEL = 'toplevel'
+OVSDB_BASE_URI = '/system/'
