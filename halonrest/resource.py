@@ -281,7 +281,7 @@ class Resource(object):
             return Resource.get_row_item(idl, schema, resource.next.table, resource.next.row, uri)
 
         else:
-            return Resource.get_column_item(idl, resource.next.table, resource.next.row, resource.next.column, uri)
+            return Resource.get_column_item(idl, schema, resource.next.table, resource.next.row, resource.next.column, uri)
 
     @staticmethod
     def get_column_item(idl, schema, table, uuid, column, uri):
