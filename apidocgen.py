@@ -65,8 +65,8 @@ def genCoreParams(table, parent_plurality, is_plural = True):
 
 def genGetResource(table, parent_plurality, is_plural):
     op = {}
-    op["summary"] = "Get a list of resource instances"
-    op["description"] = "Return a list of instance ids"
+    op["summary"] = "Get operation"
+    op["description"] = "Get a list of resource ids"
     op["tags"] = [table.name]
 
     params = genCoreParams(table, parent_plurality, is_plural)
@@ -96,8 +96,8 @@ def genGetResource(table, parent_plurality, is_plural):
 
 def genGetReferences(table, parent_plurality):
     op = {}
-    op["summary"] = "Get a list of resource instances"
-    op["description"] = "Return a list of references"
+    op["summary"] = "Get operation"
+    op["description"] = "Get a list of references"
     op["tags"] = [table.name]
 
     params = genCoreParams(table, parent_plurality, False)
@@ -176,7 +176,7 @@ def genPostResource(table, parent_plurality, is_plural):
 def genPostReference(table, parent_plurality):
     op = {}
     op["summary"] = "Post operation"
-    op["description"] = "Create a new reference"
+    op["description"] = "Add a new reference"
     op["tags"] = [table.name]
 
     params = genCoreParams(table, parent_plurality, False)
@@ -212,7 +212,7 @@ def genGetInstance(table, parent_plurality, is_plural):
     if table.config or table.status or table.stats:
         op = {}
         op["summary"] = "Get operation"
-        op["description"] = "Return a set of attributes"
+        op["description"] = "Get a set of attributes"
         op["tags"] = [table.name]
 
         params = genCoreParams(table, parent_plurality, is_plural)
@@ -274,7 +274,7 @@ def genPutInstance(table, parent_plurality, is_plural):
 def genDelInstance(table, parent_plurality, is_plural):
     op = {}
     op["summary"] = "Delete operation"
-    op["description"] = "Delete an instance"
+    op["description"] = "Delete a resource instance"
     op["tags"] = [table.name]
 
     params = genCoreParams(table, parent_plurality, is_plural)
@@ -298,7 +298,7 @@ def genDelInstance(table, parent_plurality, is_plural):
 def genDelReference(table, parent_plurality):
     op = {}
     op["summary"] = "Delete operation"
-    op["description"] = "Delete a reference"
+    op["description"] = "Remove a reference"
     op["tags"] = [table.name]
 
     params = genCoreParams(table, parent_plurality, True)
@@ -478,7 +478,6 @@ def genAPI(paths, definitions, schema, table, resource_name, parent, parents, pa
             ops["delete"] = op
         paths[path] = ops
 
-    sys.stderr.write("Path: %s, parents: %s\n" % (path, parents))
     getDefinition(table, definitions)
 
     # Stop for system resource
@@ -491,7 +490,6 @@ def genAPI(paths, definitions, schema, table, resource_name, parent, parents, pa
         child_table = schema.ovs_tables[child_name]
         if col_name in table.children:
             # True child resources
-            sys.stderr.write("Parent: %s, child: %s at col: %s as child\n" % (table.name, child_name, col_name))
             parents.append(resource_name)
             parent_plurality.append(is_plural)
             genAPI(paths, definitions, schema, child_table, col_name, table, parents, parent_plurality)
@@ -500,7 +498,6 @@ def genAPI(paths, definitions, schema, table, resource_name, parent, parents, pa
         elif table.references[col_name].relation == "parent":
             continue
         else:
-            sys.stderr.write("Parent = %s, child = %s at col = %s as reference\n" % (table.name, child_name, col_name))
             # Referenced resources
             parents.append(resource_name)
             parent_plurality.append(is_plural)
