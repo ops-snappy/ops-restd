@@ -17,6 +17,13 @@ class BaseHandler(web.RequestHandler):
 
 class AutoHandler(BaseHandler):
 
+    def print_(self, resource):
+        if resource is None:
+            return
+
+        print resource.table, resource.row, resource.column, resource.relation
+        self.print_(resource.next)
+
     # parse the url and http params.
     def prepare(self):
 
@@ -25,13 +32,14 @@ class AutoHandler(BaseHandler):
         if self.resource_path is None:
             self.set_status(httplib.NOT_FOUND)
             self.finish()
+        self.print_r(self.resource_path)
 
     @gen.coroutine
     def get(self):
 
         if Resource.verify_resource_path(self.resource_path, self.schema, self.idl):
-            data = Resource.get_resource(self.idl, self.resource_path, self.schema, self.request.path)
-            self.write({'data': data})
+            result = Resource.get_resource(self.idl, self.resource_path, self.schema, self.request.path)
+            self.write(json.dumps({'data': result}))
         else:
             self.set_status(httplib.NOT_FOUND)
 
@@ -46,7 +54,7 @@ class AutoHandler(BaseHandler):
                 self.ref_object.manager.monitor_transaction(self.txn)
             yield self.txn.event.wait()
 
-            self.write({'status' : 'success'})
+            self.set_status(httplib.OK)
             self.finish()
         else:
             self.set_status(httplib.BAD_REQUEST)

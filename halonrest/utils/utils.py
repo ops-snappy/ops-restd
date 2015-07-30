@@ -73,3 +73,36 @@ def uuid_to_uri(uuid_list, uri, key=None):
             uri_list.append(uri + '/' + item)
 
     return uri_list
+
+# list of uuids to rows from a table
+def uuid_to_row(uuid_list, table):
+    row_list = []
+    for uuid in uuid_list:
+        row_list.append(table.rows[uuid])
+    return row_list
+
+# references is a list of references to Row objects
+# row/column is the table item to which the references are added
+def add_reference_to_table(references, row, column):
+
+    current_references = []
+    for item in row.__getattr__(column):
+        current_references.append(item)
+
+    # add the new references to the current list
+    for item in references:
+        current_list.append(item)
+
+    # assign the updated list to the column
+    row.__setattr__(column, current_list)
+    return
+
+# Populates the new row object with 'validated' data
+def populate_row(row, data, schema, columns):
+    for key in columns:
+        if key in data:
+            if key in schema.references:
+                add_reference()
+        else:
+            row.__setattr__(key, data[key])
+    return

@@ -140,8 +140,12 @@ class Resource(object):
             else:
                 return None
 
-        resource.next = Resource.parse(path, schema, idl)
-        return resource
+        tmp = Resource.parse(path, schema, idl)
+        if tmp:
+            resource.next = tmp
+            return resource
+
+        return None
 
     @staticmethod
     def verify_table_entry(table, uuid, idl):
@@ -203,52 +207,18 @@ class Resource(object):
                 break
             resource = resource.next
 
-        if resource.relation == OVSDB_SCHEMA_REFERENCE:
-            if 'referenced_by' not in data.keys():
-                return False
-            else:
-                # confirm these resources exist
-                reference_list = []
-                for uri in data['referenced_by']:
-                    resource_path = Resource.parse_url_path(uri, schema, idl)
-                    if resource_path:
-                        if Resource.verify_resource_path(idl, resource_path, schema):
-                            reference_list.append(resource_path)
-                        else:
-                            return False
-                    else:
-                        return False
+        # TODO: verify POST data
 
-        # add new entry to the table
-        table = idl.tables[resource.next.table]
-        new_row = txn.insert(idl.tables[resource.next.table])
-
-        # TODO: POST data validation
-        for key, value in data.iteritems():
-            new_row.__setattr__(key, value)
-
-        # add the references
+        # add new child element
         if resource.relation == OVSDB_SCHEMA_CHILD:
-            Resource.add_reference_to_table(idl, resource, new_row)
-        elif resource.relation == OVSDB_SCHEMA_REFERENCE:
-            for resource in reference_list:
-                while True:
-                    if resource.next.next is None:
-                        break
-                    resource = resource.next
-                Resource.add_reference_to_table(idl, resource, new_row)
 
-        return txn.commit()
+            table = idl.tables[resource.next.table]
+            new_row = txn.insert(idl.tables[resource.next.table])
 
-    @staticmethod
-    def add_reference_to_table(idl, resource, reference):
+            utils.populate_row(new_row, data, schema.ovs_tables[resource.next.table], table.columns.keys())
+            utils.add_reference_to_table([new_row], idl.tables[resource.table].rows[resource.row], resource.column)
 
-        row = idl.tables[resource.table].rows[resource.row]
-        references = []
-        for item in row.__getattr__(resource.column):
-            references.append(item)
-        references.append(reference)
-        row.__setattr__(resource.column, references)
+            return txn.commit()
 
     @staticmethod
     def get_resource(idl, resource, schema, uri=None):
