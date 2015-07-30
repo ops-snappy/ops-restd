@@ -34,19 +34,27 @@ class OVSColumn(object):
         # Possible values
         self.enum = set([])
 
+        self.type = None
         base_type = type.key
         if base_type.type == types.IntegerType:
+            self.type = types.IntegerType
             # For type Integer only
             self.minInteger = base_type.min
             self.maxInteger = base_type.max
         elif base_type.type == types.RealType:
+            self.type = types.RealType
             # For type Real only
             self.minReal = base_type.min
             self.maxReal = base_type.max
         elif base_type.type == types.StringType:
+            self.type = types.StringType
             # For type string only
             self.minLength = base_type.min_length
             self.maxLength = base_type.max_length
+        elif base_type.type == types.BooleanType:
+            self.type = types.BooleanType
+        else:
+            raise error.Error("unknown attribute type %s" % base_type.type)
 
         # The number of instances
         self.is_list = (type.n_max != 1)
@@ -204,7 +212,9 @@ class RESTSchema(object):
                     if tables[column.ref_table].parent is None:
                         tables[column.ref_table].parent = tableName
                 elif column.relation == "parent":
-                    tables[column.ref_table].children.append(tableName)
+                    if tableName not in tables[column.ref_table].children:
+                        tables[column.ref_table].children.append(tableName)
+                    table.parent = column.ref_table
 
         return RESTSchema(name, version, tables)
 
