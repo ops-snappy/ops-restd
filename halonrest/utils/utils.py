@@ -91,10 +91,10 @@ def add_reference_to_table(references, row, column):
 
     # add the new references to the current list
     for item in references:
-        current_list.append(item)
+        current_references.append(item)
 
     # assign the updated list to the column
-    row.__setattr__(column, current_list)
+    row.__setattr__(column, current_references)
     return
 
 # Populates the new row object with 'validated' data
@@ -103,6 +103,6 @@ def populate_row(row, data, schema, columns):
         if key in data:
             if key in schema.references:
                 add_reference()
-        else:
-            row.__setattr__(key, data[key])
+            else:
+                row.__setattr__(key, data[key])
     return

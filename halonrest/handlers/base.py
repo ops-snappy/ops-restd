@@ -46,7 +46,7 @@ class AutoHandler(BaseHandler):
                 self.ref_object.manager.monitor_transaction(self.txn)
             yield self.txn.event.wait()
 
-            self.write(httplib.OK)
+            self.set_status(httplib.OK)
             self.finish()
         else:
             self.set_status(httplib.BAD_REQUEST)
