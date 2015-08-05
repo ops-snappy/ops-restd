@@ -3,6 +3,7 @@ import ovs.db.idl
 import ovs
 import ovs.db.types
 import types
+import uuid
 
 def row_to_json(row, column_keys):
 
@@ -29,6 +30,12 @@ def to_json(data):
 
     elif type_ is types.NoneType:
         return data
+
+    elif type_ is uuid.UUID:
+        return str(data)
+
+    elif type_ is ovs.db.idl.Row:
+        return str(data.uuid)
 
     else:
         return str(data)
@@ -63,23 +70,27 @@ def list_to_json(data):
 
     return data_json
 
-def uuid_to_uri(uuid_list, uri, key=None):
+def uuid_to_index(uuid, index, table):
 
-    uri_list = []
-    for item in uuid_list:
-        if key:
-            uri_list.append(uri + '/' + key + '/' + item)
-        else:
-            uri_list.append(uri + '/' + item)
+    if type(uuid) is not types.ListType:
+        return str(table.rows[ovs.ovsuuid.from_string(uuid)].__getattr__(index))
 
-    return uri_list
+    else:
+        index_list = []
+        for item in uuid:
+            index_list.append(str(table.rows[ovs.ovsuuid.from_string(item)].__getattr__(index)))
+        return index_list
 
-# list of uuids to rows from a table
-def uuid_to_row(uuid_list, table):
-    row_list = []
-    for uuid in uuid_list:
-        row_list.append(table.rows[uuid])
-    return row_list
+def index_to_uri(index, uri):
+
+    if type(index) is not types.ListType:
+        return uri + '/' + index
+
+    else:
+        uri_list = []
+        for i in index:
+            uri_list.append(uri+'/'+i)
+        return uri_list
 
 # references is a list of references to Row objects
 # row/column is the table item to which the references are added

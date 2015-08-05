@@ -6,6 +6,7 @@ import httplib
 
 from halonrest.constants import *
 from halonrest.resource import Resource
+from halonrest import get
 
 class BaseHandler(web.RequestHandler):
 
@@ -20,7 +21,7 @@ class AutoHandler(BaseHandler):
     # parse the url and http params.
     def prepare(self):
 
-        self.resource_path = Resource.parse_url_path(self.request.path, self.schema, self.idl)
+        self.resource_path = Resource.parse_url_path(self.request.path, self.schema, self.idl, self.request.method)
 
         if self.resource_path is None:
             self.set_status(httplib.NOT_FOUND)
@@ -29,25 +30,10 @@ class AutoHandler(BaseHandler):
     @gen.coroutine
     def get(self):
 
-        if Resource.verify_resource_path(self.resource_path, self.schema, self.idl):
-            result = Resource.get_resource(self.idl, self.resource_path, self.schema, self.request.path)
-            self.write(json.dumps({'data': result}))
-        else:
+        result = get.get_resource(self.idl, self.resource_path, self.schema, self.request.path)
+        if result is None:
             self.set_status(httplib.NOT_FOUND)
+        else:
+            self.write(json.dumps({'data': result}))
 
         self.finish()
-
-    @gen.coroutine
-    def post(self):
-        if Resource.verify_resource_path(self.resource_path, self.schema, self.idl):
-            self.txn = self.ref_object.manager.get_new_transaction()
-            result = Resource.post_resource(self.idl, self.txn, self.resource_path, self.schema, json.loads(self.request.body))
-            if result not in (SUCCESS, UNCHANGED, ERROR, ABORTED):
-                self.ref_object.manager.monitor_transaction(self.txn)
-            yield self.txn.event.wait()
-
-            self.set_status(httplib.OK)
-            self.finish()
-        else:
-            self.set_status(httplib.BAD_REQUEST)
-            self.finish()

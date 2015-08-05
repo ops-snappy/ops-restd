@@ -87,8 +87,10 @@ class OVSReference(object):
 
 class OVSTable(object):
     """__init__() functions as the class constructor"""
-    def __init__(self, name, is_many = True, index = 'name'):
+    def __init__(self, name, is_root, is_many = True, index = 'name'):
         self.name = name
+
+        self.is_root = is_root
 
         # list of all column names
         self.columns = []
@@ -139,7 +141,7 @@ class OVSTable(object):
         if not columns_json:
             raise error.Error("table must have at least one column", json)
 
-        table = OVSTable(name, max_rows != 1)
+        table = OVSTable(name, is_root, max_rows != 1)
         for column_name, column_json in columns_json.iteritems():
             parser = ovs.db.parser.Parser(column_json, "column %s" % name)
             category = parser.get_optional("category", [str, unicode])

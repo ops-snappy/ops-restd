@@ -20,6 +20,35 @@ OVSDB_SCHEMA_SYSTEM_TABLE = 'Open_vSwitch'
 OVSDB_SCHEMA_SYSTEM_URI = 'system'
 OVSDB_SCHEMA_SELECTORS = ['config', 'stats', 'status']
 OVSDB_SCHEMA_CHILD = 'child'
+OVSDB_SCHEMA_PARENT = 'parent'
 OVSDB_SCHEMA_REFERENCE = 'reference'
 OVSDB_SCHEMA_TOP_LEVEL = 'toplevel'
+OVSDB_SCHEMA_BACK_REFERENCE = 'back'
 OVSDB_BASE_URI = '/system/'
+
+# temporary index map
+index_map = { 'Bridge' : 'name',
+        'Port' : 'name',
+        'Interface' : 'name',
+        'Subsystem' : 'name',
+        'VRF' : 'name',
+        'Daemon' : 'name',
+        'Route_Map' : 'name',
+        'Route_Map_Entries' : 'preference',
+        'Prefix_List' : 'name',
+        'Prefix_List_Entries' : 'sequence',
+        'Route' : 'prefix',
+        'Nexthop' : 'uuid',
+        'BGP_Router' : 'asn',
+        'BGP_Neighbor' : 'name',
+        'Neighbor' : 'ip_address',
+        'VLAN' : 'name',
+        'Fan' : 'name',
+        'LED' : 'id',
+        'Temp_sensor' : 'name',
+        'Power_supply' : 'name',
+        'Manager' : 'name',
+        'SSL' : 'name',
+        'Radius_Server' : 'ip_address',
+        'CLI_Alias' : 'alias_name',
+        }
