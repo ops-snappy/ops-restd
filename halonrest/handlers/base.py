@@ -6,7 +6,7 @@ import httplib
 
 from halonrest.constants import *
 from halonrest.resource import Resource
-from halonrest import get
+from halonrest import get, post
 
 class BaseHandler(web.RequestHandler):
 
@@ -36,4 +36,25 @@ class AutoHandler(BaseHandler):
         else:
             self.write(json.dumps({'data': result}))
 
+        self.finish()
+
+    @gen.coroutine
+    def post(self):
+
+        # get the POST body
+        post_data = json.loads(self.request.body)
+
+        # create a new ovsdb transaction
+        self.txn = self.ref_object.manager.get_new_transaction()
+
+        # post_resource performs data verficiation, prepares and commits the ovsdb transaction
+        result = post.post_resource(post_data, self.resource_path, self.schema, self.txn, self.idl)
+        if result is INCOMPLETE:
+            self.ref_object.manager.monitor_transaction(self.txn)
+
+            # on 'incomplete' state we wait until the transaction completes with either success or failure
+            yield self.txn.event.wait()
+
+        txn_status = self.txn.status
+        self.set_status(httplib.OK)
         self.finish()

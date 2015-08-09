@@ -90,9 +90,9 @@ class OvsdbConnectionManager:
         for item in self.transactions.txn_list:
 
             # TODO: Handle all states
-            if item.status in (SUCCESS, UNCHANGED, ERROR, ABORTED):
-                item.event.set()
+            if item.status is not INCOMPLETE:
                 self.transactions.txn_list.pop(count)
+                item.event.set()
             else:
                 count += 1
 

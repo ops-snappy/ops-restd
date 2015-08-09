@@ -5,12 +5,23 @@ from halonrest.constants import *
 import ovs.ovsuuid
 import types
 
+'''
+    A Resource uniquely identifies an OVSDB table entry.
+      - Resource.table: name of the OVSDB table that this resource belongs to
+      - Resource.row: UUID of the row in which this resource is found
+      - Resource.column: name of the column in the table under which this resource is found
+'''
 class Resource(object):
     def __init__(self, table, row=None, column=None, index=None, relation=None):
+        # these attriutes uniquely identify an entry in OVSDB table
         self.table = table
         self.row = None
-        self.index = None
         self.column = None
+
+        # these attributes are used to build a relationship between various
+        # resources identified using a URI. The URI is mapped to a linked list
+        # of Resource objects
+        self.index = None
         self.relation = None
         self.next = None
 
@@ -155,11 +166,11 @@ class Resource(object):
 
         # is resource.table a reference in new_resource.table?
         # column_keys = idl.tables[new_resource.table].columns.keys()
-        column_keys = schema.ovs_tables[new_resource.table].references
+        reference_keys = schema.ovs_tables[new_resource.table].references
 
         _refCol = None
-        for key,value in column_keys.iteritems():
-            if value.relation == OVSDB_SCHEMA_PARENT:
+        for key,value in reference_keys.iteritems():
+            if value.relation == OVSDB_SCHEMA_PARENT and value.ref_table == resource.table:
                 _refCol = key
                 break
 
@@ -168,8 +179,7 @@ class Resource(object):
 
         # verify using the index if the parent is back referenced
         if index is not None:
-            if Resource.verify_index(new_resource, index, schema, idl) is None:
-                return None
+            return Resource.verify_index(new_resource, index, schema, idl)
         else:
             # search iteratively in entire table and get list of all entries with same back reference
             row = None

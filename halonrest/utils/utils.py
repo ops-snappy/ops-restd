@@ -4,6 +4,143 @@ import ovs
 import ovs.db.types
 import types
 import uuid
+from halonrest.resource import Resource
+
+# get a row from a resource
+def get_row(resource, idl=None):
+
+    if isinstance(resource, ovs.db.idl.Row):
+        return resource
+
+    elif isinstance(resource, Resource):
+        if resource.table is None or resource.row is None or idl is None:
+            return None
+        else:
+            row = idl.tables[resource.table].rows[resource.row]
+            return row
+
+    return None
+
+# get column item from a row or resource
+def get_column_item(resource, column=None, idl=None):
+
+    if isinstance(resource, ovs.db.idl.Row):
+        if column is None:
+            return None
+        else:
+            return resource.__getattr__(column)
+
+    elif isinstance(resource, Resource):
+        if resource.table is None or resource.row is None or resource.column is None or idl is None:
+            return None
+        else:
+            row = idl.tables[resource.table].rows[resource.row]
+            return row.__getattr__(resource.column)
+
+    return None
+
+# returns ovs.db.idl.Row object
+def check_reference(reference, idl=None):
+
+    if isinstance(reference, Resource):
+        if reference.table is None or reference.row is None or idl is None:
+            return None
+        else:
+            ref = get_row(reference, idl)
+            return ref
+
+    elif isinstance(reference, ovs.db.idl.Row):
+        return reference
+
+    return None
+
+# returns a tuple of consisting of (ovs.db.idl.Row, column)
+def check_resource(resource, column=None, idl=None):
+
+    if isinstance(resource, Resource):
+        if resource.table is None or resource.row is None or resource.column is None: # or idl is None:
+            return None
+        else:
+            return (get_row(resource, idl), resource.column)
+
+    elif isinstance(resource, ovs.db.idl.Row):
+        if column is None:
+            return False
+        else:
+            return (resource, column)
+
+    return None
+
+# add a Row reference to a Resource
+def add_reference(reference, resource, column=None, idl=None):
+
+    ref = check_reference(reference, idl)
+    if ref is None:
+        return False
+
+    (row, column) = check_resource(resource, column, idl)
+    if row is None or column is None:
+        return False
+
+    reflist = get_column_item(row, column)
+
+    updated_list = []
+    for item in reflist:
+        updated_list.append(item)
+    updated_list.append(ref)
+
+    row.__setattr__(column, updated_list)
+    return True
+
+# delete a Row reference from a Resource
+def delete_reference(reference, resource, column=None, idl=None):
+
+    ref = check_reference(reference, idl)
+    if ref is None:
+        return False
+
+    (row, column) = check_resource(resource, column, idl)
+    if row is None or column is None:
+        return False
+
+    reflist = get_column_item(row, column, idl)
+    if reflist is None:
+        return False
+
+    updated_list = []
+    for item in reflist:
+        if item.uuid != ref.uuid:
+            updated_list.append(item)
+
+    row.__setattr__(column, updated_list)
+    return True
+
+# create a new row, populate it with data
+def setup_new_row(resource, data, schema, txn, idl):
+
+    if not isinstance(resource, Resource):
+        return None
+
+    if resource.table is None:
+        return None
+    row = txn.insert(idl.tables[resource.table])
+
+    # add config items
+    config_keys = schema.ovs_tables[resource.table].config
+    for key in config_keys:
+        if key in data:
+            row.__setattr__(key, data[key])
+
+    # add reference items
+    reference_keys = schema.ovs_tables[resource.table].references.keys()
+    for key in reference_keys:
+        if key in data:
+            reflist = []
+            for item in data[key]:
+                # item is of type Resource
+                reflist.append(get_row(item, idl))
+            row.__setattr__(key, reflist)
+    return row
 
 def row_to_json(row, column_keys):
 
@@ -91,29 +228,3 @@ def index_to_uri(index, uri):
         for i in index:
             uri_list.append(uri+'/'+i)
         return uri_list
-
-# references is a list of references to Row objects
-# row/column is the table item to which the references are added
-def add_reference_to_table(references, row, column):
-
-    current_references = []
-    for item in row.__getattr__(column):
-        current_references.append(item)
-
-    # add the new references to the current list
-    for item in references:
-        current_references.append(item)
-
-    # assign the updated list to the column
-    row.__setattr__(column, current_references)
-    return
-
-# Populates the new row object with 'validated' data
-def populate_row(row, data, schema, columns):
-    for key in columns:
-        if key in data:
-            if key in schema.references:
-                add_reference()
-            else:
-                row.__setattr__(key, data[key])
-    return

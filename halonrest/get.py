@@ -2,7 +2,6 @@ import json
 
 from halonrest.constants import *
 from halonrest.utils import utils
-import ovs.ovsuuid
 import types
 
 def get_resource(idl, resource, schema, uri=None):
@@ -61,7 +60,6 @@ def get_column_item(idl, schema, table, uuid, column, uri):
 
     return data
 
-# get row data
 def get_row_item(idl, schema, table, uuid, uri):
 
     column_keys = idl.tables[table].columns.keys()
@@ -73,7 +71,6 @@ def get_row_item(idl, schema, table, uuid, uri):
 
     return data
 
-# get all table entries (only UUID info)
 def get_table_item(idl, schema, table, uri):
 
     data = []
