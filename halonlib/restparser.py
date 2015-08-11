@@ -87,7 +87,7 @@ class OVSReference(object):
 
 class OVSTable(object):
     """__init__() functions as the class constructor"""
-    def __init__(self, name, is_root, is_many = True, index = 'name'):
+    def __init__(self, name, is_root, is_many = True, indexes = ['uuid']):
         self.name = name
 
         self.is_root = is_root
@@ -96,7 +96,8 @@ class OVSTable(object):
         self.columns = []
 
         # What is the name of the index column
-        self.index = index
+        self.indexes = indexes
+
 
         # Is the table in plural form?
         self.is_many = is_many
@@ -123,6 +124,10 @@ class OVSTable(object):
         # table name to OVSReference object mapping
         self.references = {}
 
+    def setIndexes(self, indexes):
+        if len(indexes) > 0:
+            self.indexes = indexes
+
     @staticmethod
     def from_json(json, name):
         parser = ovs.db.parser.Parser(json, "schema of table %s" % name)
@@ -131,6 +136,7 @@ class OVSTable(object):
         is_root = parser.get_optional("isRoot", [bool], False)
         max_rows = parser.get_optional("maxRows", [int])
         indexes_json = parser.get_optional("indexes", [list], [])
+
         parser.finish()
 
         if max_rows == None:
@@ -168,6 +174,19 @@ class OVSTable(object):
                 table.references[column_name] = OVSReference(type_, category)
             elif category == "reference":
                 table.references[column_name] = OVSReference(type_, category)
+
+        indexes_list = []
+        for index_list in indexes_json:
+            tmp_indexes = []
+            for index in index_list:
+                if index in table.references and table.references[index].relation == "parent":
+                    continue
+                tmp_indexes.append(index)
+            if len(tmp_indexes) > 0:
+                indexes_list = tmp_indexes
+                break
+
+        table.setIndexes(indexes_list)
 
         return table
 

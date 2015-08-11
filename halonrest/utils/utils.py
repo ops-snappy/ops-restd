@@ -228,3 +228,46 @@ def index_to_uri(index, uri):
         for i in index:
             uri_list.append(uri+'/'+i)
         return uri_list
+
+def uuidToIndex(dbtable, schema_table, uuid):
+    row = dbtable.rows[uuid]
+    index_values = []
+    for index in schema_table.indexes:
+        if index == 'uuid':
+            index_values.append(str(row.uuid))
+            break
+        else:
+            index_values.append(row.__getattr__(index))
+
+    return '_'.join(index_values)
+
+def indexToUuid(dbtable, schema_table, index_value):
+
+    row = indexToRow(dbtable, schema_table, index_value)
+
+    if row != None:
+        return row.uuid
+
+    return None
+
+def indexToRow(dbtable, schema_table, index_value):
+
+    index_values = index_value.split('_')
+    index_dict = {}
+    i = 0
+    for index in schema_table.indexes:
+        if index == 'uuid':
+            return dbtable.rows[ovs.ovsuuid.from_string(index_values[i])]
+        index_dict[index] = index_values[i]
+        i+=1
+
+    for row in dbtable.rows.itervalues():
+        match = True
+        for index, value in index_dict.iteritems():
+            if row.__getattr__(index) != value:
+                match = False
+                break
+        if match:
+            return row
+
+    return None
