@@ -4,7 +4,10 @@ import ovs
 import ovs.db.types
 import types
 import uuid
+
 from halonrest.resource import Resource
+from halonrest.constants import *
+
 
 # get a row from a resource
 def get_row(resource, idl=None):
@@ -15,14 +18,22 @@ def get_row(resource, idl=None):
     elif isinstance(resource, Resource):
         if resource.table is None or resource.row is None or idl is None:
             return None
+
         else:
-            row = idl.tables[resource.table].rows[resource.row]
-            return row
+            # resource.row can be a single UUID object or a list of UUID objects
+            rows = resource.row
+            if type(rows) is not types.ListType:
+                return idl.tables[resource.table].rows[resource.row]
+            else:
+                rowlist = []
+                for row in rows:
+                    rowlist.append(idl.tables[resource.table].rows[row])
+                return rowlist
 
     return None
 
 # get column item from a row or resource
-def get_column_item(resource, column=None, idl=None):
+def get_column(resource, column=None, idl=None):
 
     if isinstance(resource, ovs.db.idl.Row):
         if column is None:
@@ -82,7 +93,7 @@ def add_reference(reference, resource, column=None, idl=None):
     if row is None or column is None:
         return False
 
-    reflist = get_column_item(row, column)
+    reflist = get_column(row, column)
 
     updated_list = []
     for item in reflist:
@@ -103,7 +114,7 @@ def delete_reference(reference, resource, column=None, idl=None):
     if row is None or column is None:
         return False
 
-    reflist = get_column_item(row, column, idl)
+    reflist = get_column(row, column, idl)
     if reflist is None:
         return False
 
@@ -207,67 +218,21 @@ def list_to_json(data):
 
     return data_json
 
-def uuid_to_index(uuid, index, table):
+def index_to_row(index_values, table_schema, dbtable):
 
-    if type(uuid) is not types.ListType:
-        return str(table.rows[ovs.ovsuuid.from_string(uuid)].__getattr__(index))
+    indexes = table_schema.indexes
 
-    else:
-        index_list = []
-        for item in uuid:
-            index_list.append(str(table.rows[ovs.ovsuuid.from_string(item)].__getattr__(index)))
-        return index_list
-
-def index_to_uri(index, uri):
-
-    if type(index) is not types.ListType:
-        return uri + '/' + index
-
-    else:
-        uri_list = []
-        for i in index:
-            uri_list.append(uri+'/'+i)
-        return uri_list
-
-def uuidToIndex(dbtable, schema_table, uuid):
-    row = dbtable.rows[uuid]
-    index_values = []
-    for index in schema_table.indexes:
-        if index == 'uuid':
-            index_values.append(str(row.uuid))
-            break
-        else:
-            index_values.append(row.__getattr__(index))
-
-    return '_'.join(index_values)
-
-def indexToUuid(dbtable, schema_table, index_value):
-
-    row = indexToRow(dbtable, schema_table, index_value)
-
-    if row != None:
-        return row.uuid
-
-    return None
-
-def indexToRow(dbtable, schema_table, index_value):
-
-    index_values = index_value.split('_')
-    index_dict = {}
-    i = 0
-    for index in schema_table.indexes:
-        if index == 'uuid':
-            return dbtable.rows[ovs.ovsuuid.from_string(index_values[i])]
-        index_dict[index] = index_values[i]
-        i+=1
+    if len(index_values) != len(indexes):
+        return None
 
     for row in dbtable.rows.itervalues():
-        match = True
-        for index, value in index_dict.iteritems():
-            if row.__getattr__(index) != value:
-                match = False
+        i = 0
+        for index, value in zip(indexes, index_values):
+            if str(row.__getattr__(index)) != value:
                 break
-        if match:
+            i+=1
+
+        if i == len(indexes):
             return row
 
     return None

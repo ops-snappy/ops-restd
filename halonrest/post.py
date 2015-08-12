@@ -5,7 +5,7 @@ from halonrest.verify import *
 def post_resource(data, resource, schema, txn, idl):
 
     # POST not allowed on Open_vSwitch table
-    if resource.next is None:
+    if resource is None or resource.next is None:
         return None
 
     while True:

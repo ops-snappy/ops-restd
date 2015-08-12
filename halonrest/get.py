@@ -1,83 +1,159 @@
-import json
-
+import ovs.db.idl
 from halonrest.constants import *
 from halonrest.utils import utils
+
 import types
+import json
 
 def get_resource(idl, resource, schema, uri=None):
 
-    # /system
-    if resource.next is None:
-        if resource.column is None:
-            return get_row_item(idl, schema, resource.table, resource.row, uri)
-        else:
-            return get_column_item(idl, schema, resource.table, resource.row, resource.column, uri)
+    if resource is None:
+        return None
 
-    # /system/*
+    # GET Open_vSwitch table
+    if resource.next is None:
+        if resource.column is not None:
+            return utils.get_column(resource, None, idl)
+        else:
+            return utils.get_row(resource, idl)
+
+    # Other tables
     while True:
         if resource.next.next is None:
             break
         resource = resource.next
 
-    if resource.relation is OVSDB_SCHEMA_BACK_REFERENCE:
-        if type(resource.next.index) is types.ListType:
-            return utils.index_to_uri(resource.next.index, uri)
-        else:
-            return get_row_item(idl, schema, resource.next.table, resource.next.row, uri)
+    return get_resource_from_db(resource, schema, idl, uri)
 
-    if resource.relation is OVSDB_SCHEMA_REFERENCE:
+# get resource from db using resource->next_resource pair
+def get_resource_from_db(resource, schema, idl, uri=None):
+
+    if resource.relation is OVSDB_SCHEMA_TOP_LEVEL:
+        table = resource.next.table
+        schema_table = schema.ovs_tables[table]
+        db_table = idl.tables[table]
+
+        if resource.next.row is None:
+            uri = OVSDB_BASE_URI + resource.next.table
+            return get_table_json(resource.next.table, schema, idl, uri)
+        else:
+            return get_row_json(resource.next.row, resource.next.table, schema, idl, uri)
+
+    elif resource.relation is OVSDB_SCHEMA_CHILD:
+
+        if resource.next.row is None:
+            return get_column_json(resource.column, resource.row, resource.table, schema, idl, uri)
+        else:
+            return get_row_json(resource.next.row, resource.next.table, schema, idl, uri)
+
+    elif resource.relation is OVSDB_SCHEMA_REFERENCE:
         uri = OVSDB_BASE_URI + resource.next.table
+        return get_column_json(resource.column, resource.row, resource.table, schema, idl, uri)
 
-    if resource.next.row is None:
-        if resource.relation is OVSDB_SCHEMA_TOP_LEVEL:
-            return get_table_item(idl, schema, resource.next.table, uri)
+    elif resource.relation is OVSDB_SCHEMA_BACK_REFERENCE:
+        if type(resource.next.row) is types.ListType:
+            return get_back_references_json(resource.row, resource.table, resource.next.table, schema, idl, uri)
         else:
-            return get_column_item(idl, schema, resource.table, resource.row, resource.column, uri)
-
-    elif resource.next.column is None:
-        return get_row_item(idl, schema, resource.next.table, resource.next.row, uri)
+            return get_row_json(resource.next.row, resource.next.table, schema, idl, uri)
 
     else:
-        return get_column_item(idl, schema, resource.next.table, resource.next.row, resource.next.column, uri)
+        return None
 
-def get_column_item(idl, schema, table, uuid, column, uri):
+def get_row_json(row, table, schema, idl, uri):
 
-    data = utils.to_json(idl.tables[table].rows[uuid].__getattr__(column))
+    db_table = idl.tables[table]
+    db_row = db_table.rows[row]
+    schema_table = schema.ovs_tables[table]
 
-    # convert references to URI
-    if column in schema.ovs_tables[table].references:
-        reference_table = schema.reference_map[column]
-        reference_index_type = schema.ovs_tables[reference_table].index
-        reference_index_list = utils.uuid_to_index(data, reference_index_type, idl.tables[reference_table])
+    config_keys = schema_table.config
+    stats_keys = schema_table.stats
+    status_keys = schema_table.status
+    references = schema_table.references
+    reference_keys = references.keys()
+    for key in reference_keys:
+        if references[key].ref_table == schema_table.parent:
+            reference_keys.remove(key)
+            break
 
-        # TODO: Do we have to display the URI of the back reference parent? Name seems more appropriate
-        # is this a child?
-        if column in schema.ovs_tables[table].children:
-            data = utils.index_to_uri(reference_index_list, uri)
-        else:
-            uri  = OVSDB_BASE_URI + schema.reference_map[column]
-            data = utils.index_to_uri(reference_index_list, uri)
+    config_data = utils.row_to_json(db_row, config_keys)
+    stats_data = utils.row_to_json(db_row, stats_keys)
+    status_data = utils.row_to_json(db_row, status_keys)
 
-    return data
+    reference_data = {}
+    for key in reference_keys:
+        reference_data[key] = uri + '/' + key
 
-def get_row_item(idl, schema, table, uuid, uri):
+    return {'config' : config_data, 'stats' : stats_data, 'status' : status_data, 'references' : reference_data}
 
-    column_keys = idl.tables[table].columns.keys()
-    data = {}
+# get list of all table row entries
+def get_table_json(table, schema, idl, uri):
 
-    for key in column_keys:
-        _uri = uri + '/' + key
-        data[key] = get_column_item(idl, schema, table, uuid, key, _uri)
+    db_table = idl.tables[table]
+    schema_table = schema.ovs_tables[table]
 
-    return data
+    indexes = schema_table.indexes
+    uri_list = []
 
-def get_table_item(idl, schema, table, uri):
+    for row in db_table.rows.itervalues():
+        tmp = []
+        for index in indexes:
+            if index == 'uuid':
+                tmp.append(str(row.uuid))
+            else:
+                tmp.append(str(row.__getattr__(index)))
+        _uri = uri + '/' + '/'.join(tmp)
+        uri_list.append(_uri)
 
-    data = []
+    return uri_list
+
+def get_column_json(column, row, table, schema, idl, uri):
+
+
+    db_table = idl.tables[table]
+    db_row = db_table.rows[row]
+    db_col = db_row.__getattr__(column)
+
+    # column is a reference. Get the table name
+    col_table = schema.ovs_tables[table].references[column].ref_table
+    indexes = schema.ovs_tables[col_table].indexes
+
+    uri_list = []
+    for row in db_col:
+        tmp = []
+        for index in indexes:
+            if index == 'uuid':
+                tmp.append(str(row.uuid))
+            else:
+                tmp.append(str(row.__getattr__(index)))
+        _uri = uri + '/' + '/'.join(tmp)
+        uri_list.append(_uri)
+
+    return uri_list
+
+def get_back_references_json(parent_row, parent_table, table, schema, idl, uri):
+
+    references = schema.ovs_tables[table].references
+    _refCol = None
+    for key,value in references.iteritems():
+        if value.relation == OVSDB_SCHEMA_PARENT and value.ref_table == parent_table:
+            _refCol = key
+            break
+
+    if _refCol is None:
+        return None
+
+    uri_list = []
+    indexes = schema.ovs_tables[table].indexes
     for row in idl.tables[table].rows.itervalues():
-        data.append(str(row.uuid))
+        ref = row.__getattr__(_refCol)
+        if ref.uuid == parent_row:
+            tmp = []
+            for index in indexes:
+                if index == 'uuid':
+                    tmp.append(str(row.uuid))
+                else:
+                    tmp.append(str(row.__getattr__(index)))
+            _uri = uri + '/' + '/'.join(tmp)
+            uri_list.append(_uri)
 
-    reference_index_type = schema.ovs_tables[table].index
-    reference_index_list = utils.uuid_to_index(data, reference_index_type, idl.tables[table])
-
-    return utils.index_to_uri(reference_index_list, uri)
+    return uri_list

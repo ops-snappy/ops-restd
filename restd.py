@@ -13,7 +13,7 @@ from halonrest.application import OvsdbApiApplication
 def main():
     app = OvsdbApiApplication(settings)
     http_server = tornado.httpserver.HTTPServer(app)
-    http_server.listen(options.port)
+    http_server.listen(options.http_port)
     tornado.ioloop.IOLoop.instance().start()
 
 if __name__ == "__main__":

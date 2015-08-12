@@ -4,8 +4,9 @@ from tornado import web, gen, locks
 import json
 import httplib
 
-from halonrest.constants import *
 from halonrest.resource import Resource
+from halonrest.parse import parse_url_path
+from halonrest.constants import *
 from halonrest import get, post
 
 class BaseHandler(web.RequestHandler):
@@ -21,11 +22,14 @@ class AutoHandler(BaseHandler):
     # parse the url and http params.
     def prepare(self):
 
-        self.resource_path = Resource.parse_url_path(self.request.path, self.schema, self.idl, self.request.method)
+        self.resource_path = parse_url_path(self.request.path, self.schema, self.idl, self.request.method)
 
         if self.resource_path is None:
             self.set_status(httplib.NOT_FOUND)
             self.finish()
+
+    def set_default_headers(self):
+        self.set_header('Content-Type', 'application/json')
 
     @gen.coroutine
     def get(self):
