@@ -1,4 +1,4 @@
-from halonrest.resource import Resource
+from halonrest import parse
 from halonrest.constants import *
 import types
 
@@ -91,7 +91,7 @@ def verify_reference_data(data, resource, schema, idl):
 
             verified_references[key] = []
             for uri in data[key]:
-                resource = Resource.parse_url_path(uri, schema, idl, 'POST')
+                resource = parse.parse_url_path(uri, schema, idl, 'POST')
                 if resource is not None:
                     # pick the resource
                     while resource.next is not None:
@@ -106,7 +106,7 @@ def verify_belongs_to_data(data, schema, idl):
     verified_belongs_to = {}
     verified_belongs_to['references'] = []
     for uri in data['belongs_to']:
-        uri_resource = Resource.parse_url_path(uri, schema, idl, 'PUT')
+        uri_resource = parse.parse_url_path(uri, schema, idl, 'PUT')
         if uri_resource is None:
             return None
         else:
