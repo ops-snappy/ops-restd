@@ -1,0 +1,35 @@
+from halonrest.constants import *
+from halonrest.utils import utils
+from halonrest.verify import *
+
+def delete_resource(resource, txn, idl):
+
+    if resource.next is None:
+        return None
+
+    while True:
+        if resource.next.next is None:
+            break
+        resource = resource.next
+
+    if resource.relation == OVSDB_SCHEMA_CHILD:
+
+        # get the row, delete its reference from the parent, delete the row
+        row = utils.get_row(resource.next, idl)
+        utils.delete_reference(row, resource, None, idl)
+        row.delete()
+
+    elif resource.relation == OVSDB_SCHEMA_REFERENCE:
+
+        # delete the reference from the table
+        utils.delete_reference(resource.next, resource, None, idl)
+
+    elif resource.relation == OVSDB_SCHEMA_BACK_REFERENCE:
+        row = utils.get_row(resource.next, idl)
+        row.delete()
+
+    elif resource.relation == OVSDB_SCHEMA_TOP_LEVEL:
+        row = utils.get_row(resource.next, idl)
+        row.delete()
+
+    return txn.commit()

@@ -62,3 +62,19 @@ class AutoHandler(BaseHandler):
         txn_status = self.txn.status
         self.set_status(httplib.OK)
         self.finish()
+
+    @gen.coroutine
+    def delete(self):
+
+        self.txn = self.ref_object.manager.get_new_transaction()
+         # post_resource performs data verficiation, prepares and commits the ovsdb transaction
+        result = delete.delete_resource(self.resource_path, self.txn, self.idl)
+        if result is INCOMPLETE:
+            self.ref_object.manager.monitor_transaction(self.txn)
+
+            # on 'incomplete' state we wait until the transaction completes with either success or failure
+            yield self.txn.event.wait()
+
+        txn_status = self.txn.status
+        self.set_status(httplib.OK)
+        self.finish()
