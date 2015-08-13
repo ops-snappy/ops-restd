@@ -13,10 +13,9 @@ import traceback
 
 class RunConfigUtil():
     def __init__(self, settings):
-        self.settings = settings
-        self.manager = OvsdbConnectionManager(self.settings.get('ovs_remote'), self.settings.get('ovs_schema'))
-        self.manager.start()
-        self.idl = self.manager.idl
+        manager = OvsdbConnectionManager(settings.get('ovs_remote'), settings.get('ovs_schema'))
+        manager.start()
+        self.idl = manager.idl
 
         init_seq_no = 0
         # Wait until the connection is ready
@@ -27,13 +26,18 @@ class RunConfigUtil():
                 break
             time.sleep(1)
 
-        self.restschema = restparser.parseSchema(self.settings.get('ext_schema'))
+        self.restschema = restparser.parseSchema(settings.get('ext_schema'))
+
+    def __init__(self, idl, restschema):
+        self.idl = idl
+        self.restschema = restschema
+
 
     def getRowData(self, table, row):
         rowobj = {}
 
         for column_name, column in table.config.iteritems():
-            rowobj[column_name] = str(row.__getattr__(column_name))
+            rowobj[column_name] = utils.to_json(row.__getattr__(column_name))
 
         for child_name in table.children:
 
@@ -63,7 +67,7 @@ class RunConfigUtil():
             # this is a list of references
             reflist = []
             for i in refdata:
-                reflist.append(utils.uuidToIndex( self.idl.tables[column.ref_table] , self.restschema.ovs_tables[column.ref_table], i.uuid))
+                reflist.append(utils.row_to_index( self.idl.tables[column.ref_table] , self.restschema.ovs_tables[column.ref_table], i))
             if len(reflist) > 0:
                 rowobj[column_name] = reflist
 
@@ -87,7 +91,7 @@ class RunConfigUtil():
             if uuid == parent_uuid:
                 rowdata = self.getRowData(schema_table, row)
                 if len(rowdata) > 0:
-                    tableobj[utils.uuidToIndex( dbtable , schema_table, row.uuid)] = rowdata
+                    tableobj[utils.row_to_index( dbtable , schema_table, row)] = rowdata
 
         return tableobj
 
@@ -107,7 +111,7 @@ class RunConfigUtil():
         for item in rows:
             rowdata = self.getRowData(schema_table, item)
             if len(rowdata) > 0:
-                tableobj[utils.uuidToIndex( dbtable , schema_table, item.uuid)] = rowdata
+                tableobj[utils.row_to_index( dbtable , schema_table, item)] = rowdata
 
         return tableobj
 
@@ -157,5 +161,25 @@ def main():
     config = run_config_util.getRunningConfig()
     print("Running Config: %s " % json.dumps(config, sort_keys=True, indent=4, separators=(',', ': ')))
 
+def test():
+    manager = OvsdbConnectionManager(settings.get('ovs_remote'), settings.get('ovs_schema'))
+    manager.start()
+    idl = manager.idl
+
+    init_seq_no = 0
+    # Wait until the connection is ready
+    while True:
+        idl.run()
+        # print self.idl.change_seqno
+        if init_seq_no != idl.change_seqno:
+            break
+        time.sleep(1)
+
+    restschema = restparser.parseSchema(settings.get('ext_schema'))
+
+    run_config_util = RunConfigUtil(idl, restschema)
+    config = run_config_util.getRunningConfig()
+    print("Running Config: %s " % json.dumps(config, sort_keys=True, indent=4, separators=(',', ': ')))
+
 if __name__ == "__main__":
-    main()
+    test()

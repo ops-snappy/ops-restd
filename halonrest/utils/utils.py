@@ -236,3 +236,13 @@ def index_to_row(index_values, table_schema, dbtable):
             return row
 
     return None
+
+def row_to_index(dbtable, table_schema, row):
+
+    tmp = []
+    for index in table_schema.indexes:
+        if index == 'uuid':
+            return str(row.uuid)
+        else:
+            tmp.append(str(row.__getattr__(index)))
+    return '/'.join(tmp)
