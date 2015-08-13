@@ -12,10 +12,7 @@ def get_resource(idl, resource, schema, uri=None):
 
     # GET Open_vSwitch table
     if resource.next is None:
-        if resource.column is not None:
-            return utils.get_column(resource, None, idl)
-        else:
-            return utils.get_row(resource, idl)
+        return get_row_json(resource.row, resource.table, schema, idl, uri)
 
     # Other tables
     while True:
