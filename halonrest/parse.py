@@ -78,19 +78,19 @@ def parse(path, resource, schema, idl, http_method):
 
     # is it a top level table?
     elif path[0] in table_names:
-        # check the parent name
         if ovs_tables[path[0]].parent is None:
             if resource.table == OVSDB_SCHEMA_SYSTEM_TABLE:
                 resource.relation = OVSDB_SCHEMA_TOP_LEVEL
             else:
-                _fail = True
-        else:
-            _fail = True
-    else:
-        _fail = True
+                raise Exception("Invalid URI")
 
-    if _fail:
-        raise Exception("Resource not found")
+        elif ovs_tables[path[0]].parent == resource.table:
+            resource.relation = OVSDB_SCHEMA_BACK_REFERENCE
+        else:
+            raise Exception("Invalid URI")
+
+    else:
+        raise Exception("Invalid URI")
 
     new_resource = Resource(path[0])
     resource.next = new_resource

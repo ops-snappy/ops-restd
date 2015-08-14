@@ -80,7 +80,11 @@ def get_row_json(row, table, schema, idl, uri):
     for key in reference_keys:
         reference_data[key] = uri + '/' + key
 
-    return {'config' : config_data, 'stats' : stats_data, 'status' : status_data, 'references' : reference_data}
+    data = {}
+    data.update(config_data)
+    data.update(stats_data)
+    data.update(status_data)
+    return data
 
 # get list of all table row entries
 def get_table_json(table, schema, idl, uri):

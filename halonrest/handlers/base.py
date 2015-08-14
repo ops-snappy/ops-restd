@@ -1,5 +1,6 @@
 from tornado.ioloop import IOLoop
 from tornado import web, gen, locks
+from tornado.escape import json_decode, json_encode
 
 import json
 import httplib
@@ -16,6 +17,10 @@ class BaseHandler(web.RequestHandler):
         self.ref_object = ref_object
         self.schema = self.ref_object.restschema
         self.idl = self.ref_object.manager.idl
+        self.request.path = re.sub("/{2,}", "/", self.request.path)
+
+    def set_default_headers(self):
+        self.set_header("Content-Type", "application/json; charset=UTF-8")
 
 class AutoHandler(BaseHandler):
 
@@ -27,9 +32,6 @@ class AutoHandler(BaseHandler):
         if self.resource_path is None:
             self.set_status(httplib.NOT_FOUND)
             self.finish()
-
-    def set_default_headers(self):
-        self.set_header('Content-Type', 'application/json')
 
     @gen.coroutine
     def get(self):
