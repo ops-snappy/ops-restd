@@ -1,9 +1,9 @@
 from tornado.ioloop import IOLoop
 from tornado import web, gen, locks
-from tornado.escape import json_decode, json_encode
 
 import json
 import httplib
+import re
 
 from halonrest.resource import Resource
 from halonrest.parse import parse_url_path
