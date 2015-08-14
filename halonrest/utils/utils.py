@@ -228,8 +228,13 @@ def index_to_row(index_values, table_schema, dbtable):
     for row in dbtable.rows.itervalues():
         i = 0
         for index, value in zip(indexes, index_values):
-            if str(row.__getattr__(index)) != value:
+            if index == 'uuid':
+                if str(row.uuid) != value:
+                    break
+            elif str(row.__getattr__(index)) != value:
                 break
+
+            # matched index
             i+=1
 
         if i == len(indexes):

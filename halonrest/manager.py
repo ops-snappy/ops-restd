@@ -76,10 +76,9 @@ class OvsdbConnectionManager:
 
     def idl_run(self):
         self.idl.run()
-        if self.idl.change_seqno != self.curr_seqno:
-            self.curr_seqno = self.idl.change_seqno
-            if len(self.transactions.txn_list):
-                self.check_transactions()
+        self.curr_seqno = self.idl.change_seqno
+        if len(self.transactions.txn_list):
+            self.check_transactions()
 
     def check_transactions(self):
 
