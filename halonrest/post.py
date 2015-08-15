@@ -21,18 +21,18 @@ def post_resource(data, resource, schema, txn, idl):
     if resource.relation == OVSDB_SCHEMA_CHILD:
 
         # create new row, populate it with data, add it as a reference to the parent resource
-        new_row = utils.setup_new_row(resource.next, data, schema, txn, idl)
+        new_row = utils.setup_new_row(resource.next, verified_data, schema, txn, idl)
         utils.add_reference(new_row, resource, None, idl)
 
     elif resource.relation == OVSDB_SCHEMA_REFERENCE:
 
         # create new row, populate it with data, add it as a reference to the resource that references it
-        new_row = utils.setup_new_row(resource.next, data, schema, txn, idl)
+        new_row = utils.setup_new_row(resource.next, verified_data, schema, txn, idl)
         utils.add_reference(new_row, resource, None, idl)
 
     elif resource.relation == OVSDB_SCHEMA_BACK_REFERENCE:
         # row for a back referenced item contains the parent's reference in the verified data
-        new_row = utils.setup_new_row(resource.next, data, schema, txn, idl)
+        new_row = utils.setup_new_row(resource.next, verified_data, schema, txn, idl)
 
     elif resource.relation == OVSDB_SCHEMA_TOP_LEVEL:
         new_row = utils.setup_new_row(resource.next, verified_data, schema, txn, idl)

@@ -146,11 +146,14 @@ def setup_new_row(resource, data, schema, txn, idl):
     reference_keys = schema.ovs_tables[resource.table].references.keys()
     for key in reference_keys:
         if key in data:
-            reflist = []
-            for item in data[key]:
-                # item is of type Resource
-                reflist.append(get_row(item, idl))
-            row.__setattr__(key, reflist)
+            if isinstance(data[key], Resource):
+                row.__setattr__(key, get_row(data[key], idl))
+            elif type(data[key]) is types.ListType:
+                reflist = []
+                for item in data[key]:
+                    # item is of type Resource
+                    reflist.append(get_row(item, idl))
+                row.__setattr__(key, reflist)
     return row
 
 def row_to_json(row, column_keys):
