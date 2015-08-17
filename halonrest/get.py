@@ -84,6 +84,7 @@ def get_row_json(row, table, schema, idl, uri):
     data.update(config_data)
     data.update(stats_data)
     data.update(status_data)
+    data.update(reference_data)
     return data
 
 # get list of all table row entries
