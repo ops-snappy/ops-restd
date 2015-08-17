@@ -18,6 +18,9 @@ class BaseHandler(web.RequestHandler):
         self.schema = self.ref_object.restschema
         self.idl = self.ref_object.manager.idl
         self.request.path = re.sub("/{2,}", "/", self.request.path)
+        # TODO - remove next line before release - needed for testing
+        self.set_header("Access-Control-Allow-Origin", "*")
+
 
     def set_default_headers(self):
         self.set_header("Content-Type", "application/json; charset=UTF-8")
