@@ -4,7 +4,6 @@ from tornado import web, gen, locks
 import json
 import httplib
 import re
-import datetime
 
 from halonrest.resource import Resource
 from halonrest.parse import parse_url_path
@@ -44,9 +43,7 @@ class AutoHandler(BaseHandler):
         if result is None:
             self.set_status(httplib.NOT_FOUND)
         else:
-            # TODO: Include timestamp in the final API response format
-            iso_time = datetime.datetime.now().isoformat()
-            self.write(json.dumps({'data': result, 'time': iso_time}))
+            self.write(json.dumps({'data': result}))
 
         self.finish()
 
