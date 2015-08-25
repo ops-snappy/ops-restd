@@ -8,7 +8,7 @@ import re
 from halonrest.resource import Resource
 from halonrest.parse import parse_url_path
 from halonrest.constants import *
-from halonrest import get, post
+from halonrest import get, post, delete
 
 class BaseHandler(web.RequestHandler):
 
