@@ -19,6 +19,8 @@ import getopt
 import json
 import sys
 import re
+import string
+import inflect.inflect
 
 import ovs.dirs
 from ovs.db import error
@@ -27,6 +29,16 @@ import ovs.util
 import ovs.daemon
 import ovs.db.idl
 
+
+inflect_engine = inflect.inflect.engine()
+
+# Convert name into all lower case and into plural format
+def normalizeName(name):
+     lower_case = name.lower()
+     # Assuming table names use underscore to link words
+     words = string.split(lower_case, '_')
+     words[-1] = inflect_engine.plural_noun(words[-1])
+     return(string.join(words, '_'))
 
 class OVSColumn(object):
     """__init__() functions as the class constructor"""
@@ -93,6 +105,7 @@ class OVSTable(object):
     """__init__() functions as the class constructor"""
     def __init__(self, name, is_root, is_many = True, indexes = ['uuid']):
         self.name = name
+        self.plural_name = normalizeName(name)
 
         self.is_root = is_root
 

@@ -32,6 +32,7 @@ from halonlib.restparser import OVSColumn
 from halonlib.restparser import OVSReference
 from halonlib.restparser import OVSTable
 from halonlib.restparser import RESTSchema
+from halonlib.restparser import normalizeName
 
 
 #
@@ -511,11 +512,12 @@ def genAPI(paths, definitions, schema, table, resource_name, parent, parents, pa
             # Processed already
             continue
 
-        child_name = col_name
-        child_table = schema.ovs_tables[child_name]
+        # Use plural form of the resource name in URI
+        child_table = schema.ovs_tables[col_name]
+        child_name = normalizeName(col_name)
         parents.append(resource_name)
         parent_plurality.append(is_plural)
-        genAPI(paths, definitions, schema, child_table, col_name, table, parents, parent_plurality)
+        genAPI(paths, definitions, schema, child_table, child_name, table, parents, parent_plurality)
         parents.pop()
         parent_plurality.pop()
 
@@ -569,7 +571,8 @@ def getFullAPI(schema):
 
         parents = []
         parent_plurality = []
-        genAPI(paths, definitions, schema, table, table_name, None, parents, parent_plurality)
+        # Use plural form of the resource name in the URI
+        genAPI(paths, definitions, schema, table, table.plural_name, None, parents, parent_plurality)
 
     api["paths"] = paths
 
