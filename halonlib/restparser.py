@@ -30,9 +30,10 @@ import ovs.db.idl
 
 class OVSColumn(object):
     """__init__() functions as the class constructor"""
-    def __init__(self, type, is_optional=True, can_update = True):
+    def __init__(self, type, is_optional=True, mutable=True, can_update = True):
         # Possible values
         self.enum = set([])
+        self.mutable = mutable
 
         self.type = None
         base_type = type.key
@@ -166,7 +167,7 @@ class OVSTable(object):
 
             table.columns.append(column_name)
             if category == "configuration":
-                table.config[column_name] = OVSColumn(type_, is_optional)
+                table.config[column_name] = OVSColumn(type_, is_optional, mutable)
             elif category == "status":
                 table.status[column_name] = OVSColumn(type_, is_optional)
             elif category == "statistics":
