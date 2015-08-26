@@ -25,3 +25,9 @@ OVSDB_SCHEMA_TOP_LEVEL = 'toplevel'
 OVSDB_SCHEMA_PARENT = 'parent'
 OVSDB_SCHEMA_BACK_REFERENCE = 'back'
 OVSDB_BASE_URI = '/system/'
+
+# HTTP headers
+HTTP_HEADER_CONTENT_TYPE = 'Content-Type'
+
+# HTTP Content Types
+HTTP_CONTENT_TYPE_JSON = 'application/json; charset=UTF-8'

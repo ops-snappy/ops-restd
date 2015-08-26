@@ -21,10 +21,6 @@ class BaseHandler(web.RequestHandler):
         # TODO - remove next line before release - needed for testing
         self.set_header("Access-Control-Allow-Origin", "*")
 
-
-    def set_default_headers(self):
-        self.set_header("Content-Type", "application/json; charset=UTF-8")
-
 class AutoHandler(BaseHandler):
 
     # parse the url and http params.
@@ -43,6 +39,8 @@ class AutoHandler(BaseHandler):
         if result is None:
             self.set_status(httplib.NOT_FOUND)
         else:
+            self.set_status(httplib.OK)
+            self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
             self.write(json.dumps({'data': result}))
 
         self.finish()
@@ -65,7 +63,7 @@ class AutoHandler(BaseHandler):
             yield self.txn.event.wait()
 
         txn_status = self.txn.status
-        self.set_status(httplib.OK)
+        self.set_status(httplib.CREATED)
         self.finish()
 
     @gen.coroutine
@@ -81,5 +79,5 @@ class AutoHandler(BaseHandler):
             yield self.txn.event.wait()
 
         txn_status = self.txn.status
-        self.set_status(httplib.OK)
+        self.set_status(httplib.NO_CONTENT)
         self.finish()
