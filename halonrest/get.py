@@ -4,6 +4,7 @@ from halonrest.utils import utils
 
 import types
 import json
+from tornado.log import app_log
 
 def get_resource(idl, resource, schema, uri=None):
 
@@ -26,12 +27,9 @@ def get_resource(idl, resource, schema, uri=None):
 def get_resource_from_db(resource, schema, idl, uri=None):
 
     if resource.relation is OVSDB_SCHEMA_TOP_LEVEL:
-        table = resource.next.table
-        schema_table = schema.ovs_tables[table]
-        db_table = idl.tables[table]
 
+        uri = get_uri(resource, schema, uri)
         if resource.next.row is None:
-            uri = OVSDB_BASE_URI + resource.next.table
             return get_table_json(resource.next.table, schema, idl, uri)
         else:
             return get_row_json(resource.next.row, resource.next.table, schema, idl, uri)
@@ -44,7 +42,7 @@ def get_resource_from_db(resource, schema, idl, uri=None):
             return get_row_json(resource.next.row, resource.next.table, schema, idl, uri)
 
     elif resource.relation is OVSDB_SCHEMA_REFERENCE:
-        uri = OVSDB_BASE_URI + resource.next.table
+        uri = get_uri(resource, schema, uri)
         return get_column_json(resource.column, resource.row, resource.table, schema, idl, uri)
 
     elif resource.relation is OVSDB_SCHEMA_BACK_REFERENCE:
@@ -77,14 +75,14 @@ def get_row_json(row, table, schema, idl, uri):
     status_data = utils.row_to_json(db_row, status_keys)
 
     reference_data = {}
+    # get URIs of all references
     for key in reference_keys:
-        reference_data[key] = uri + '/' + key
+        reference_data[key] = get_column_json(key, row, table, schema, idl, uri)
 
-    data = {}
-    data.update(config_data)
-    data.update(stats_data)
-    data.update(status_data)
-    data.update(reference_data)
+    # references are part of configuration
+    config_data.update(reference_data)
+
+    data = {OVSDB_SCHEMA_CONFIG:config_data, OVSDB_SCHEMA_STATS:stats_data, OVSDB_SCHEMA_STATUS:status_data}
     return data
 
 # get list of all table row entries
@@ -110,7 +108,6 @@ def get_table_json(table, schema, idl, uri):
 
 def get_column_json(column, row, table, schema, idl, uri):
 
-
     db_table = idl.tables[table]
     db_row = db_table.rows[row]
     db_col = db_row.__getattr__(column)
@@ -118,6 +115,9 @@ def get_column_json(column, row, table, schema, idl, uri):
     # column is a reference. Get the table name
     col_table = schema.ovs_tables[table].references[column].ref_table
     indexes = schema.ovs_tables[col_table].indexes
+
+    if schema.ovs_tables[col_table].parent is None:
+        uri = OVSDB_BASE_URI + schema.ovs_tables[col_table].plural_name
 
     uri_list = []
     for row in db_col:
@@ -159,3 +159,14 @@ def get_back_references_json(parent_row, parent_table, table, schema, idl, uri):
             uri_list.append(_uri)
 
     return uri_list
+
+def get_uri(resource, schema, uri=None):
+
+    if resource.relation is OVSDB_SCHEMA_TOP_LEVEL:
+        if resource.next.row is None:
+            uri = OVSDB_BASE_URI + schema.ovs_tables[resource.next.table].plural_name
+
+    elif resource.relation is OVSDB_SCHEMA_REFERENCE:
+            uri = OVSDB_BASE_URI + schema.ovs_tables[resource.next.table].plural_name
+
+    return uri

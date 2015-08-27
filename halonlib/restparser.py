@@ -224,6 +224,11 @@ class RESTSchema(object):
                 if k not in self.reference_map:
                     self.reference_map[k] = v.ref_table
 
+        # get a plural name map for all tables
+        self.plural_name_map = {}
+        for table in self.ovs_tables.itervalues():
+            self.plural_name_map[table.plural_name] = table.name
+
     @staticmethod
     def from_json(json):
         parser = ovs.db.parser.Parser(json, "extended OVSDB schema")

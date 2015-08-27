@@ -10,6 +10,11 @@ import tornado.web
 from halonrest.settings import settings
 from halonrest.application import OvsdbApiApplication
 
+# enable logging
+from tornado.log import enable_pretty_logging
+options.logging = settings['logging']
+enable_pretty_logging()
+
 def main():
     app = OvsdbApiApplication(settings)
     http_server = tornado.httpserver.HTTPServer(app)

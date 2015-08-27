@@ -18,7 +18,9 @@ ERROR = Transaction.ERROR
 # Ovsdb schema constants
 OVSDB_SCHEMA_SYSTEM_TABLE = 'Open_vSwitch'
 OVSDB_SCHEMA_SYSTEM_URI = 'system'
-OVSDB_SCHEMA_SELECTORS = ['config', 'stats', 'status']
+OVSDB_SCHEMA_CONFIG = 'configuration'
+OVSDB_SCHEMA_STATS = 'statistics'
+OVSDB_SCHEMA_STATUS = 'status'
 OVSDB_SCHEMA_CHILD = 'child'
 OVSDB_SCHEMA_REFERENCE = 'reference'
 OVSDB_SCHEMA_TOP_LEVEL = 'toplevel'

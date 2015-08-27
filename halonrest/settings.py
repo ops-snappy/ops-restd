@@ -9,6 +9,7 @@ define("config", default=None, help="tornado config file")
 define("debug", default=False, help="debug mode")
 
 settings = {}
+settings['logging'] = 'info'
 settings["static_path"] = os.path.join(os.path.dirname(__file__), "static")
 settings["template_path"] = os.path.join(os.path.dirname(__file__), "templates")
 settings['ovs_remote'] = 'unix:/var/run/openvswitch/db.sock'

@@ -11,11 +11,19 @@ def verify_data(data, resource, schema, idl, http_method):
 
 def verify_post_data(data, resource, schema, idl):
 
+    if OVSDB_SCHEMA_CONFIG not in data:
+        return None
+
+    _data = data[OVSDB_SCHEMA_CONFIG]
+
     if resource.relation == OVSDB_SCHEMA_CHILD:
         verified_data = {}
-        verified_config_data = verify_config_data(data, resource.next, schema)
+
+        verified_config_data = verify_config_data(_data, resource.next, schema)
         if verified_config_data is not None:
             verified_data.update(verified_config_data)
+
+        # verify references
 
         return verified_data
 
@@ -23,8 +31,8 @@ def verify_post_data(data, resource, schema, idl):
         config_keys = schema.ovs_tables[resource.next.table].config
         verified_data = {}
         for key in config_keys:
-            if key in data:
-                verified_data[key] = data[key]
+            if key in _data:
+                verified_data[key] = _data[key]
 
         # set up reference
         verified_data['reference'] = resource
