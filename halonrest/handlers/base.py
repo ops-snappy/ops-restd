@@ -18,7 +18,13 @@ class BaseHandler(web.RequestHandler):
         self.schema = self.ref_object.restschema
         self.idl = self.ref_object.manager.idl
         self.request.path = re.sub("/{2,}", "/", self.request.path)
+
+        # CORS
+        allow_origin = self.request.protocol + "://"
+        allow_origin += self.request.host.split(":")[0] # removing port if present
+        self.set_header("Access-Control-Allow-Origin", allow_origin)
         self.set_header("Access-Control-Expose-Headers", "Date")
+
         # TODO - remove next line before release - needed for testing
         self.set_header("Access-Control-Allow-Origin", "*")
 
