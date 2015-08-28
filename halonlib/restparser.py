@@ -20,7 +20,7 @@ import json
 import sys
 import re
 import string
-import inflect.inflect
+import inflect
 
 import ovs.dirs
 from ovs.db import error
@@ -30,7 +30,7 @@ import ovs.daemon
 import ovs.db.idl
 
 
-inflect_engine = inflect.inflect.engine()
+inflect_engine = inflect.engine()
 
 # Convert name into all lower case and into plural format
 def normalizeName(name):
