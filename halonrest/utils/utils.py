@@ -32,21 +32,40 @@ def get_row(resource, idl=None):
 
     return None
 
-# get column item from a row or resource
+# get column items from a row or resource
 def get_column(resource, column=None, idl=None):
 
+    # if resource is a Row object
     if isinstance(resource, ovs.db.idl.Row):
         if column is None:
             return None
-        else:
-            return resource.__getattr__(column)
 
-    elif isinstance(resource, Resource):
+        if type(str(column)) is types.StringType:
+            return resource.__getattr__(column)
+        elif type(column) is types.ListType:
+            columns = []
+            for item in column:
+                columns.append(resource.__getattr__(item))
+            return columns
+        else:
+            return None
+
+    # if resource is a Resource object
+    if isinstance(resource, Resource):
         if resource.table is None or resource.row is None or resource.column is None or idl is None:
             return None
-        else:
-            row = idl.tables[resource.table].rows[resource.row]
+
+        row = idl.tables[resource.table].rows[resource.row]
+
+        if type(resource.column) is types.StringType:
             return row.__getattr__(resource.column)
+        elif type(resource.column) is types.ListType:
+            columns = []
+            for item in resource.column:
+                columns.append(row.__getattr__(item))
+            return columns
+        else:
+            return None
 
     return None
 
@@ -95,13 +114,26 @@ def add_reference(reference, resource, column=None, idl=None):
 
     reflist = get_column(row, column)
 
-    updated_list = []
-    for item in reflist:
-        updated_list.append(item)
-    updated_list.append(ref)
+    # a list of Row elements
+    if len(reflist) == 0 or isinstance(reflist[0], ovs.db.idl.Row):
+        updated_list = []
+        for item in reflist:
+            updated_list.append(item)
+        updated_list.append(ref)
+        row.__setattr__(column, updated_list)
+        return True
 
-    row.__setattr__(column, updated_list)
-    return True
+    # a list-of-list of Row elements
+    elif type(reflist[0]) is types.ListType:
+        for _reflist in reflist:
+            updated_list = []
+            for item in _reflist:
+                updated_list.append(item)
+            updated_list.append(ref)
+            row.__setattr__(column, updated_list)
+        return True
+
+    return False
 
 # delete a Row reference from a Resource
 def delete_reference(reference, resource, column=None, idl=None):

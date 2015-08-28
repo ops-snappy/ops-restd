@@ -114,6 +114,9 @@ def parse(path, resource, schema, idl, http_method):
 
     # verify back reference existence
     if resource.relation == OVSDB_SCHEMA_BACK_REFERENCE:
+        if http_method == 'POST' and index_list is None:
+            return
+
         if not verify_back_reference(resource, new_resource, schema, idl, index_list):
             app_log.debug('back reference not found')
             raise Exception

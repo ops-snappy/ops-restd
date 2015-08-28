@@ -27,6 +27,7 @@ OVSDB_SCHEMA_TOP_LEVEL = 'toplevel'
 OVSDB_SCHEMA_PARENT = 'parent'
 OVSDB_SCHEMA_BACK_REFERENCE = 'back'
 OVSDB_BASE_URI = '/system/'
+OVSDB_SCHEMA_REFERENCED_BY = 'referenced_by'
 
 # HTTP headers
 HTTP_HEADER_CONTENT_TYPE = 'Content-Type'
