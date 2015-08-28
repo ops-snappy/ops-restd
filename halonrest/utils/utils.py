@@ -191,6 +191,20 @@ def to_json(data):
     else:
         return str(data)
 
+def has_column_changed(json_data, data):
+    json_type_ = type(json_data)
+    type_ = type(data)
+
+    if json_type_ != type_:
+        return False
+
+    if type_ is types.DictType or type_ is types.ListType or type_ is types.NoneType or type_ is types.BooleanType:
+        return json_data == data
+
+    else:
+        return json_data == str(data)
+
+
 def dict_to_json(data):
     if not data:
         return data
@@ -245,7 +259,7 @@ def index_to_row(index_values, table_schema, dbtable):
 
     return None
 
-def row_to_index(dbtable, table_schema, row):
+def row_to_index(table_schema, row):
 
     tmp = []
     for index in table_schema.indexes:

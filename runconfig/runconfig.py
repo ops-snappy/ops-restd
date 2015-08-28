@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from settings import settings
+from halonrest.settings import settings
 from halonrest.manager import OvsdbConnectionManager
 from halonrest.utils import utils
 from halonrest import resource
@@ -33,8 +33,12 @@ class RunConfigUtil():
         self.restschema = restschema
 
 
-    def getRowData(self, table, row):
+    def get_row_data(self, table, row):
         rowobj = {}
+
+        # Routes are special case - only static routes are returned
+        if table == 'Route' and row.__getattr__('from') != 'static':
+            return
 
         for column_name, column in table.config.iteritems():
             rowobj[column_name] = utils.to_json(row.__getattr__(column_name))
@@ -51,11 +55,11 @@ class RunConfigUtil():
                     reflist.append(refdata[i].uuid)
 
                 if len(reflist) > 0:
-                    tabledata = self.getTableData(column.ref_table, self.restschema.ovs_tables[column.ref_table], reflist)
+                    tabledata = self.get_table_data(column.ref_table, self.restschema.ovs_tables[column.ref_table], reflist)
                     if len(tabledata) > 0:
                         rowobj[child_name] = tabledata
             else:
-                tabledata = self.getTableDataByParent(child_name, self.restschema.ovs_tables[child_name], row.uuid)
+                tabledata = self.get_table_data_by_parent(child_name, self.restschema.ovs_tables[child_name], row.uuid)
                 if len(tabledata) > 0:
                     rowobj[child_name] = tabledata
 
@@ -67,13 +71,13 @@ class RunConfigUtil():
             # this is a list of references
             reflist = []
             for i in refdata:
-                reflist.append(utils.row_to_index( self.idl.tables[column.ref_table] , self.restschema.ovs_tables[column.ref_table], i))
+                reflist.append(utils.row_to_index(self.restschema.ovs_tables[column.ref_table], i))
             if len(reflist) > 0:
                 rowobj[column_name] = reflist
 
         return rowobj
 
-    def getTableDataByParent(self, table_name, schema_table, parent_uuid):
+    def get_table_data_by_parent(self, table_name, schema_table, parent_uuid):
 
         tableobj = {}
         dbtable = self.idl.tables[table_name]
@@ -87,15 +91,15 @@ class RunConfigUtil():
 
         rows = []
         for row in dbtable.rows.itervalues():
-            uuid = row.__getattr__(parent_column)
+            uuid = row.__getattr__(parent_column).uuid
             if uuid == parent_uuid:
-                rowdata = self.getRowData(schema_table, row)
+                rowdata = self.get_row_data(schema_table, row)
                 if len(rowdata) > 0:
-                    tableobj[utils.row_to_index( dbtable , schema_table, row)] = rowdata
+                    tableobj[utils.row_to_index(schema_table, row)] = rowdata
 
         return tableobj
 
-    def getTableData(self, table_name, schema_table, uuid_list = None):
+    def get_table_data(self, table_name, schema_table, uuid_list = None):
 
         tableobj = {}
         dbtable = self.idl.tables[table_name]
@@ -109,20 +113,19 @@ class RunConfigUtil():
                 rows.append(item)
 
         for item in rows:
-            rowdata = self.getRowData(schema_table, item)
+            rowdata = self.get_row_data(schema_table, item)
             if len(rowdata) > 0:
-                tableobj[utils.row_to_index( dbtable , schema_table, item)] = rowdata
+                tableobj[utils.row_to_index(schema_table, item)] = rowdata
 
         return tableobj
 
 
-    def getRunningConfig(self):
+    def get_running_config(self):
         try:
             config = {}
 
             #foreach table in Tables, create uri and add to the data
             for table_name, table in self.restschema.ovs_tables.iteritems():
-#
                 for columnName, column in table.references.iteritems():
                     if column.relation == "parent":
                         table.parent = column.ref_table
@@ -144,7 +147,7 @@ class RunConfigUtil():
 
                 if table.parent is not None:
                     continue
-                tabledata = self.getTableData(table_name, table)
+                tabledata = self.get_table_data(table_name, table)
 
                 if len(tabledata) > 0:
                     config[table_name] = tabledata
@@ -158,7 +161,7 @@ class RunConfigUtil():
 
 def main():
     run_config_util = RunConfigUtil(settings)
-    config = run_config_util.getRunningConfig()
+    config = run_config_util.get_running_config()
     print("Running Config: %s " % json.dumps(config, sort_keys=True, indent=4, separators=(',', ': ')))
 
 def test():
@@ -178,8 +181,8 @@ def test():
     restschema = restparser.parseSchema(settings.get('ext_schema'))
 
     run_config_util = RunConfigUtil(idl, restschema)
-    config = run_config_util.getRunningConfig()
-    print("Running Config: %s " % json.dumps(config, sort_keys=True, indent=4, separators=(',', ': ')))
+    config = run_config_util.get_running_config()
+    print(json.dumps(config, sort_keys=True, indent=4, separators=(',', ': ')))
 
 if __name__ == "__main__":
     test()
