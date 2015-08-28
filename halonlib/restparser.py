@@ -42,7 +42,7 @@ def normalizeName(name):
 
 class OVSColumn(object):
     """__init__() functions as the class constructor"""
-    def __init__(self, type, is_optional=True, mutable=True, can_update = True):
+    def __init__(self, type, is_optional=True, mutable=True):
         # Possible values
         self.enum = set([])
         self.mutable = mutable
@@ -74,6 +74,9 @@ class OVSColumn(object):
 
         # is this column entry optional
         self.is_optional = is_optional
+
+        self.n_max = type.n_max
+        self.n_min = type.n_min
 
 class OVSReference(object):
     """__init__() functions as the class constructor"""
