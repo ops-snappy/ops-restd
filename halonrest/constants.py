@@ -31,6 +31,7 @@ OVSDB_SCHEMA_REFERENCED_BY = 'referenced_by'
 
 # HTTP headers
 HTTP_HEADER_CONTENT_TYPE = 'Content-Type'
+HTTP_HEADER_CONTENT_LENGTH = 'Content-Length'
 
 # HTTP Content Types
 HTTP_CONTENT_TYPE_JSON = 'application/json; charset=UTF-8'

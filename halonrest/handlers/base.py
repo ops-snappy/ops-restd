@@ -8,6 +8,7 @@ import re
 from halonrest.resource import Resource
 from halonrest.parse import parse_url_path
 from halonrest.constants import *
+from halonrest.utils.utils import *
 from halonrest import get, post, delete
 
 class BaseHandler(web.RequestHandler):
@@ -55,22 +56,31 @@ class AutoHandler(BaseHandler):
     @gen.coroutine
     def post(self):
 
-        # get the POST body
-        post_data = json.loads(self.request.body)
+        if HTTP_HEADER_CONTENT_LENGTH in self.request.headers:
+            try:
+                # get the POST body
+                post_data = json.loads(self.request.body)
 
-        # create a new ovsdb transaction
-        self.txn = self.ref_object.manager.get_new_transaction()
+                # create a new ovsdb transaction
+                self.txn = self.ref_object.manager.get_new_transaction()
 
-        # post_resource performs data verficiation, prepares and commits the ovsdb transaction
-        result = post.post_resource(post_data, self.resource_path, self.schema, self.txn, self.idl)
-        if result is INCOMPLETE:
-            self.ref_object.manager.monitor_transaction(self.txn)
+                # post_resource performs data verficiation, prepares and commits the ovsdb transaction
+                result = post.post_resource(post_data, self.resource_path, self.schema, self.txn, self.idl)
+                if result is INCOMPLETE:
+                    self.ref_object.manager.monitor_transaction(self.txn)
 
-            # on 'incomplete' state we wait until the transaction completes with either success or failure
-            yield self.txn.event.wait()
+                    # on 'incomplete' state we wait until the transaction completes with either success or failure
+                    yield self.txn.event.wait()
 
-        txn_status = self.txn.status
-        self.set_status(httplib.CREATED)
+                txn_status = self.txn.status
+                self.set_status(httplib.CREATED)
+            except ValueError, e:
+                self.set_status(httplib.BAD_REQUEST)
+                self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
+                self.write(to_json_error(e))
+        else:
+            self.set_status(httplib.LENGTH_REQUIRED)
+
         self.finish()
 
     @gen.coroutine

@@ -236,6 +236,10 @@ def has_column_changed(json_data, data):
     else:
         return json_data == str(data)
 
+def to_json_error(message, code=None, fields=None):
+    dict = {"code": code, "fields": fields, "message": message}
+
+    return dict_to_json(dict)
 
 def dict_to_json(data):
     if not data:
@@ -247,6 +251,8 @@ def dict_to_json(data):
 
         if isinstance(value, ovs.db.idl.Row):
             data_json[key] = str(value.uuid)
+        if value is None:
+            data_json[key] = 'null'
         else:
             data_json[key] = str(value)
 
