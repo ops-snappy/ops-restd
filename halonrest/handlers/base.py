@@ -66,14 +66,19 @@ class AutoHandler(BaseHandler):
 
                 # post_resource performs data verficiation, prepares and commits the ovsdb transaction
                 result = post.post_resource(post_data, self.resource_path, self.schema, self.txn, self.idl)
-                if result is INCOMPLETE:
+
+                if result is None:
+                    self.txn.abort()
+                    self.set_status(httplib.BAD_REQUEST)
+
+                elif result is INCOMPLETE:
                     self.ref_object.manager.monitor_transaction(self.txn)
 
                     # on 'incomplete' state we wait until the transaction completes with either success or failure
                     yield self.txn.event.wait()
 
-                txn_status = self.txn.status
-                self.set_status(httplib.CREATED)
+                    self.set_status(httplib.CREATED)
+
             except ValueError, e:
                 self.set_status(httplib.BAD_REQUEST)
                 self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)

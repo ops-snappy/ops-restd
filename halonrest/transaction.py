@@ -20,3 +20,6 @@ class OvsdbTransaction:
 
     def insert(self, table):
         return self.txn.insert(table)
+
+    def abort(self):
+        self.txn.abort()
