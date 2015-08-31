@@ -127,7 +127,7 @@ def get_column_json(column, row, table, schema, idl, uri):
                 tmp.append(str(row.uuid))
             else:
                 tmp.append(str(row.__getattr__(index)))
-        _uri = uri + '/' + '/'.join(tmp)
+        _uri = uri + '/'.join(tmp)
         uri_list.append(_uri)
 
     return uri_list
