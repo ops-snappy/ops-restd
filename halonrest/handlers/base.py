@@ -49,7 +49,7 @@ class AutoHandler(BaseHandler):
         else:
             self.set_status(httplib.OK)
             self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
-            self.write(json.dumps({'data': result}))
+            self.write(json.dumps(result))
 
         self.finish()
 
