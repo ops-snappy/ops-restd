@@ -56,6 +56,36 @@ def verify_post_data(data, resource, schema, idl):
 
     return verified_data
 
+def verify_put_data(data, resource, schema, idl):
+
+    # all POST data should be enclosed in { 'configuration' : { DATA } } JSON
+    if OVSDB_SCHEMA_CONFIG not in data:
+        app_log.info("JSON is missing configuration data")
+        return None
+
+    _data = data[OVSDB_SCHEMA_CONFIG]
+
+    # verify config and reference columns data
+    verified_data = {}
+    verified_config_data = verify_config_data(_data, resource.next, schema, 'PUT')
+    if verified_config_data is not None:
+        verified_data.update(verified_config_data)
+
+    verified_reference_data = verify_forward_reference(_data, resource.next, schema, idl)
+    app_log.info(verified_reference_data)
+    if verified_reference_data is not None:
+        verified_data.update(verified_reference_data)
+
+    is_root = schema.ovs_tables[resource.next.table].is_root
+
+    #Reference by is not allowed in put
+    if resource.relation == OVSDB_SCHEMA_TOP_LEVEL and not is_root:
+        if OVSDB_SCHEMA_REFERENCED_BY in data:
+            app_log.info('referenced_by is not allowed when doing PUT')
+            return None
+
+    return verified_data
+
 def verify_config_data(data, resource, schema, http_method):
     config_keys = schema.ovs_tables[resource.table].config
     reference_keys = schema.ovs_tables[resource.table].references
@@ -109,7 +139,7 @@ def verify_forward_reference(data, resource, schema, idl):
             reference_list = []
             for index in index_list:
                 index_values = index.split('/')
-                row = utils.index_to_row(index_values, schema.ovs_tables[ref_table], idl.tables[ref_table])
+                row = utils.index_to_row(index_values[-1], schema.ovs_tables[ref_table], idl.tables[ref_table])
                 reference_list.append(row)
             verified_references[key] = reference_list
 
