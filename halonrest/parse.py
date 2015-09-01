@@ -6,6 +6,8 @@ import ovs.ovsuuid
 import types
 import json
 
+from tornado.log import app_log
+
 def split_path(path):
     path = path.split('/')
     path = [i for i in path if i!= '']
@@ -39,6 +41,8 @@ def parse_url_path(path, schema, idl, http_method):
         parse(path, resource, schema, idl, http_method)
         return resource
     except Exception as e:
+        app_log.debug(e)
+        app_log.debug('resource not found')
         return None
 
     return None
@@ -54,47 +58,48 @@ def parse(path, resource, schema, idl, http_method):
 
     ovs_tables = schema.ovs_tables
     table_names = ovs_tables.keys()
+    table_plural_names = schema.plural_name_map
     reference_map = schema.reference_map
 
     _fail = False
 
-    # is it a child or non-parent reference?
+    # CHILD/REFERENCE check
     if path[0] in ovs_tables[resource.table].columns and path[0] in ovs_tables[resource.table].references:
+        app_log.debug('child or reference check')
         resource.column = path[0]
         resource.relation = ovs_tables[resource.table].references[resource.column].relation
 
         if resource.relation == OVSDB_SCHEMA_PARENT:
-            raise Exception("Invalid URI: Parent referenced from child")
+            app_log.debug('accessing a parent resource from a child resource is not allowed')
+            raise Exception
         path[0] = reference_map[path[0]]
 
-    # is it a back reference?
-    elif path[0] in reference_map:
-        path[0] = reference_map[path[0]]
-        if path[0] in ovs_tables[resource.table].children and ovs_tables[path[0]].parent == resource.table:
-            # back reference to a parent
-            resource.relation = OVSDB_SCHEMA_BACK_REFERENCE
-        else:
-            raise Exception("Invalid URI")
-
-    # is it a top level table?
-    elif path[0] in table_names:
+    # TOP-LEVEL/BACK-REFERENCE check
+    elif path[0] in table_plural_names:
+        app_log.debug('top-level or back reference check')
+        path[0] = table_plural_names[path[0]]
         if ovs_tables[path[0]].parent is None:
             if resource.table == OVSDB_SCHEMA_SYSTEM_TABLE:
                 resource.relation = OVSDB_SCHEMA_TOP_LEVEL
             else:
-                raise Exception("Invalid URI")
+                app_log.debug('resource is not a top level table')
+                raise Exception
 
         elif ovs_tables[path[0]].parent == resource.table:
             resource.relation = OVSDB_SCHEMA_BACK_REFERENCE
         else:
-            raise Exception("Invalid URI")
+            app_log.debug('resource is neither a forward not a backward reference')
+            raise Exception
 
     else:
-        raise Exception("Invalid URI")
+        app_log.debug('uri to resource relationship does not exist')
+        raise Exception
 
     new_resource = Resource(path[0])
     resource.next = new_resource
     path = path[1:]
+
+    app_log.debug('resource: ' + resource.table + ' ' + str(resource.row) + ' ' + str(resource.column) + ' ' + str(resource.relation))
 
     # this should be the start of the index
     index_list = None
@@ -109,8 +114,12 @@ def parse(path, resource, schema, idl, http_method):
 
     # verify back reference existence
     if resource.relation == OVSDB_SCHEMA_BACK_REFERENCE:
+        if http_method == 'POST' and index_list is None:
+            return
+
         if not verify_back_reference(resource, new_resource, schema, idl, index_list):
-            raise Exception("Back reference not found")
+            app_log.debug('back reference not found')
+            raise Exception
 
     # return if we are done processing the URI
     if index_list is None:
@@ -119,12 +128,13 @@ def parse(path, resource, schema, idl, http_method):
     # restrictions for chained references.
     if http_method == 'GET' or http_method == 'POST':
         if resource.relation == OVSDB_SCHEMA_REFERENCE:
-            raise Exception("Not allowed")
+            app_log.debug('accessing a resource reference from another resource references is not allowed')
+            raise Exception
 
     # verify non-backreference resource existence
     row = verify_index(new_resource, index_list, schema, idl)
     if row is None:
-        raise Exception("Resource not found")
+        raise Exception
     else:
         new_resource.row = row.uuid
         new_resource.index = index_list

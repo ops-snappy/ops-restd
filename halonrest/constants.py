@@ -18,10 +18,20 @@ ERROR = Transaction.ERROR
 # Ovsdb schema constants
 OVSDB_SCHEMA_SYSTEM_TABLE = 'Open_vSwitch'
 OVSDB_SCHEMA_SYSTEM_URI = 'system'
-OVSDB_SCHEMA_SELECTORS = ['config', 'stats', 'status']
+OVSDB_SCHEMA_CONFIG = 'configuration'
+OVSDB_SCHEMA_STATS = 'statistics'
+OVSDB_SCHEMA_STATUS = 'status'
 OVSDB_SCHEMA_CHILD = 'child'
 OVSDB_SCHEMA_REFERENCE = 'reference'
 OVSDB_SCHEMA_TOP_LEVEL = 'toplevel'
 OVSDB_SCHEMA_PARENT = 'parent'
 OVSDB_SCHEMA_BACK_REFERENCE = 'back'
 OVSDB_BASE_URI = '/system/'
+OVSDB_SCHEMA_REFERENCED_BY = 'referenced_by'
+
+# HTTP headers
+HTTP_HEADER_CONTENT_TYPE = 'Content-Type'
+HTTP_HEADER_CONTENT_LENGTH = 'Content-Length'
+
+# HTTP Content Types
+HTTP_CONTENT_TYPE_JSON = 'application/json; charset=UTF-8'

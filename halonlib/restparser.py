@@ -19,6 +19,8 @@ import getopt
 import json
 import sys
 import re
+import string
+import inflect
 
 import ovs.dirs
 from ovs.db import error
@@ -28,11 +30,22 @@ import ovs.daemon
 import ovs.db.idl
 
 
+inflect_engine = inflect.engine()
+
+# Convert name into all lower case and into plural format
+def normalizeName(name):
+     lower_case = name.lower()
+     # Assuming table names use underscore to link words
+     words = string.split(lower_case, '_')
+     words[-1] = inflect_engine.plural_noun(words[-1])
+     return(string.join(words, '_'))
+
 class OVSColumn(object):
     """__init__() functions as the class constructor"""
-    def __init__(self, type, is_optional=True, can_update = True):
+    def __init__(self, type, is_optional=True, mutable=True):
         # Possible values
         self.enum = set([])
+        self.mutable = mutable
 
         self.type = None
         base_type = type.key
@@ -62,12 +75,18 @@ class OVSColumn(object):
         # is this column entry optional
         self.is_optional = is_optional
 
+        self.n_max = type.n_max
+        self.n_min = type.n_min
+
 class OVSReference(object):
     """__init__() functions as the class constructor"""
     def __init__(self, type, relation = 'reference'):
         base_type = type.key
 
         # Name of the table being referenced
+        if base_type.type != types.UuidType:
+            # referenced table name must be in value part of KV pair
+            base_type = type.value
         self.ref_table = base_type.ref_table_name
 
         # Relationship of the referenced to the current table
@@ -89,6 +108,7 @@ class OVSTable(object):
     """__init__() functions as the class constructor"""
     def __init__(self, name, is_root, is_many = True, indexes = ['uuid']):
         self.name = name
+        self.plural_name = normalizeName(name)
 
         self.is_root = is_root
 
@@ -163,7 +183,7 @@ class OVSTable(object):
 
             table.columns.append(column_name)
             if category == "configuration":
-                table.config[column_name] = OVSColumn(type_, is_optional)
+                table.config[column_name] = OVSColumn(type_, is_optional, mutable)
             elif category == "status":
                 table.status[column_name] = OVSColumn(type_, is_optional)
             elif category == "statistics":
@@ -206,6 +226,11 @@ class RESTSchema(object):
             for k,v in self.ovs_tables[table].references.iteritems():
                 if k not in self.reference_map:
                     self.reference_map[k] = v.ref_table
+
+        # get a plural name map for all tables
+        self.plural_name_map = {}
+        for table in self.ovs_tables.itervalues():
+            self.plural_name_map[table.plural_name] = table.name
 
     @staticmethod
     def from_json(json):

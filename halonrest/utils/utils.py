@@ -7,6 +7,7 @@ import uuid
 
 from halonrest.resource import Resource
 from halonrest.constants import *
+from tornado.log import app_log
 
 
 # get a row from a resource
@@ -32,21 +33,40 @@ def get_row(resource, idl=None):
 
     return None
 
-# get column item from a row or resource
+# get column items from a row or resource
 def get_column(resource, column=None, idl=None):
 
+    # if resource is a Row object
     if isinstance(resource, ovs.db.idl.Row):
         if column is None:
             return None
-        else:
-            return resource.__getattr__(column)
 
-    elif isinstance(resource, Resource):
+        if type(str(column)) is types.StringType:
+            return resource.__getattr__(column)
+        elif type(column) is types.ListType:
+            columns = []
+            for item in column:
+                columns.append(resource.__getattr__(item))
+            return columns
+        else:
+            return None
+
+    # if resource is a Resource object
+    if isinstance(resource, Resource):
         if resource.table is None or resource.row is None or resource.column is None or idl is None:
             return None
-        else:
-            row = idl.tables[resource.table].rows[resource.row]
+
+        row = idl.tables[resource.table].rows[resource.row]
+
+        if type(resource.column) is types.StringType:
             return row.__getattr__(resource.column)
+        elif type(resource.column) is types.ListType:
+            columns = []
+            for item in resource.column:
+                columns.append(row.__getattr__(item))
+            return columns
+        else:
+            return None
 
     return None
 
@@ -95,13 +115,26 @@ def add_reference(reference, resource, column=None, idl=None):
 
     reflist = get_column(row, column)
 
-    updated_list = []
-    for item in reflist:
-        updated_list.append(item)
-    updated_list.append(ref)
+    # a list of Row elements
+    if len(reflist) == 0 or isinstance(reflist[0], ovs.db.idl.Row):
+        updated_list = []
+        for item in reflist:
+            updated_list.append(item)
+        updated_list.append(ref)
+        row.__setattr__(column, updated_list)
+        return True
 
-    row.__setattr__(column, updated_list)
-    return True
+    # a list-of-list of Row elements
+    elif type(reflist[0]) is types.ListType:
+        for _reflist in reflist:
+            updated_list = []
+            for item in _reflist:
+                updated_list.append(item)
+            updated_list.append(ref)
+            row.__setattr__(column, updated_list)
+        return True
+
+    return False
 
 # delete a Row reference from a Resource
 def delete_reference(reference, resource, column=None, idl=None):
@@ -137,24 +170,57 @@ def setup_new_row(resource, data, schema, txn, idl):
     row = txn.insert(idl.tables[resource.table])
 
     # add config items
+    set_config_fields(resource, row, data, schema)
+
+    # add reference items
+    set_reference_items(resource, row, data, schema, idl)
+
+    return row
+
+#Update columns from a row
+def update_row(resource, data, schema, txn, idl):
+    #Verify if is a Resource instance
+    if not isinstance(resource, Resource):
+        return None
+
+    if resource.table is None:
+        return None
+
+    #get the row that will be modified
+    row = get_row(resource, idl);
+
+    #Update config items
+    set_config_fields(resource, row, data, schema)
+
+    # add or modify reference items (Overwrite references)
+    set_reference_items(resource, row, data, schema, idl)
+
+    return row
+
+# set each config data on each column
+def set_config_fields(resource, row, data, schema):
     config_keys = schema.ovs_tables[resource.table].config
     for key in config_keys:
         if key in data:
             row.__setattr__(key, data[key])
 
-    # add reference items
+# set the reference items in the row
+def set_reference_items(resource, row, data, schema, idl):
+    # set new reference items
     reference_keys = schema.ovs_tables[resource.table].references.keys()
     for key in reference_keys:
         if key in data:
+            app_log.debug("Adding Reference, the key is %s" % key)
             if isinstance(data[key], Resource):
                 row.__setattr__(key, get_row(data[key], idl))
             elif type(data[key]) is types.ListType:
                 reflist = []
                 for item in data[key]:
+                    row_ref = get_row(item, idl)
                     # item is of type Resource
-                    reflist.append(get_row(item, idl))
+                    reflist.append(row_ref)
+                #Set data on the column
                 row.__setattr__(key, reflist)
-    return row
 
 def row_to_json(row, column_keys):
 
@@ -191,6 +257,24 @@ def to_json(data):
     else:
         return str(data)
 
+def has_column_changed(json_data, data):
+    json_type_ = type(json_data)
+    type_ = type(data)
+
+    if json_type_ != type_:
+        return False
+
+    if type_ is types.DictType or type_ is types.ListType or type_ is types.NoneType or type_ is types.BooleanType:
+        return json_data == data
+
+    else:
+        return json_data == str(data)
+
+def to_json_error(message, code=None, fields=None):
+    dict = {"code": code, "fields": fields, "message": message}
+
+    return dict_to_json(dict)
+
 def dict_to_json(data):
     if not data:
         return data
@@ -201,6 +285,8 @@ def dict_to_json(data):
 
         if isinstance(value, ovs.db.idl.Row):
             data_json[key] = str(value.uuid)
+        if value is None:
+            data_json[key] = 'null'
         else:
             data_json[key] = str(value)
 
@@ -224,7 +310,6 @@ def list_to_json(data):
 def index_to_row(index_values, table_schema, dbtable):
 
     indexes = table_schema.indexes
-
     if len(index_values) != len(indexes):
         return None
 
@@ -245,7 +330,7 @@ def index_to_row(index_values, table_schema, dbtable):
 
     return None
 
-def row_to_index(dbtable, table_schema, row):
+def row_to_index(table_schema, row):
 
     tmp = []
     for index in table_schema.indexes:
