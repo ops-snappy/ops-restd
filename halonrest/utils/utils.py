@@ -7,6 +7,7 @@ import uuid
 
 from halonrest.resource import Resource
 from halonrest.constants import *
+from tornado.log import app_log
 
 
 # get a row from a resource
@@ -169,24 +170,57 @@ def setup_new_row(resource, data, schema, txn, idl):
     row = txn.insert(idl.tables[resource.table])
 
     # add config items
+    set_config_fields(resource, row, data, schema)
+
+    # add reference items
+    set_reference_items(resource, row, data, schema, idl)
+
+    return row
+
+#Update columns from a row
+def update_row(resource, data, schema, txn, idl):
+    #Verify if is a Resource instance
+    if not isinstance(resource, Resource):
+        return None
+
+    if resource.table is None:
+        return None
+
+    #get the row that will be modified
+    row = get_row(resource, idl);
+
+    #Update config items
+    set_config_fields(resource, row, data, schema)
+
+    # add or modify reference items (Overwrite references)
+    set_reference_items(resource, row, data, schema, idl)
+
+    return row
+
+# set each config data on each column
+def set_config_fields(resource, row, data, schema):
     config_keys = schema.ovs_tables[resource.table].config
     for key in config_keys:
         if key in data:
             row.__setattr__(key, data[key])
 
-    # add reference items
+# set the reference items in the row
+def set_reference_items(resource, row, data, schema, idl):
+    # set new reference items
     reference_keys = schema.ovs_tables[resource.table].references.keys()
     for key in reference_keys:
         if key in data:
+            app_log.debug("Adding Reference, the key is %s" % key)
             if isinstance(data[key], Resource):
                 row.__setattr__(key, get_row(data[key], idl))
             elif type(data[key]) is types.ListType:
                 reflist = []
                 for item in data[key]:
+                    row_ref = get_row(item, idl)
                     # item is of type Resource
-                    reflist.append(get_row(item, idl))
+                    reflist.append(row_ref)
+                #Set data on the column
                 row.__setattr__(key, reflist)
-    return row
 
 def row_to_json(row, column_keys):
 
@@ -276,7 +310,6 @@ def list_to_json(data):
 def index_to_row(index_values, table_schema, dbtable):
 
     indexes = table_schema.indexes
-
     if len(index_values) != len(indexes):
         return None
 

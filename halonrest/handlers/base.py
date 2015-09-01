@@ -9,7 +9,7 @@ from halonrest.resource import Resource
 from halonrest.parse import parse_url_path
 from halonrest.constants import *
 from halonrest.utils.utils import *
-from halonrest import get, post, delete
+from halonrest import get, post, delete, put
 
 class BaseHandler(web.RequestHandler):
 
@@ -109,7 +109,7 @@ class AutoHandler(BaseHandler):
     def delete(self):
 
         self.txn = self.ref_object.manager.get_new_transaction()
-         # post_resource performs data verficiation, prepares and commits the ovsdb transaction
+        # post_resource performs data verficiation, prepares and commits the ovsdb transaction
         result = delete.delete_resource(self.resource_path, self.txn, self.idl)
 
         if result is None:
@@ -133,5 +133,52 @@ class AutoHandler(BaseHandler):
                 self.set_status(httplib.BAD_REQUEST)
                 self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
                 self.write(to_json_error(self.txn.get_db_error_msg()))
+
+        self.finish()
+
+    @gen.coroutine
+    def put(self):
+
+        if HTTP_HEADER_CONTENT_LENGTH in self.request.headers:
+            try:
+                # get the PUT body
+                update_data = json.loads(self.request.body)
+
+                # create a new ovsdb transaction
+                self.txn = self.ref_object.manager.get_new_transaction()
+
+                # post_resource performs data verficiation, prepares and commits the ovsdb transaction
+                result = put.put_resource(update_data, self.resource_path, self.schema, self.txn, self.idl)
+
+                if result is None:
+                    self.txn.abort()
+                    self.set_status(httplib.BAD_REQUEST)
+
+                elif result is ERROR:
+                    self.txn.abort()
+                    self.set_status(httplib.BAD_REQUEST)
+                    self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
+                    self.write(to_json_error(self.txn.get_db_error_msg()))
+
+                elif ERROR in result:
+                    self.txn.abort()
+                    self.set_status(httplib.BAD_REQUEST)
+                    self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
+                    self.write(to_json(result))
+
+                elif result is INCOMPLETE:
+                    self.ref_object.manager.monitor_transaction(self.txn)
+
+                    # on 'incomplete' state we wait until the transaction completes with either success or failure
+                    yield self.txn.event.wait()
+
+                    self.set_status(httplib.OK)
+
+            except ValueError, e:
+                self.set_status(httplib.BAD_REQUEST)
+                self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
+                self.write(to_json_error(e))
+        else:
+            self.set_status(httplib.LENGTH_REQUIRED)
 
         self.finish()
