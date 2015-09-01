@@ -79,12 +79,17 @@ def verify_put_data(data, resource, schema, idl):
     verified_data = {}
     verified_config_data = verify_config_data(_data, resource.next, schema, 'PUT')
     if verified_config_data is not None:
-        verified_data.update(verified_config_data)
+        if ERROR in verified_config_data:
+            return verified_config_data
+        else:
+            verified_data.update(verified_config_data)
 
     verified_reference_data = verify_forward_reference(_data, resource.next, schema, idl)
-    app_log.info(verified_reference_data)
     if verified_reference_data is not None:
-        verified_data.update(verified_reference_data)
+        if ERROR in verified_reference_data:
+            return verified_reference_data
+        else:
+            verified_data.update(verified_reference_data)
 
     is_root = schema.ovs_tables[resource.next.table].is_root
 
