@@ -93,12 +93,12 @@ def verify_config_data(data, resource, schema, http_method):
     verified_config_data = {}
     error_json = {"code": httplib.BAD_REQUEST}
 
-    # Check for extra or unrecognized attributes
-    for column_name in data:
-        if not (column_name in config_keys or column_name in reference_keys):
-            error_json['fields'] = column_name
-            error_json['message'] = "Not a configuration or reference attribute"
-            return {ERROR: error_json}
+    # Check for extra or unknown attributes
+    unknown_attribute = find_unknown_attribute(data, config_keys, reference_keys)
+    if unknown_attribute is not None:
+        error_json['fields'] = unknown_attribute
+        error_json['message'] = "Unknown attribute"
+        return {ERROR: error_json}
 
     # Check for all required/valid attributes to be present
     for column_name, column_data in config_keys.iteritems():
@@ -225,3 +225,11 @@ def verify_referenced_by(data, resource, schema, idl):
         verified_referenced_by[OVSDB_SCHEMA_REFERENCED_BY].append(uri_resource)
 
     return verified_referenced_by
+
+def find_unknown_attribute(data, config_keys, reference_keys):
+
+    for column_name in data:
+        if not (column_name in config_keys or column_name in reference_keys):
+            return column_name
+
+    return None
