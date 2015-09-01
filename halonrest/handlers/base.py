@@ -71,13 +71,23 @@ class AutoHandler(BaseHandler):
                     self.txn.abort()
                     self.set_status(httplib.BAD_REQUEST)
 
+                elif result is ERROR:
+                    self.set_status(httplib.BAD_REQUEST)
+                    self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
+                    self.write(to_json_error(self.txn.get_db_error_msg()))
+
                 elif result is INCOMPLETE:
                     self.ref_object.manager.monitor_transaction(self.txn)
 
                     # on 'incomplete' state we wait until the transaction completes with either success or failure
                     yield self.txn.event.wait()
 
-                    self.set_status(httplib.CREATED)
+                    if self.txn.status is SUCCESS:
+                        self.set_status(httplib.CREATED)
+                    else:
+                        self.set_status(httplib.BAD_REQUEST)
+                        self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
+                        self.write(to_json_error(self.txn.get_db_error_msg()))
 
             except ValueError, e:
                 self.set_status(httplib.BAD_REQUEST)
@@ -99,12 +109,22 @@ class AutoHandler(BaseHandler):
             self.txn.abort()
             self.set_status(httplib.BAD_REQUEST)
 
-        if result is INCOMPLETE:
+        elif result is ERROR:
+            self.set_status(httplib.BAD_REQUEST)
+            self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
+            self.write(to_json_error(self.txn.get_db_error_msg()))
+
+        elif result is INCOMPLETE:
             self.ref_object.manager.monitor_transaction(self.txn)
 
             # on 'incomplete' state we wait until the transaction completes with either success or failure
             yield self.txn.event.wait()
 
-            self.set_status(httplib.NO_CONTENT)
+            if self.txn.status is SUCCESS:
+                self.set_status(httplib.NO_CONTENT)
+            else:
+                self.set_status(httplib.BAD_REQUEST)
+                self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
+                self.write(to_json_error(self.txn.get_db_error_msg()))
 
         self.finish()

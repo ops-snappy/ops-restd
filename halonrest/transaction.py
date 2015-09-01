@@ -1,4 +1,5 @@
 import ovs.db.idl
+import json
 from tornado.locks import Event
 
 class OvsdbTransactionList:
@@ -23,3 +24,7 @@ class OvsdbTransaction:
 
     def abort(self):
         self.txn.abort()
+
+    def get_db_error_msg(self):
+        db_dict = json.loads(self.txn.get_error())
+        return db_dict['details']
