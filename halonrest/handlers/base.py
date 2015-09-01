@@ -72,9 +72,16 @@ class AutoHandler(BaseHandler):
                     self.set_status(httplib.BAD_REQUEST)
 
                 elif result is ERROR:
+                    self.txn.abort()
                     self.set_status(httplib.BAD_REQUEST)
                     self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
                     self.write(to_json_error(self.txn.get_db_error_msg()))
+
+                elif ERROR in result:
+                    self.txn.abort()
+                    self.set_status(httplib.BAD_REQUEST)
+                    self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
+                    self.write(to_json(result))
 
                 elif result is INCOMPLETE:
                     self.ref_object.manager.monitor_transaction(self.txn)
