@@ -2,6 +2,7 @@ from halonrest import parse
 from halonrest.utils import utils
 from halonrest.constants import *
 import types
+import httplib
 
 from tornado.log import app_log
 
@@ -24,7 +25,7 @@ def verify_post_data(data, resource, schema, idl):
 
     # verify config and reference columns data
     verified_data = {}
-    verified_config_data = verify_config_data(_data, resource.next, schema)
+    verified_config_data = verify_config_data(_data, resource.next, schema, 'POST')
     if verified_config_data is not None:
         verified_data.update(verified_config_data)
 
@@ -55,12 +56,40 @@ def verify_post_data(data, resource, schema, idl):
 
     return verified_data
 
-def verify_config_data(data, resource, schema):
+def verify_config_data(data, resource, schema, http_method):
     config_keys = schema.ovs_tables[resource.table].config
+    reference_keys = schema.ovs_tables[resource.table].references
+
     verified_config_data = {}
-    for key in config_keys:
-        if key in data:
-            verified_config_data[key] = data[key]
+    error_json = {"code": httplib.BAD_REQUEST}
+
+    # Check for extra or unrecognized attributes
+    for column_name in data:
+        if not (column_name in config_keys or column_name in reference_keys):
+            error_json['fields'] = column_name
+            error_json['message'] = "Not a configuration or reference attribute"
+            return {ERROR: error_json}
+
+    # Check for all required/valid attributes to be present
+    for column_name, column_data in config_keys.iteritems():
+        if http_method == 'POST':
+            if column_name in data:
+                verified_config_data[column_name] = data[column_name]
+            else:
+                error_json['fields'] = column_name
+                error_json['message'] = "Attribute is missing from request"
+                return {ERROR: error_json}
+        elif http_method == 'PUT':
+            if column_data.mutable and column_name in data:
+                verified_config_data[column_name] = data[column_name]
+            elif not column_data.mutable:
+                error_json['fields'] = column_name
+                error_json['message'] = "Attribute is not modifiable"
+                return {ERROR: error_json}
+            else:
+                error_json['fields'] = column_name
+                error_json['message'] = "Attribute is missing from request"
+                return {ERROR: error_json}
 
     return verified_config_data
 
