@@ -101,7 +101,7 @@ def get_table_json(table, schema, idl, uri):
                 tmp.append(str(row.uuid))
             else:
                 tmp.append(str(row.__getattr__(index)))
-        _uri = uri + '/' + '/'.join(tmp)
+        _uri = uri + '/'.join(tmp)
         uri_list.append(_uri)
 
     return uri_list
@@ -155,7 +155,7 @@ def get_back_references_json(parent_row, parent_table, table, schema, idl, uri):
                     tmp.append(str(row.uuid))
                 else:
                     tmp.append(str(row.__getattr__(index)))
-            _uri = uri + '/' + '/'.join(tmp)
+            _uri = uri + '/'.join(tmp)
             uri_list.append(_uri)
 
     return uri_list
