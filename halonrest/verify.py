@@ -27,11 +27,17 @@ def verify_post_data(data, resource, schema, idl):
     verified_data = {}
     verified_config_data = verify_config_data(_data, resource.next, schema, 'POST')
     if verified_config_data is not None:
-        verified_data.update(verified_config_data)
+        if ERROR in verified_config_data:
+            return verified_config_data
+        else:
+            verified_data.update(verified_config_data)
 
     verified_reference_data = verify_forward_reference(_data, resource.next, schema, idl)
     if verified_reference_data is not None:
-        verified_data.update(verified_reference_data)
+        if ERROR in verified_reference_data:
+            return verified_reference_data
+        else:
+            verified_data.update(verified_reference_data)
 
     # a non-root top-level table must be referenced by another resource
     # or ovsdb-server will garbage-collect it
@@ -43,7 +49,11 @@ def verify_post_data(data, resource, schema, idl):
         _data = data[OVSDB_SCHEMA_REFERENCED_BY]
         try:
             verified_referenced_by_data = verify_referenced_by(_data, resource.next, schema, idl)
-            verified_data.update(verified_referenced_by_data)
+            if ERROR in verified_referenced_by_data:
+                return verified_referenced_by_data
+            else:
+                verified_data.update(verified_referenced_by_data)
+
         except Exception as e:
             app_log.debug(e)
             app_log.info('referenced_by uri verification failed')
@@ -91,7 +101,7 @@ def verify_config_data(data, resource, schema, http_method):
     reference_keys = schema.ovs_tables[resource.table].references
 
     verified_config_data = {}
-    error_json = {"code": httplib.BAD_REQUEST}
+    error_json = {}
 
     # Check for extra or unknown attributes
     unknown_attribute = find_unknown_attribute(data, config_keys, reference_keys)
