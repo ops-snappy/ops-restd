@@ -12,6 +12,8 @@ from tornado.log import app_log
 '''
 def post_resource(data, resource, schema, txn, idl):
 
+
+
     # POST not allowed on Open_vSwitch table
     if resource is None or resource.next is None:
         app_log.info("POST is not allowed on Open_vSwitch table")
@@ -27,6 +29,9 @@ def post_resource(data, resource, schema, txn, idl):
     if verified_data is None:
         app_log.info("verification of data failed")
         return None
+
+    if ERROR in verified_data:
+        return verified_data
 
     app_log.debug("adding new resource to " + resource.next.table + " table")
     if resource.relation == OVSDB_SCHEMA_CHILD:
