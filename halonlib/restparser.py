@@ -29,26 +29,27 @@ import ovs.util
 import ovs.daemon
 import ovs.db.idl
 
+from tornado.log import app_log
 
 inflect_engine = inflect.engine()
 
 # Convert name into all lower case and into plural format
 def normalizeName(name):
-     lower_case = name.lower()
-     # Assuming table names use underscore to link words
-     words = string.split(lower_case, '_')
-     words[-1] = inflect_engine.plural_noun(words[-1])
-     return(string.join(words, '_'))
+    lower_case = name.lower()
+    # Assuming table names use underscore to link words
+    words = string.split(lower_case, '_')
+    words[-1] = inflect_engine.plural_noun(words[-1])
+    return(string.join(words, '_'))
 
 class OVSColumn(object):
     """__init__() functions as the class constructor"""
-    def __init__(self, type, is_optional=True, mutable=True):
+    def __init__(self, type_, is_optional=True, mutable=True, enum=set([])):
         # Possible values
-        self.enum = set([])
+        self.enum = enum
         self.mutable = mutable
 
         self.type = None
-        base_type = type.key
+        base_type = type_.key
         if base_type.type == types.IntegerType:
             self.type = types.IntegerType
             # For type Integer only
@@ -70,24 +71,24 @@ class OVSColumn(object):
             raise error.Error("unknown attribute type %s" % base_type.type)
 
         # The number of instances
-        self.is_list = (type.n_max != 1)
+        self.is_list = (type_.n_max != 1)
 
         # is this column entry optional
         self.is_optional = is_optional
 
-        self.n_max = type.n_max
-        self.n_min = type.n_min
+        self.n_max = type_.n_max
+        self.n_min = type_.n_min
 
 class OVSReference(object):
     """__init__() functions as the class constructor"""
-    def __init__(self, type, relation='reference', mutable=True):
-        base_type = type.key
+    def __init__(self, type_, relation='reference', mutable=True):
+        base_type = type_.key
         self.mutable = mutable
 
         # Name of the table being referenced
         if base_type.type != types.UuidType:
             # referenced table name must be in value part of KV pair
-            base_type = type.value
+            base_type = type_.value
         self.ref_table = base_type.ref_table_name
 
         # Relationship of the referenced to the current table
@@ -102,7 +103,7 @@ class OVSReference(object):
             raise error.Error("unknown table relationship %s" % relation)
 
         # The number of instances
-        self.is_plural = (type.n_max != 1)
+        self.is_plural = (type_.n_max != 1)
 
 
 class OVSTable(object):
@@ -178,13 +179,17 @@ class OVSTable(object):
             parser.finish()
 
             is_optional = False
+            enum = set([])
             if isinstance(column_json['type'], dict):
                 if 'min' in column_json['type'] and column_json['type']['min'] == 0:
                     is_optional = True
+                if 'key' in column_json['type'] and 'enum' in column_json['type']['key']:
+                    if column_json['type']['key']['enum'][0] == 'set':
+                        enum.update(column_json['type']['key']['enum'][1])
 
             table.columns.append(column_name)
             if category == "configuration":
-                table.config[column_name] = OVSColumn(type_, is_optional, mutable)
+                table.config[column_name] = OVSColumn(type_, is_optional, mutable, enum)
             elif category == "status":
                 table.status[column_name] = OVSColumn(type_, is_optional)
             elif category == "statistics":
