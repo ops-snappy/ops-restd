@@ -15,6 +15,11 @@ def split_path(path):
 
 def parse_url_path(path, schema, idl, http_method):
 
+    if not path.startswith(REST_VERSION_PATH):
+        return None
+
+    # remove version and split path
+    path = path[len(REST_VERSION_PATH):]
     path = split_path(path)
     if not path:
         return None

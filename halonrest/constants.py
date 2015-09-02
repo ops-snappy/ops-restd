@@ -15,6 +15,9 @@ TRY_AGAIN = Transaction.TRY_AGAIN
 NOT_LOCKED = Transaction.NOT_LOCKED
 ERROR = Transaction.ERROR
 
+# REST URIs
+REST_VERSION_PATH = '/rest/v1/'
+
 # Ovsdb schema constants
 OVSDB_SCHEMA_SYSTEM_TABLE = 'Open_vSwitch'
 OVSDB_SCHEMA_SYSTEM_URI = 'system'
@@ -26,7 +29,7 @@ OVSDB_SCHEMA_REFERENCE = 'reference'
 OVSDB_SCHEMA_TOP_LEVEL = 'toplevel'
 OVSDB_SCHEMA_PARENT = 'parent'
 OVSDB_SCHEMA_BACK_REFERENCE = 'back'
-OVSDB_BASE_URI = '/system/'
+OVSDB_BASE_URI = REST_VERSION_PATH + OVSDB_SCHEMA_SYSTEM_URI + '/'
 OVSDB_SCHEMA_REFERENCED_BY = 'referenced_by'
 
 # HTTP headers

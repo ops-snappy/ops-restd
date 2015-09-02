@@ -101,7 +101,7 @@ def get_table_json(table, schema, idl, uri):
                 tmp.append(str(row.uuid))
             else:
                 tmp.append(str(row.__getattr__(index)))
-        _uri = uri + '/'.join(tmp)
+        _uri = create_uri(uri, tmp)
         uri_list.append(_uri)
 
     return uri_list
@@ -127,7 +127,7 @@ def get_column_json(column, row, table, schema, idl, uri):
                 tmp.append(str(row.uuid))
             else:
                 tmp.append(str(row.__getattr__(index)))
-        _uri = uri + '/'.join(tmp)
+        _uri = create_uri(uri, tmp)
         uri_list.append(_uri)
 
     return uri_list
@@ -155,7 +155,7 @@ def get_back_references_json(parent_row, parent_table, table, schema, idl, uri):
                     tmp.append(str(row.uuid))
                 else:
                     tmp.append(str(row.__getattr__(index)))
-            _uri = uri + '/'.join(tmp)
+            _uri = create_uri(uri, tmp)
             uri_list.append(_uri)
 
     return uri_list
@@ -170,3 +170,9 @@ def get_uri(resource, schema, uri=None):
             uri = OVSDB_BASE_URI + schema.ovs_tables[resource.next.table].plural_name
 
     return uri
+
+def create_uri(uri, paths):
+    if len(paths) > 1:
+        return uri + "/".join(paths)
+    else:
+        return uri + "/" + paths[0]

@@ -80,8 +80,9 @@ class OVSColumn(object):
 
 class OVSReference(object):
     """__init__() functions as the class constructor"""
-    def __init__(self, type, relation = 'reference'):
+    def __init__(self, type, relation='reference', mutable=True):
         base_type = type.key
+        self.mutable = mutable
 
         # Name of the table being referenced
         if base_type.type != types.UuidType:
@@ -193,7 +194,7 @@ class OVSTable(object):
             elif category == "parent":
                 table.references[column_name] = OVSReference(type_, category)
             elif category == "reference":
-                table.references[column_name] = OVSReference(type_, category)
+                table.references[column_name] = OVSReference(type_, category, mutable)
 
         indexes_list = []
         for index_list in indexes_json:
