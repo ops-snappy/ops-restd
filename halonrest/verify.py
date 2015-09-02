@@ -116,7 +116,7 @@ def verify_config_data(data, resource, schema, http_method):
         return {ERROR: error_json}
 
     # Check for all required/valid attributes to be present
-    for column_name, column_data in config_keys.iteritems():
+    for column_name in config_keys:
         if http_method == 'POST':
             if column_name in data:
                 verified_config_data[column_name] = data[column_name]
@@ -124,14 +124,17 @@ def verify_config_data(data, resource, schema, http_method):
                 error_json['fields'] = column_name
                 error_json['message'] = "Attribute is missing from request"
                 return {ERROR: error_json}
+
         elif http_method == 'PUT':
-            if column_data.mutable and column_name in data:
-                verified_config_data[column_name] = data[column_name]
-            elif not column_data.mutable:
-                error_json['fields'] = column_name
-                error_json['message'] = "Attribute is not modifiable"
-                return {ERROR: error_json}
-            else:
+            non_mutable_attributes = get_non_mutable_attributes(resource, schema)
+            if column_name in data:
+                if column_name in non_mutable_attributes:
+                    error_json['fields'] = column_name
+                    error_json['message'] = "Attribute is not modifiable"
+                    return {ERROR: error_json}
+                else:
+                    verified_config_data[column_name] = data[column_name]
+            elif column_name not in non_mutable_attributes:
                 error_json['fields'] = column_name
                 error_json['message'] = "Attribute is missing from request"
                 return {ERROR: error_json}
@@ -205,7 +208,7 @@ def verify_referenced_by(data, resource, schema, idl):
             uri_resource = uri_resource.next
 
         if uri_resource.row is None:
-            app.debug('uri: ' + uri + ' not found')
+            app_log.debug('uri: ' + uri + ' not found')
             raise Exception('referenced_by resource not found')
 
         # attributes
@@ -248,3 +251,18 @@ def find_unknown_attribute(data, config_keys, reference_keys):
             return column_name
 
     return None
+
+def get_non_mutable_attributes(resource, schema):
+    config_keys = schema.ovs_tables[resource.table].config
+    reference_keys = schema.ovs_tables[resource.table].references
+
+    attribute_keys = {}
+    attribute_keys.update(config_keys)
+    attribute_keys.update(reference_keys)
+
+    result = []
+    for key, column in attribute_keys.iteritems():
+        if not column.mutable:
+            result.append(key)
+
+    return result
