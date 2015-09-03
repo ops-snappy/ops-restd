@@ -10,13 +10,19 @@ def put_resource(data, resource, schema, txn, idl):
     if resource is None:
         return None
 
-    while True:
-        if resource.next.next is None:
-            break
-        resource = resource.next
+    #We want to modify Open_vSwitch table
+    if resource.next is None:
+        resource_update = resource
+    else:
+        while True:
+            if resource.next.next is None:
+                break
+            resource = resource.next
+        resource_update = resource.next
 
     app_log.debug("Resource = Table: %s Relation: %s Column: %s" % (resource.table, resource.relation, resource.column))
-    app_log.debug("Resource = Table: %s Relation: %s Column: %s" % (resource.next.table, resource.next.relation, resource.next.column))
+    if resource_update is not None:
+        app_log.debug("Resource to Update = Table: %s " % resource_update.table)
 
     #Needs to be implemented
     verified_data = verify_data(data, resource, schema, idl, 'PUT')
@@ -28,14 +34,18 @@ def put_resource(data, resource, schema, txn, idl):
     if ERROR in verified_data:
         return verified_data
 
-    if resource.relation == OVSDB_SCHEMA_CHILD:
+    #We want to modify Open_vSwitch table
+    if resource.next is None:
+        updated_row = utils.update_row(resource, verified_data, schema, txn, idl)
+
+    elif resource.relation == OVSDB_SCHEMA_CHILD:
         '''
         Updating row from a child table
         Example:
         /system/bridges: PUT is allowed when modifying the bridge child table
         '''
         # update row, populate it with data, add it as a reference to the parent resource
-        updated_row = utils.update_row(resource.next, verified_data, schema, txn, idl)
+        updated_row = utils.update_row(resource_update, verified_data, schema, txn, idl)
 
     elif resource.relation == OVSDB_SCHEMA_BACK_REFERENCE:
         '''
@@ -45,7 +55,7 @@ def put_resource(data, resource, schema, txn, idl):
         /system/vrfs/vrf_default/bgp_routers: PUT allowed as we are modifying a back referenced resource
         '''
         # row for a back referenced item contains the parent's reference in the verified data
-        updated_row = utils.update_row(resource.next, verified_data, schema, txn, idl)
+        updated_row = utils.update_row(resource_update, verified_data, schema, txn, idl)
 
     elif resource.relation == OVSDB_SCHEMA_TOP_LEVEL:
         '''
@@ -54,8 +64,7 @@ def put_resource(data, resource, schema, txn, idl):
         Example:
         /system/ports: PUT allowed as we are modifying Port to top level table
         '''
-        updated_row = utils.update_row(resource.next, verified_data, schema, txn, idl)
+        updated_row = utils.update_row(resource_update, verified_data, schema, txn, idl)
 
     # TODO we need to query the modified object and return it
-
     return txn.commit()
