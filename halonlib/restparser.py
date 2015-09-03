@@ -48,36 +48,41 @@ class OVSColumn(object):
         self.enum = enum
         self.mutable = mutable
 
-        self.type = None
-        base_type = type_.key
-        if base_type.type == types.IntegerType:
-            self.type = types.IntegerType
-            # For type Integer only
-            self.minInteger = base_type.min
-            self.maxInteger = base_type.max
-        elif base_type.type == types.RealType:
-            self.type = types.RealType
-            # For type Real only
-            self.minReal = base_type.min
-            self.maxReal = base_type.max
-        elif base_type.type == types.StringType:
-            self.type = types.StringType
-            # For type string only
-            self.minLength = base_type.min_length
-            self.maxLength = base_type.max_length
-        elif base_type.type == types.BooleanType:
-            self.type = types.BooleanType
-        else:
-            raise error.Error("unknown attribute type %s" % base_type.type)
+        base_key = type_.key
+        base_value = type_.value
+
+        self.type, self.rangeMin, self.rangeMax = self.process_type(base_key)
+
+        self.value_type = None
+        if base_value is not None:
+            self.value_type, self.valueRangeMin, self.valueRangeMax = self.process_type(base_value)
 
         # The number of instances
         self.is_list = (type_.n_max != 1)
+        self.n_max = type_.n_max
+        self.n_min = type_.n_min
 
         # is this column entry optional
         self.is_optional = is_optional
 
-        self.n_max = type_.n_max
-        self.n_min = type_.n_min
+    def process_type(self, base):
+        type_ = base.type
+        rangeMin = None
+        rangeMax = None
+
+        if type_ not in types.ATOMIC_TYPES or \
+           type_ == types.VoidType or \
+           type_ == types.UuidType:
+            raise error.Error("unknown attribute type %s" % type_)
+
+        if type_ == types.StringType:
+            rangeMin = base.min_length
+            rangeMax = base.max_length
+        elif type_ != types.BooleanType:
+            rangeMin = base.min
+            rangeMax = base.max
+
+        return (type_, rangeMin, rangeMax)
 
 class OVSReference(object):
     """__init__() functions as the class constructor"""
