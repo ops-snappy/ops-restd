@@ -75,23 +75,29 @@ def verify_put_data(data, resource, schema, idl):
 
     _data = data[OVSDB_SCHEMA_CONFIG]
 
+    # We neet to verify Open_vSwitch table
+    if resource.next is None:
+        resource_verify = resource
+    else:
+        resource_verify = resource.next
+
     # verify config and reference columns data
     verified_data = {}
-    verified_config_data = verify_config_data(_data, resource.next, schema, 'PUT')
+    verified_config_data = verify_config_data(_data, resource_verify, schema, 'PUT')
     if verified_config_data is not None:
         if ERROR in verified_config_data:
             return verified_config_data
         else:
             verified_data.update(verified_config_data)
 
-    verified_reference_data = verify_forward_reference(_data, resource.next, schema, idl)
+    verified_reference_data = verify_forward_reference(_data, resource_verify, schema, idl)
     if verified_reference_data is not None:
         if ERROR in verified_reference_data:
             return verified_reference_data
         else:
             verified_data.update(verified_reference_data)
 
-    is_root = schema.ovs_tables[resource.next.table].is_root
+    is_root = schema.ovs_tables[resource_verify.table].is_root
 
     #Reference by is not allowed in put
     if resource.relation == OVSDB_SCHEMA_TOP_LEVEL and not is_root:
@@ -128,11 +134,7 @@ def verify_config_data(data, resource, schema, http_method):
         elif http_method == 'PUT':
             non_mutable_attributes = get_non_mutable_attributes(resource, schema)
             if column_name in data:
-                if column_name in non_mutable_attributes:
-                    error_json['fields'] = column_name
-                    error_json['message'] = "Attribute is not modifiable"
-                    return {ERROR: error_json}
-                else:
+                if column_name not in non_mutable_attributes:
                     verified_config_data[column_name] = data[column_name]
             elif column_name not in non_mutable_attributes:
                 error_json['fields'] = column_name

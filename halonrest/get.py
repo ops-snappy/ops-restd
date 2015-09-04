@@ -172,6 +172,13 @@ def get_uri(resource, schema, uri=None):
     return uri
 
 def create_uri(uri, paths):
+    '''
+    uri.rstrip('/'): Removes trailing '/' characters,
+    in order to not repeat it when joining it with
+    other path.
+    Example /system/ports/ -> /system/ports
+    '''
+    uri = uri.rstrip('/')
     if len(paths) > 1:
         return uri + "/".join(paths)
     else:
