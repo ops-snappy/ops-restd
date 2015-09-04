@@ -134,11 +134,7 @@ def verify_config_data(data, resource, schema, http_method):
         elif http_method == 'PUT':
             non_mutable_attributes = get_non_mutable_attributes(resource, schema)
             if column_name in data:
-                if column_name in non_mutable_attributes:
-                    error_json['fields'] = column_name
-                    error_json['message'] = "Attribute is not modifiable"
-                    return {ERROR: error_json}
-                else:
+                if column_name not in non_mutable_attributes:
                     verified_config_data[column_name] = data[column_name]
             elif column_name not in non_mutable_attributes:
                 error_json['fields'] = column_name
