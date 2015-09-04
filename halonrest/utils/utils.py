@@ -4,6 +4,7 @@ import ovs
 import ovs.db.types
 import types
 import uuid
+import re
 
 from halonrest.resource import Resource
 from halonrest.constants import *
@@ -230,6 +231,29 @@ def row_to_json(row, column_keys):
 
     return data_json
 
+def get_empty_by_basic_type(data):
+    type_ = type(data)
+    if type_ is types.DictType:
+        return {}
+
+    elif type_ is types.ListType:
+        return []
+
+    elif type_ is types.UnicodeType:
+        return ''
+
+    elif type_ is types.BooleanType:
+        return False
+
+    elif type_ is types.NoneType:
+        return None
+
+    elif type_ is types.IntType:
+        return 0
+
+    else:
+        return ''
+
 def to_json(data):
     type_ = type(data)
 
@@ -337,5 +361,17 @@ def row_to_index(table_schema, row):
         if index == 'uuid':
             return str(row.uuid)
         else:
-            tmp.append(str(row.__getattr__(index)))
+            val = str(row.__getattr__(index))
+            tmp.append(str(val.replace('/','\/')))
+
     return '/'.join(tmp)
+
+def escaped_split(s_in):
+    strings = re.split(r'(?<!\\)/', s_in)
+    res_strings = []
+
+    for s in strings:
+        s = s.replace('\\/','/')
+        res_strings.append(s)
+
+    return res_strings
