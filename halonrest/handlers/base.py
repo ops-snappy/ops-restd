@@ -43,7 +43,9 @@ class AutoHandler(BaseHandler):
     @gen.coroutine
     def get(self):
 
-        result = get.get_resource(self.idl, self.resource_path, self.schema, self.request.path)
+        selector = self.get_query_argument(REST_QUERY_PARAM_SELECTOR, None)
+
+        result = get.get_resource(self.idl, self.resource_path, self.schema, self.request.path, selector)
         if result is None:
             self.set_status(httplib.NOT_FOUND)
         else:
