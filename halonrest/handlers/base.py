@@ -89,24 +89,6 @@ class AutoHandler(BaseHandler):
         self.finish()
 
     @gen.coroutine
-    def delete(self):
-
-        self.txn = self.ref_object.manager.get_new_transaction()
-
-        result = delete.delete_resource(self.resource_path, self.txn, self.idl)
-
-        if result == INCOMPLETE:
-            self.ref_object.manager.monitor_transaction(self.txn)
-            # on 'incomplete' state we wait until the transaction completes with either success or failure
-            yield self.txn.event.wait()
-            result = self.txn.status
-
-        if self.successful_transaction(result):
-            self.set_status(httplib.NO_CONTENT)
-
-        self.finish()
-
-    @gen.coroutine
     def put(self):
 
         if HTTP_HEADER_CONTENT_LENGTH in self.request.headers:
@@ -135,6 +117,24 @@ class AutoHandler(BaseHandler):
                 self.write(to_json_error(e))
         else:
             self.set_status(httplib.LENGTH_REQUIRED)
+
+        self.finish()
+
+    @gen.coroutine
+    def delete(self):
+
+        self.txn = self.ref_object.manager.get_new_transaction()
+
+        result = delete.delete_resource(self.resource_path, self.txn, self.idl)
+
+        if result == INCOMPLETE:
+            self.ref_object.manager.monitor_transaction(self.txn)
+            # on 'incomplete' state we wait until the transaction completes with either success or failure
+            yield self.txn.event.wait()
+            result = self.txn.status
+
+        if self.successful_transaction(result):
+            self.set_status(httplib.NO_CONTENT)
 
         self.finish()
 
