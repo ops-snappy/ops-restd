@@ -46,6 +46,7 @@ class AutoHandler(BaseHandler):
         selector = self.get_query_argument(REST_QUERY_PARAM_SELECTOR, None)
 
         result = get.get_resource(self.idl, self.resource_path, self.schema, self.request.path, selector)
+
         if result is None:
             self.set_status(httplib.NOT_FOUND)
         else:
@@ -69,34 +70,14 @@ class AutoHandler(BaseHandler):
                 # post_resource performs data verficiation, prepares and commits the ovsdb transaction
                 result = post.post_resource(post_data, self.resource_path, self.schema, self.txn, self.idl)
 
-                if result is None:
-                    self.txn.abort()
-                    self.set_status(httplib.BAD_REQUEST)
-
-                elif result is ERROR:
-                    self.txn.abort()
-                    self.set_status(httplib.BAD_REQUEST)
-                    self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
-                    self.write(to_json_error(self.txn.get_db_error_msg()))
-
-                elif ERROR in result:
-                    self.txn.abort()
-                    self.set_status(httplib.BAD_REQUEST)
-                    self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
-                    self.write(to_json(result))
-
-                elif result is INCOMPLETE:
+                if result == INCOMPLETE:
                     self.ref_object.manager.monitor_transaction(self.txn)
-
                     # on 'incomplete' state we wait until the transaction completes with either success or failure
                     yield self.txn.event.wait()
+                    result = self.txn.status
 
-                    if self.txn.status is SUCCESS:
-                        self.set_status(httplib.CREATED)
-                    else:
-                        self.set_status(httplib.BAD_REQUEST)
-                        self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
-                        self.write(to_json_error(self.txn.get_db_error_msg()))
+                if self.successful_transaction(result):
+                    self.set_status(httplib.CREATED)
 
             except ValueError, e:
                 self.set_status(httplib.BAD_REQUEST)
@@ -111,31 +92,17 @@ class AutoHandler(BaseHandler):
     def delete(self):
 
         self.txn = self.ref_object.manager.get_new_transaction()
-        # post_resource performs data verficiation, prepares and commits the ovsdb transaction
+
         result = delete.delete_resource(self.resource_path, self.txn, self.idl)
 
-        if result is None:
-            self.txn.abort()
-            self.set_status(httplib.BAD_REQUEST)
-
-        elif result is ERROR:
-            self.txn.abort()
-            self.set_status(httplib.BAD_REQUEST)
-            self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
-            self.write(to_json_error(self.txn.get_db_error_msg()))
-
-        elif result is INCOMPLETE:
+        if result == INCOMPLETE:
             self.ref_object.manager.monitor_transaction(self.txn)
-
             # on 'incomplete' state we wait until the transaction completes with either success or failure
             yield self.txn.event.wait()
+            result = self.txn.status
 
-            if self.txn.status is SUCCESS:
-                self.set_status(httplib.NO_CONTENT)
-            else:
-                self.set_status(httplib.BAD_REQUEST)
-                self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
-                self.write(to_json_error(self.txn.get_db_error_msg()))
+        if self.successful_transaction(result):
+            self.set_status(httplib.NO_CONTENT)
 
         self.finish()
 
@@ -150,31 +117,16 @@ class AutoHandler(BaseHandler):
                 # create a new ovsdb transaction
                 self.txn = self.ref_object.manager.get_new_transaction()
 
-                # post_resource performs data verficiation, prepares and commits the ovsdb transaction
+                # put_resource performs data verficiation, prepares and commits the ovsdb transaction
                 result = put.put_resource(update_data, self.resource_path, self.schema, self.txn, self.idl)
 
-                if result is None:
-                    self.txn.abort()
-                    self.set_status(httplib.BAD_REQUEST)
-
-                elif result is ERROR:
-                    self.txn.abort()
-                    self.set_status(httplib.BAD_REQUEST)
-                    self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
-                    self.write(to_json_error(self.txn.get_db_error_msg()))
-
-                elif ERROR in result:
-                    self.txn.abort()
-                    self.set_status(httplib.BAD_REQUEST)
-                    self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
-                    self.write(to_json(result))
-
-                elif result is INCOMPLETE:
+                if result == INCOMPLETE:
                     self.ref_object.manager.monitor_transaction(self.txn)
-
                     # on 'incomplete' state we wait until the transaction completes with either success or failure
                     yield self.txn.event.wait()
+                    result = self.txn.status
 
+                if self.successful_transaction(result):
                     self.set_status(httplib.OK)
 
             except ValueError, e:
@@ -185,3 +137,25 @@ class AutoHandler(BaseHandler):
             self.set_status(httplib.LENGTH_REQUIRED)
 
         self.finish()
+
+    def successful_transaction(self, result):
+
+        if result == SUCCESS or result == UNCHANGED:
+            return True
+
+        self.txn.abort()
+
+        if result == ERROR:
+            self.set_status(httplib.BAD_REQUEST)
+            self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
+            self.write(to_json_error(self.txn.get_db_error_msg()))
+
+        elif ERROR in result:
+            self.set_status(httplib.BAD_REQUEST)
+            self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
+            self.write(to_json(result))
+
+        else:
+            self.set_status(httplib.INTERNAL_SERVER_ERROR)
+
+        return False
