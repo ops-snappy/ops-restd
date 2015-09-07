@@ -125,7 +125,7 @@ class AutoHandler(BaseHandler):
 
         self.txn = self.ref_object.manager.get_new_transaction()
 
-        result = delete.delete_resource(self.resource_path, self.txn, self.idl)
+        result = delete.delete_resource(self.resource_path, self.schema, self.txn, self.idl)
 
         if result == INCOMPLETE:
             self.ref_object.manager.monitor_transaction(self.txn)

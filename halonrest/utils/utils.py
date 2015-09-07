@@ -159,6 +159,31 @@ def delete_reference(reference, resource, column=None, idl=None):
     row.__setattr__(column, updated_list)
     return True
 
+def delete_all_references(resource, schema, idl):
+    row = get_row(resource, idl)
+    #We get the tables that reference the row to delete table
+    tables_reference = schema.references_table_map[resource.table]
+    #Get the table name and column list we is referenced
+    for table_name, columns_list in tables_reference.iteritems():
+        app_log.debug("Table %s" % table_name)
+        app_log.debug("Column list %s" % columns_list)
+        #Iterate each row to see wich tuple has the reference
+        for uuid, row_ref in idl.tables[table_name].rows.iteritems():
+            #Iterate over each reference column and check if has the reference
+            for column_name in columns_list:
+                #get the referenced values
+                reflist = get_column(row_ref, column_name, idl)
+                if reflist is not None:
+                    #delete the reference on that row and column
+                    delete_row_reference(reflist, row, row_ref, column_name)
+
+def delete_row_reference(reflist, row, row_ref, column):
+    updated_list = []
+    for item in reflist:
+        if item.uuid != row.uuid:
+            updated_list.append(item)
+    row_ref.__setattr__(column, updated_list)
+
 # create a new row, populate it with data
 def setup_new_row(resource, data, schema, txn, idl):
 
