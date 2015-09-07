@@ -152,26 +152,57 @@ def verify_attribute_type(column_name, column_data, request_data):
     result = {}
     error_json = {}
 
-    # Request type does not match attribute's in schema
+    # If column is a list, data must be a list
+    # and its values must be in the column's enum
     if column_data.is_list:
         if data_type is not list:
             error_json = to_json_error("Attribute type mismatch: list expected", None, column_name)
+        elif not verify_valid_attribute_values(request_data, column_data):
+            error_json = to_json_error("Attribute value is invalid", None, column_name)
+
+    # If column is a dictionary, data must be a dictionary
     elif column_data.is_dict:
         if data_type is not dict:
             error_json = to_json_error("Attribute type mismatch: dictionary expected", None, column_name)
+
+    # If data is a list but column is not,
+    # we expect a single value in the list
+    # and that value must be in the column's enum
     elif data_type is list:
         if len(request_data) == 1:
             if type(request_data[0]) not in column_data.type.python_types:
                 error_json = to_json_error("Attribute type mismatch", None, column_name)
+            elif not verify_valid_attribute_values(request_data, column_data):
+                error_json = to_json_error("Attribute value is invalid", None, column_name)
         else:
             error_json = to_json_error("Attribute type mismatch", None, column_name)
-    elif not (data_type in column_data.type.python_types):
+
+    # If data is a single value, check type against column's
+    elif data_type not in column_data.type.python_types:
         error_json = to_json_error("Attribute type mismatch", None, column_name)
+
+    # If data is a single value, check it's in the column's enum
+    elif not verify_valid_attribute_values(request_data, column_data):
+        error_json = to_json_error("Attribute value is invalid", None, column_name)
 
     if error_json:
         result = {ERROR: error_json}
 
     return result
+
+def verify_valid_attribute_values(request_data, column_data):
+    valid = True
+
+    if column_data.enum:
+        if type(request_data) is list:
+            # Request contains values not valid
+            if set(request_data).difference(column_data.enum):
+                valid = False
+        # Request value is not valid
+        elif request_data not in column_data.enum:
+            valid = False
+
+    return valid
 
 def verify_forward_reference(data, resource, schema, idl):
     reference_keys = schema.ovs_tables[resource.table].references
