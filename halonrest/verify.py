@@ -5,6 +5,7 @@ import types
 import httplib
 
 from tornado.log import app_log
+from halonrest.utils.utils import to_json_error
 
 def verify_data(data, resource, schema, idl, http_method):
 
@@ -117,8 +118,7 @@ def verify_config_data(data, resource, schema, http_method):
     # Check for extra or unknown attributes
     unknown_attribute = find_unknown_attribute(data, config_keys, reference_keys)
     if unknown_attribute is not None:
-        error_json['fields'] = unknown_attribute
-        error_json['message'] = "Unknown attribute"
+        error_json = to_json_error("Unknown attribute", None, unknown_attribute)
         return {ERROR: error_json}
 
     # Check for all required/valid attributes to be present
@@ -126,9 +126,11 @@ def verify_config_data(data, resource, schema, http_method):
         if http_method == 'POST':
             if column_name in data:
                 verified_config_data[column_name] = data[column_name]
+                result = verify_attribute_type(column_name, config_keys[column_name], data[column_name])
+                if ERROR in result:
+                    return result
             else:
-                error_json['fields'] = column_name
-                error_json['message'] = "Attribute is missing from request"
+                error_json = to_json_error("Attribute is missing from request", None, column_name)
                 return {ERROR: error_json}
 
         elif http_method == 'PUT':
@@ -136,12 +138,40 @@ def verify_config_data(data, resource, schema, http_method):
             if column_name in data:
                 if column_name not in non_mutable_attributes:
                     verified_config_data[column_name] = data[column_name]
+                    result = verify_attribute_type(column_name, config_keys[column_name], data[column_name])
+                    if ERROR in result:
+                        return result
             elif column_name not in non_mutable_attributes:
-                error_json['fields'] = column_name
-                error_json['message'] = "Attribute is missing from request"
+                error_json = to_json_error("Attribute is missing from request", None, column_name)
                 return {ERROR: error_json}
 
     return verified_config_data
+
+def verify_attribute_type(column_name, column_data, request_data):
+    data_type = type(request_data)
+    result = {}
+    error_json = {}
+
+    # Request type does not match attribute's in schema
+    if column_data.is_list:
+        if data_type is not list:
+            error_json = to_json_error("Attribute type mismatch: list expected", None, column_name)
+    elif column_data.is_dict:
+        if data_type is not dict:
+            error_json = to_json_error("Attribute type mismatch: dictionary expected", None, column_name)
+    elif data_type is list:
+        if len(request_data) == 1:
+            if type(request_data[0]) not in column_data.type.python_types:
+                error_json = to_json_error("Attribute type mismatch", None, column_name)
+        else:
+            error_json = to_json_error("Attribute type mismatch", None, column_name)
+    elif not (data_type in column_data.type.python_types):
+        error_json = to_json_error("Attribute type mismatch", None, column_name)
+
+    if error_json:
+        result = {ERROR: error_json}
+
+    return result
 
 def verify_forward_reference(data, resource, schema, idl):
     reference_keys = schema.ovs_tables[resource.table].references

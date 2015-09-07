@@ -58,7 +58,8 @@ class OVSColumn(object):
             self.value_type, self.valueRangeMin, self.valueRangeMax = self.process_type(base_value)
 
         # The number of instances
-        self.is_list = (type_.n_max != 1)
+        self.is_dict = self.value_type is not None
+        self.is_list = (not self.is_dict) and type_.n_max > 1
         self.n_max = type_.n_max
         self.n_min = type_.n_min
 
