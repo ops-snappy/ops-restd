@@ -2,7 +2,9 @@ from halonrest.constants import *
 from halonrest.utils import utils
 from halonrest.verify import *
 
-def delete_resource(resource, txn, idl):
+from tornado.log import app_log
+
+def delete_resource(resource, schema, txn, idl):
 
     if resource.next is None:
         return None
@@ -29,7 +31,6 @@ def delete_resource(resource, txn, idl):
         row.delete()
 
     elif resource.relation == OVSDB_SCHEMA_TOP_LEVEL:
-        row = utils.get_row(resource.next, idl)
-        row.delete()
+        utils.delete_all_references(resource.next, schema, idl)
 
     return txn.commit()

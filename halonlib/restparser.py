@@ -58,7 +58,8 @@ class OVSColumn(object):
             self.value_type, self.valueRangeMin, self.valueRangeMax = self.process_type(base_value)
 
         # The number of instances
-        self.is_list = (type_.n_max != 1)
+        self.is_dict = self.value_type is not None
+        self.is_list = (not self.is_dict) and type_.n_max > 1
         self.n_max = type_.n_max
         self.n_min = type_.n_min
 
@@ -238,6 +239,12 @@ class RESTSchema(object):
                 if k not in self.reference_map:
                     self.reference_map[k] = v.ref_table
 
+        # tables that has the refereces to one table
+        self.references_table_map = {}
+        for table in self.ovs_tables:
+            tables_references = get_references_tables(self, table)
+            self.references_table_map[table] = tables_references
+
         # get a plural name map for all tables
         self.plural_name_map = {}
         for table in self.ovs_tables.itervalues():
@@ -275,6 +282,16 @@ class RESTSchema(object):
 
         return RESTSchema(name, version, tables)
 
+def get_references_tables(schema, ref_table):
+    table_references = {}
+    for table in schema.ovs_tables:
+        columns = []
+        for column_name, reference in schema.ovs_tables[table].references.iteritems():
+            if reference.ref_table == ref_table:
+                columns.append(column_name)
+        if columns:
+            table_references[table] = columns
+    return table_references
 
 def parseSchema(schemaFile, title=None, version=None):
     schema = RESTSchema.from_json(ovs.json.from_file(schemaFile))

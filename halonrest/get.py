@@ -6,14 +6,14 @@ import types
 import json
 from tornado.log import app_log
 
-def get_resource(idl, resource, schema, uri=None):
+def get_resource(idl, resource, schema, uri=None, selector=None):
 
     if resource is None:
         return None
 
     # GET Open_vSwitch table
     if resource.next is None:
-        return get_row_json(resource.row, resource.table, schema, idl, uri)
+        return get_row_json(resource.row, resource.table, schema, idl, uri, selector)
 
     # Other tables
     while True:
@@ -21,10 +21,10 @@ def get_resource(idl, resource, schema, uri=None):
             break
         resource = resource.next
 
-    return get_resource_from_db(resource, schema, idl, uri)
+    return get_resource_from_db(resource, schema, idl, uri, selector)
 
 # get resource from db using resource->next_resource pair
-def get_resource_from_db(resource, schema, idl, uri=None):
+def get_resource_from_db(resource, schema, idl, uri=None, selector=None):
 
     if resource.relation is OVSDB_SCHEMA_TOP_LEVEL:
 
@@ -32,14 +32,14 @@ def get_resource_from_db(resource, schema, idl, uri=None):
         if resource.next.row is None:
             return get_table_json(resource.next.table, schema, idl, uri)
         else:
-            return get_row_json(resource.next.row, resource.next.table, schema, idl, uri)
+            return get_row_json(resource.next.row, resource.next.table, schema, idl, uri, selector)
 
     elif resource.relation is OVSDB_SCHEMA_CHILD:
 
         if resource.next.row is None:
             return get_column_json(resource.column, resource.row, resource.table, schema, idl, uri)
         else:
-            return get_row_json(resource.next.row, resource.next.table, schema, idl, uri)
+            return get_row_json(resource.next.row, resource.next.table, schema, idl, uri, selector)
 
     elif resource.relation is OVSDB_SCHEMA_REFERENCE:
         uri = get_uri(resource, schema, uri)
@@ -49,12 +49,12 @@ def get_resource_from_db(resource, schema, idl, uri=None):
         if type(resource.next.row) is types.ListType:
             return get_back_references_json(resource.row, resource.table, resource.next.table, schema, idl, uri)
         else:
-            return get_row_json(resource.next.row, resource.next.table, schema, idl, uri)
+            return get_row_json(resource.next.row, resource.next.table, schema, idl, uri, selector)
 
     else:
         return None
 
-def get_row_json(row, table, schema, idl, uri):
+def get_row_json(row, table, schema, idl, uri, selector):
 
     db_table = idl.tables[table]
     db_row = db_table.rows[row]
@@ -82,7 +82,15 @@ def get_row_json(row, table, schema, idl, uri):
     # references are part of configuration
     config_data.update(reference_data)
 
-    data = {OVSDB_SCHEMA_CONFIG:config_data, OVSDB_SCHEMA_STATS:stats_data, OVSDB_SCHEMA_STATUS:status_data}
+    if selector == OVSDB_SCHEMA_CONFIG:
+        data = {OVSDB_SCHEMA_CONFIG:config_data}
+    elif selector == OVSDB_SCHEMA_STATS:
+        data = {OVSDB_SCHEMA_STATS:stats_data}
+    elif selector == OVSDB_SCHEMA_STATUS:
+        data = {OVSDB_SCHEMA_STATUS:status_data}
+    else:
+        data = {OVSDB_SCHEMA_CONFIG:config_data, OVSDB_SCHEMA_STATS:stats_data, OVSDB_SCHEMA_STATUS:status_data}
+
     return data
 
 # get list of all table row entries

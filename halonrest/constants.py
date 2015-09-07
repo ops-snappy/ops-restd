@@ -17,6 +17,7 @@ ERROR = Transaction.ERROR
 
 # REST URIs
 REST_VERSION_PATH = '/rest/v1/'
+REST_QUERY_PARAM_SELECTOR = 'selector'
 
 # Ovsdb schema constants
 OVSDB_SCHEMA_SYSTEM_TABLE = 'Open_vSwitch'
