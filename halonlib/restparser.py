@@ -110,7 +110,8 @@ class OVSReference(object):
 
         # The number of instances
         self.is_plural = (type_.n_max != 1)
-
+        self.n_max = type_.n_max
+        self.n_min = type_.n_min
 
 class OVSTable(object):
     """__init__() functions as the class constructor"""

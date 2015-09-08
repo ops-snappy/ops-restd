@@ -307,6 +307,15 @@ def verify_forward_reference(data, resource, schema, idl):
         if key in data:
             app_log.info(key)
             index_list = data[key]
+
+            # Check range of references
+            index_len = len(index_list)
+            reference_min = reference_keys[key].n_min
+            reference_max = reference_keys[key].n_max
+            if index_len < reference_min or index_len > reference_max:
+                error_json = to_json_error("Reference list out of range", None, key)
+                return {ERROR: error_json}
+
             reference_list = []
             for index in index_list:
                 index_values = index.split('/')
