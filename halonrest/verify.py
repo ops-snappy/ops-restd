@@ -305,7 +305,6 @@ def verify_forward_reference(data, resource, schema, idl):
             ref_table = reference_keys[key].ref_table
 
         if key in data:
-            app_log.info(key)
             index_list = data[key]
 
             # Check range of references
