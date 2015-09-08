@@ -136,17 +136,17 @@ def genPostResource(table, parent_plurality, is_plural):
 
     params = genCoreParams(table, parent_plurality, is_plural)
     param = {}
-    param["name"] = "config"
+    param["name"] = "data"
     param["in"] = "body"
     param["description"] = "configuration"
     param["required"] = True
-    param["schema"] = {'$ref': "#/definitions/"+table.name+"Config"}
+    param["schema"] = {'$ref': "#/definitions/"+table.name+"ConfigOnly"}
     params.append(param)
 
     # For referenced resource
     if table.parent is None:
         param = {}
-        param["name"] = "referenced"
+        param["name"] = "referenced_by"
         param["in"] = "body"
         param["description"] = "List of referers"
         param["required"] = True
@@ -252,11 +252,11 @@ def genPutInstance(table, parent_plurality, is_plural):
 
         params = genCoreParams(table, parent_plurality, is_plural)
         param = {}
-        param["name"] = "config"
+        param["name"] = "data"
         param["in"] = "body"
         param["description"] = "configuration"
         param["required"] = True
-        param["schema"] = {'$ref': "#/definitions/"+table.name+"Config"}
+        param["schema"] = {'$ref': "#/definitions/"+table.name+"ConfigOnly"}
         params.append(param)
         op["parameters"] = params
 
@@ -264,6 +264,9 @@ def genPutInstance(table, parent_plurality, is_plural):
         response = {}
         response["description"] = "Configuration updated"
         responses["201"] = response
+        response = {}
+        response["description"] = "Configuration updated"
+        responses["200"] = response
         response = {}
         response["description"] = "Unexpected error"
         response["schema"] = {'$ref': "#/definitions/Error"}
@@ -416,7 +419,7 @@ def getDefinition(table, definitions):
     sub = {}
     sub["$ref"] = "#/definitions/" + table.name + "Config"
     sub["description"] = "Configuration of " + table.name
-    properties["config"] = sub
+    properties["configuration"] = sub
     sub = {}
     sub["$ref"] = "#/definitions/" + table.name + "Status"
     sub["description"] = "Status of " + table.name
@@ -424,10 +427,17 @@ def getDefinition(table, definitions):
     sub = {}
     sub["$ref"] = "#/definitions/" + table.name + "Stats"
     sub["description"] = "Statistics of " + table.name
-    properties["stats"] = sub
+    properties["statistics"] = sub
 
     definitions[table.name + "All"] = {"properties": properties}
 
+    properties = {}
+    sub = {}
+    sub["$ref"] = "#/definitions/" + table.name + "Config"
+    sub["description"] = "Configuration of " + table.name
+    properties["configuration"] = sub
+
+    definitions[table.name + "ConfigOnly"] = {"properties": properties}
 
 def genRefAPI(paths, definitions, schema, table, resource_name, parent, parents, parent_plurality):
     prefix = "/system"
