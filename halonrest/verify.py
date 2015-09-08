@@ -6,6 +6,7 @@ import httplib
 
 from tornado.log import app_log
 from halonrest.utils.utils import to_json_error
+from ovs.db import types as ovs_types
 
 def verify_data(data, resource, schema, idl, http_method):
 
@@ -118,7 +119,7 @@ def verify_config_data(data, resource, schema, http_method):
     # Check for extra or unknown attributes
     unknown_attribute = find_unknown_attribute(data, config_keys, reference_keys)
     if unknown_attribute is not None:
-        error_json = to_json_error("Unknown attribute", None, unknown_attribute)
+        error_json = to_json_error("Unknown configuration attribute", None, unknown_attribute)
         return {ERROR: error_json}
 
     # Check for all required/valid attributes to be present
@@ -126,9 +127,12 @@ def verify_config_data(data, resource, schema, http_method):
         if http_method == 'POST':
             if column_name in data:
                 verified_config_data[column_name] = data[column_name]
-                result = verify_attribute_type(column_name, config_keys[column_name], data[column_name])
-                if ERROR in result:
-                    return result
+                check_type_result = verify_attribute_type(column_name, config_keys[column_name], data[column_name])
+                if ERROR in check_type_result:
+                    return check_type_result
+                check_range_result = verify_attribute_range(column_name, config_keys[column_name], data[column_name])
+                if ERROR in check_range_result:
+                    return check_range_result
             else:
                 error_json = to_json_error("Attribute is missing from request", None, column_name)
                 return {ERROR: error_json}
@@ -138,9 +142,12 @@ def verify_config_data(data, resource, schema, http_method):
             if column_name in data:
                 if column_name not in non_mutable_attributes:
                     verified_config_data[column_name] = data[column_name]
-                    result = verify_attribute_type(column_name, config_keys[column_name], data[column_name])
-                    if ERROR in result:
-                        return result
+                    check_type_result = verify_attribute_type(column_name, config_keys[column_name], data[column_name])
+                    if ERROR in check_type_result:
+                        check_type_result
+                    check_range_result = verify_attribute_range(column_name, config_keys[column_name], data[column_name])
+                    if ERROR in check_range_result:
+                        return check_range_result
             elif column_name not in non_mutable_attributes:
                 error_json = to_json_error("Attribute is missing from request", None, column_name)
                 return {ERROR: error_json}
@@ -203,6 +210,89 @@ def verify_valid_attribute_values(request_data, column_data):
             valid = False
 
     return valid
+
+def verify_attribute_range(column_name, column_data, request_data):
+
+    # We assume verify_attribute_type has already been called,
+    # so request_data type must be correct (save for a small
+    # exception if column is list)
+
+    result = {}
+    error_json = {}
+    data_type = type(request_data)
+
+    # Check elements in in a list
+    if column_data.is_list:
+
+        # Exception: a single value might be accepted
+        # by OVSDB as a single element list
+        request_list = []
+        if data_type is not list:
+            request_list.append(request_data)
+        else:
+            request_list = request_data
+
+        request_len = len(request_list)
+        if request_len < column_data.n_min or request_len > column_data.n_max:
+            error_json = to_json_error("List's number of elements is out of range", None, column_name)
+        else:
+            for element in request_list:
+                # We usually check the value itself
+                # But for a string, we check its length instead
+                value = element
+                if type(element) in ovs_types.StringType.python_types:
+                    value = len(element)
+
+                if value < column_data.rangeMin or value > column_data.rangeMax:
+                    error_json = to_json_error("List element '%s' is out of range" % element, None, column_name)
+                    break
+
+    # Check elements in a dictionary
+    elif column_data.is_dict:
+        request_len = len(request_data)
+        if request_len < column_data.n_min or request_len > column_data.n_max:
+            error_json = to_json_error("Dictionary's number of elements is out of range", None, column_name)
+        else:
+            for key, data in request_data.iteritems():
+
+                value = key
+                if type(key) in ovs_types.StringType.python_types:
+                    value = len(key)
+
+                if value < column_data.rangeMin or value > column_data.rangeMax:
+                    error_json = to_json_error("Dictionary key '%s' is out of range" % key, None, column_name)
+                    break
+
+                value = data
+                if type(data) in ovs_types.StringType.python_types:
+                    value = len(data)
+
+                if value < column_data.valueRangeMin or value > column_data.valueRangeMax:
+                    error_json = to_json_error("Dictionary value '%s' is out of range" % data, None, column_name)
+                    break
+
+    # Check single elements (non-list/non-dictionary)
+    # Except boolean, as there's no range for them
+    elif data_type not in ovs_types.BooleanType.python_types:
+
+        # Exception: if column is not a list,
+        # a single value list is accepted
+        if data_type is list:
+            value = request_data[0]
+            data_type = type(value)
+        else:
+            value = request_data
+
+        if data_type in ovs_types.StringType.python_types:
+            value = len(value)
+
+        if value < column_data.rangeMin or value > column_data.rangeMax:
+            error_json = to_json_error("Attribute value is out of range", None, column_name)
+
+    if error_json:
+        result = {ERROR: error_json}
+
+    return result
 
 def verify_forward_reference(data, resource, schema, idl):
     reference_keys = schema.ovs_tables[resource.table].references
