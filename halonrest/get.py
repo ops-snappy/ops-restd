@@ -4,6 +4,7 @@ from halonrest.utils import utils
 
 import types
 import json
+import urllib
 from tornado.log import app_log
 
 def get_resource(idl, resource, schema, uri=None, selector=None):
@@ -186,8 +187,10 @@ def create_uri(uri, paths):
     other path.
     Example /system/ports/ -> /system/ports
     '''
-    uri = uri.rstrip('/')
+    result_path = uri.rstrip('/')
     if len(paths) > 1:
-        return uri + "/".join(paths)
+        result_path += "/".join(paths)
     else:
-        return uri + "/" + paths[0]
+        result_path += "/" + paths[0]
+
+    return urllib.quote(result_path, '/%')

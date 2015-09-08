@@ -5,6 +5,7 @@ import ovs.ovsuuid
 
 import types
 import json
+import urllib
 
 from tornado.log import app_log
 
@@ -20,6 +21,7 @@ def parse_url_path(path, schema, idl, http_method):
 
     # remove version and split path
     path = path[len(REST_VERSION_PATH):]
+    path = urllib.unquote(path)
     path = split_path(path)
     if not path:
         return None
