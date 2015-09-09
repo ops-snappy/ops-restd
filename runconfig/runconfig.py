@@ -17,7 +17,7 @@ import types
 import uuid
 
 # immutable tables cannot have any additions or deletions
-immutable_tables = ['Fan', 'Power_supply', 'LED', 'Temp_sensor', 'Open_vSwitch', 'VRF']
+immutable_tables = ['Fan', 'Power_supply', 'LED', 'Temp_sensor', 'Open_vSwitch', 'Subsystem', 'VRF']
 
 class RunConfigUtil():
     def __init__(self, settings):
@@ -188,7 +188,7 @@ class RunConfigUtil():
     def setup_row(self, index_values, table, row_data, txn, reflist, parent=None):
 
         # find out if this row exists
-        # TODO: if table is Open_vswitch, return first row from table
+        # If table is Open_vswitch, return first row from table
         if table == 'Open_vSwitch':
             row = self.idl.tables[table].rows.values()[0]
         else:
@@ -197,16 +197,19 @@ class RunConfigUtil():
         is_new = False
         if row is None:
             if table in immutable_tables:
-                # TODO: return an error here - can't add a row to an immutable table
-                return None
+                # Adding a row to an immutable table is ignored
+                return (None, False)
             row = txn.insert(self.idl.tables[table])
             is_new = True
 
         # we have the row. update the data
 
         # Routes are special case - only static routes can be updated
-        if table == 'Route' and not is_new and row.__getattr__('from') != 'static':
-            return None
+        if table == 'Route':
+            if not is_new and row.__getattr__('from') != 'static':
+                return (None, False)
+            elif is_new:
+                row.__setattr__('from', 'static')
 
         config_rows = self.restschema.ovs_tables[table].config
         config_keys = self.restschema.ovs_tables[table].config.keys()
@@ -215,19 +218,31 @@ class RunConfigUtil():
             if not is_new and not config_rows[key].mutable:
                 continue
 
-            if key in row_data:
-                row.__setattr__(key, row_data[key])
+            if key not in row_data and not is_new:
+                row.__setattr__(key, utils.get_empty_by_basic_type(row.__getattr__(key)))
+            elif key in row_data and (is_new or row.__getattr__(key) != row_data[key]):
+                     row.__setattr__(key, row_data[key])
 
         references = self.restschema.ovs_tables[table].references
         children = self.restschema.ovs_tables[table].children
 
         # delete all the keys that don't exist
-        for key, value in references.iteritems():
-            # don't touch immutable children
-            if key in children and value.ref_table in immutable_tables:
+        for key in children:
+            child_table = references[key].ref_table if key in references else key
+            if child_table in immutable_tables:
                 continue
-            if not is_new and key not in row_data:
-                row.__setattr__(key, [])
+
+            # forward child references
+            if key in references:
+                if not is_new and key not in row_data:
+                    row.__setattr__(key, [])
+            else:
+                # back-references
+                if child_table not in row_data:
+                    new_data = {}
+                else:
+                    new_data = row_data[child_table]
+                self.remove_deleted_rows(child_table, new_data, txn, row)
 
         # set up children that exist
         for key in children:
@@ -243,6 +258,14 @@ class RunConfigUtil():
                 else:
                     self.setup_table(child_table, row_data[key], txn, reflist, row)
 
+            if child_table in immutable_tables and (key not in row_data or not row_data[key]):
+                # Deep cleanup children, even if missing or empty, if can't delete because immutable
+                if key in references:
+                    self.clean_subtree(child_table, row.__getattr__(key), txn)
+                else:
+                    self.clean_subtree(child_table, [], txn, row)
+
+
         # Looks unnecessary - probably needs to be removed - commenting out for now
         # for key,value in references.iteritems():
         #     if key in self.restschema.ovs_tables[table].children and key in row_data:
@@ -253,7 +276,49 @@ class RunConfigUtil():
         #         if child_table not in immutable_tables:
         #             row.__setattr__(key, child_reference_list)
 
-        return row
+        return (row, is_new)
+
+    def clean_subtree(self, table, entries, txn, parent = None):
+
+        if parent is None:
+            for row in entries:
+                self.clean_row(table, row, txn)
+        else:
+            #back references
+            if table not in immutable_tables:
+                self.remove_deleted_rows(table, {}, txn, parent)
+            else:
+                parent_column = None
+                for key,value in self.restschema.ovs_tables[table].references.iteritems():
+                    if value.relation == 'parent':
+                        parent_column = key
+                        break
+                for row in self.idl.tables[table].rows.itervalues():
+                    if parent_column is not None and row.__getattr__(parent_column) == parent:
+                        self.clean_row(table, row, txn)
+
+    def clean_row(self, table, row, txn):
+        references = self.restschema.ovs_tables[table].references
+        children = self.restschema.ovs_tables[table].children
+
+        # clean children
+        for key in children:
+            if key in references:
+                child_table = references[key].ref_table
+                if child_table not in immutable_tables:
+                    row.__setattr__(key, [])
+                else:
+                    self.clean_subtree(child_table, row.__getattr__(key), txn)
+            else:
+                child_table = key
+                self.clean_subtree(child_table, [], txn, row)
+
+        # clean references
+        for key,val in references.iteritems():
+            if val.relation == 'reference' and val.mutable:
+                row.__setattr__(key,[])
+
+
 
     def setup_table(self, table, table_data, txn, reflist, parent = None):
 
@@ -263,16 +328,15 @@ class RunConfigUtil():
         parent_column = None
         if parent is not None:
             for key,value in self.restschema.ovs_tables[table].references.iteritems():
-                if value.relation == parent:
+                if value.relation == 'parent':
                     parent_column = key
                     break
 
         # iterate over each row
         rows = []
         for index, row_data in table_data.iteritems():
-            index_values = index.split('/')
-            row = self.setup_row(index_values, table, row_data, txn, reflist)
-
+            index_values = utils.escaped_split(index)
+            (row, isNew) = self.setup_row(index_values, table, row_data, txn, reflist)
             if row is None:
                 continue
 
@@ -283,7 +347,7 @@ class RunConfigUtil():
             rows.append(row)
 
             # save this in global reflist
-            reflist[(table, index)] = row
+            reflist[(table, index)] = (row, isNew)
 
         return rows
 
@@ -296,17 +360,23 @@ class RunConfigUtil():
 
             # fetch the row from the reflist we maintain
             if (table, index) in reflist:
-                row = reflist[(table, index)]
+                (row, isNew) = reflist[(table, index)]
             else:
                 continue
 
             for key,value in references.iteritems():
-                if key in row_data and value.relation == 'reference':
-                    ref_table = value.ref_table
+                if value.relation == 'reference':
+                    if not value.mutable and not isNew:
+                        continue
                     new_reference_list = []
-                    # TODO: missing item/references will throw an exception
-                    for item in row_data[key]:
-                        new_reference_list.append(reflist[(ref_table, item)])
+                    if key in row_data:
+                        ref_table = value.ref_table
+                        for item in row_data[key]:
+                            # TODO: missing item/references will throw an exception
+                            if (ref_table, item) not in reflist:
+                                continue
+                            (ref_row, isNew) = reflist[(ref_table, item)]
+                            new_reference_list.append(ref_row)
                     # set row attribute
                     row.__setattr__(key, new_reference_list)
 
@@ -319,12 +389,22 @@ class RunConfigUtil():
                         child_table = key
                     self.setup_references(child_table, row_data[key], txn, reflist)
 
-    def remove_deleted_rows(self, table, table_data, txn):
+    def remove_deleted_rows(self, table, table_data, txn, parent = None):
+
+        parent_column = None
+        if parent is not None:
+            for key,value in self.restschema.ovs_tables[table].references.iteritems():
+                if value.relation == 'parent':
+                    parent_column = key
+                    break
 
         # delete rows from DB that are not in declarative config
         delete_rows = []
         for row in self.idl.tables[table].rows.itervalues():
             index = utils.row_to_index(self.restschema.ovs_tables[table], row)
+
+            if parent_column is not None and row.__getattr__(parent_column) != parent:
+                continue
 
             # Routes are special case - only static routes can be deleted
             if table == 'Route' and row.__getattr__('from') != 'static':
@@ -384,7 +464,7 @@ class RunConfigUtil():
             if table_data.parent is not None:
                 continue
 
-            if table_name is 'Open_vSwitch':
+            if table_name == 'Open_vSwitch':
                 continue
             if table_name not in data:
                 new_data = {}
@@ -401,7 +481,8 @@ class RunConfigUtil():
             self.setup_references(table_name, data[table_name], txn, reflist)
 
         # remove orphaned rows
-        self.remove_orphaned_rows(txn)
+        # TODO: FIX THIS and turn on - not critical right away since VRF entry can't be removed
+        # self.remove_orphaned_rows(txn)
 
         # verify txn
         # commit txn
@@ -461,6 +542,6 @@ def test_read():
     print(json.dumps(config, sort_keys=True, indent=4, separators=(',', ': ')))
 
 if __name__ == "__main__":
-    test_read()
-    time.sleep(1)
+    #test_read()
+    #time.sleep(1)
     test_write()
