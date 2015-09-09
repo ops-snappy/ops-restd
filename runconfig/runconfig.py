@@ -229,7 +229,14 @@ class RunConfigUtil():
         # delete all the keys that don't exist
         for key in children:
             child_table = references[key].ref_table if key in references else key
+
             if child_table in immutable_tables:
+                if (key not in row_data or not row_data[key]):
+                    # Deep cleanup children, even if missing or empty, if can't delete because immutable
+                    if key in references:
+                        self.clean_subtree(child_table, row.__getattr__(key), txn)
+                    else:
+                        self.clean_subtree(child_table, [], txn, row)
                 continue
 
             # forward child references
@@ -257,14 +264,6 @@ class RunConfigUtil():
                         row.__setattr__(key, child_reference_list)
                 else:
                     self.setup_table(child_table, row_data[key], txn, reflist, row)
-
-            if child_table in immutable_tables and (key not in row_data or not row_data[key]):
-                # Deep cleanup children, even if missing or empty, if can't delete because immutable
-                if key in references:
-                    self.clean_subtree(child_table, row.__getattr__(key), txn)
-                else:
-                    self.clean_subtree(child_table, [], txn, row)
-
 
         # Looks unnecessary - probably needs to be removed - commenting out for now
         # for key,value in references.iteritems():
@@ -300,6 +299,7 @@ class RunConfigUtil():
     def clean_row(self, table, row, txn):
         references = self.restschema.ovs_tables[table].references
         children = self.restschema.ovs_tables[table].children
+        config_rows = self.restschema.ovs_tables[table].config
 
         # clean children
         for key in children:
@@ -312,6 +312,12 @@ class RunConfigUtil():
             else:
                 child_table = key
                 self.clean_subtree(child_table, [], txn, row)
+
+        # clean config fields
+        for key in config_rows.keys():
+            if not config_rows[key].mutable:
+                continue
+            row.__setattr__(key, utils.get_empty_by_basic_type(row.__getattr__(key)))
 
         # clean references
         for key,val in references.iteritems():
