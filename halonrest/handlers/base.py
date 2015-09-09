@@ -1,5 +1,6 @@
 from tornado.ioloop import IOLoop
 from tornado import web, gen, locks
+from tornado.log import app_log
 
 import json
 import httplib
@@ -34,11 +35,16 @@ class AutoHandler(BaseHandler):
     # parse the url and http params.
     def prepare(self):
 
+        app_log.debug("Incoming request from %s: %s", self.request.remote_ip, self.request)
+
         self.resource_path = parse_url_path(self.request.path, self.schema, self.idl, self.request.method)
 
         if self.resource_path is None:
             self.set_status(httplib.NOT_FOUND)
             self.finish()
+
+    def on_finish(self):
+        app_log.debug("Finished handling of request from %s", self.request.remote_ip)
 
     @gen.coroutine
     def get(self):
@@ -76,6 +82,7 @@ class AutoHandler(BaseHandler):
                     yield self.txn.event.wait()
                     result = self.txn.status
 
+                app_log.debug("POST operation result: %s", result)
                 if self.successful_transaction(result):
                     self.set_status(httplib.CREATED)
 
@@ -83,6 +90,14 @@ class AutoHandler(BaseHandler):
                 self.set_status(httplib.BAD_REQUEST)
                 self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
                 self.write(to_json_error(e))
+
+            # TODO: Improve exception handler
+            except Exception, e:
+                app_log.debug("Unexpected exception: %s", e)
+
+                self.txn.abort()
+                self.set_status(httplib.INTERNAL_SERVER_ERROR)
+
         else:
             self.set_status(httplib.LENGTH_REQUIRED)
 
@@ -108,6 +123,7 @@ class AutoHandler(BaseHandler):
                     yield self.txn.event.wait()
                     result = self.txn.status
 
+                app_log.debug("PUT operation result: %s", result)
                 if self.successful_transaction(result):
                     self.set_status(httplib.OK)
 
@@ -115,6 +131,14 @@ class AutoHandler(BaseHandler):
                 self.set_status(httplib.BAD_REQUEST)
                 self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
                 self.write(to_json_error(e))
+
+            # TODO: Improve exception handler
+            except Exception, e:
+                app_log.debug("Unexpected exception: %s", e)
+
+                self.txn.abort()
+                self.set_status(httplib.INTERNAL_SERVER_ERROR)
+
         else:
             self.set_status(httplib.LENGTH_REQUIRED)
 
@@ -123,18 +147,28 @@ class AutoHandler(BaseHandler):
     @gen.coroutine
     def delete(self):
 
-        self.txn = self.ref_object.manager.get_new_transaction()
+        try:
+            self.txn = self.ref_object.manager.get_new_transaction()
 
-        result = delete.delete_resource(self.resource_path, self.schema, self.txn, self.idl)
+            result = delete.delete_resource(self.resource_path, self.schema, self.txn, self.idl)
 
-        if result == INCOMPLETE:
-            self.ref_object.manager.monitor_transaction(self.txn)
-            # on 'incomplete' state we wait until the transaction completes with either success or failure
-            yield self.txn.event.wait()
-            result = self.txn.status
+            if result == INCOMPLETE:
+                self.ref_object.manager.monitor_transaction(self.txn)
+                # on 'incomplete' state we wait until the transaction completes with either success or failure
+                yield self.txn.event.wait()
+                result = self.txn.status
 
-        if self.successful_transaction(result):
-            self.set_status(httplib.NO_CONTENT)
+            app_log.debug("DELETE operation result: %s", result)
+            if self.successful_transaction(result):
+                app_log.debug("Successful transaction!")
+                self.set_status(httplib.NO_CONTENT)
+
+        # TODO: Improve exception handler
+        except Exception, e:
+            app_log.debug("Unexpected exception: %s", e)
+
+            self.txn.abort()
+            self.set_status(httplib.INTERNAL_SERVER_ERROR)
 
         self.finish()
 

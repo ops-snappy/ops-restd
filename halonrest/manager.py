@@ -1,5 +1,6 @@
 import time, re, json
 from tornado.ioloop import IOLoop
+from tornado.log import app_log
 
 from ovs.db.idl import Idl, SchemaHelper
 from ovs.poller import Poller
@@ -21,6 +22,7 @@ class OvsdbConnectionManager:
     def start(self):
         # reset all connections
         try:
+            app_log.info("Starting Connection Manager!")
             if self.idl is not None:
                 self.idl.close()
 
@@ -40,6 +42,7 @@ class OvsdbConnectionManager:
         except Exception as e:
             # TODO: log this exception
             # attempt again in the next IOLoop iteration
+            app_log.info("Connection Manager failed! Reason: %s" % e)
             IOLoop.current().add_timeout(time.time() + self.timeout, self.start)
 
     def monitor_connection(self):

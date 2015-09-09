@@ -19,7 +19,9 @@ import getopt
 import json
 import sys
 import re
-import xml.dom.minidom
+import string
+
+import xml.etree.ElementTree as ET
 
 import ovs.dirs
 from ovs.db import error
@@ -134,17 +136,17 @@ def genPostResource(table, parent_plurality, is_plural):
 
     params = genCoreParams(table, parent_plurality, is_plural)
     param = {}
-    param["name"] = "config"
+    param["name"] = "data"
     param["in"] = "body"
     param["description"] = "configuration"
     param["required"] = True
-    param["schema"] = {'$ref': "#/definitions/"+table.name+"Config"}
+    param["schema"] = {'$ref': "#/definitions/"+table.name+"ConfigOnly"}
     params.append(param)
 
     # For referenced resource
     if table.parent is None:
         param = {}
-        param["name"] = "referenced"
+        param["name"] = "referenced_by"
         param["in"] = "body"
         param["description"] = "List of referers"
         param["required"] = True
@@ -250,11 +252,11 @@ def genPutInstance(table, parent_plurality, is_plural):
 
         params = genCoreParams(table, parent_plurality, is_plural)
         param = {}
-        param["name"] = "config"
+        param["name"] = "data"
         param["in"] = "body"
         param["description"] = "configuration"
         param["required"] = True
-        param["schema"] = {'$ref': "#/definitions/"+table.name+"Config"}
+        param["schema"] = {'$ref': "#/definitions/"+table.name+"ConfigOnly"}
         params.append(param)
         op["parameters"] = params
 
@@ -262,6 +264,9 @@ def genPutInstance(table, parent_plurality, is_plural):
         response = {}
         response["description"] = "Configuration updated"
         responses["201"] = response
+        response = {}
+        response["description"] = "Configuration updated"
+        responses["200"] = response
         response = {}
         response["description"] = "Unexpected error"
         response["schema"] = {'$ref': "#/definitions/Error"}
@@ -319,23 +324,52 @@ def genDelReference(table, parent_plurality):
 
     return op
 
+    #Reading the xml file
+def readxml():
+    with open(args[1], 'rt') as f:
+        tree = ET.parse(f)
+
+    return tree
+
+    #Reading the description for each column and parsing the description
+def parse_xml_desc(xmlTable, xmlColumn, tree):
+    columnDesc = ""
+    for node in tree.iter():
+        if node.tag == 'table' and xmlTable == node.attrib['name']:
+            for group in node.getchildren():
+                for column in group.getchildren():
+                    if column.tag == 'column' and xmlColumn == column.attrib['name']:
+                        columnDesc = ET.tostring(column, encoding='utf8', method='html')
+                    if columnDesc == None:
+                        columnDesc = ""
+    # Removing unecessary tags at the beginning of each description
+    if columnDesc != "":
+        columnDesc = " ".join(columnDesc.split())
+    reg =  '<column .*?>(.*)</column>'
+    r = re.search(reg, columnDesc)
+    if r == None:
+        return ""
+    else:
+        return str(r.group(1)).lstrip().rstrip()
+
 
 def getDefinition(table, definitions):
+    tree = readxml()
     properties = {}
     for colName, col in table.config.iteritems():
         definition = {}
         if col.type == types.IntegerType:
             definition["type"] = "integer"
-            definition["description"] = colName
+            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
         elif col.type == types.RealType:
             definition["type"] = "real"
-            definition["description"] = colName
+            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
         elif col.type == types.StringType:
             definition["type"] = "string"
-            definition["description"] = colName
+            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
         elif col.type == types.BooleanType:
             definition["type"] = "boolean"
-            definition["description"] = colName
+            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
         else:
             raise error.Error("Unexpected attribute type " + col.type)
         properties[colName] = definition
@@ -346,16 +380,16 @@ def getDefinition(table, definitions):
         definition = {}
         if col.type == types.IntegerType:
             definition["type"] = "integer"
-            definition["description"] = colName
+            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
         elif col.type == types.RealType:
             definition["type"] = "real"
-            definition["description"] = colName
+            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
         elif col.type == types.StringType:
             definition["type"] = "string"
-            definition["description"] = colName
+            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
         elif col.type == types.BooleanType:
             definition["type"] = "boolean"
-            definition["description"] = colName
+            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
         else:
             raise error.Error("Unexpected attribute type " + col.type)
         properties[colName] = definition
@@ -366,16 +400,16 @@ def getDefinition(table, definitions):
         definition = {}
         if col.type == types.IntegerType:
             definition["type"] = "integer"
-            definition["description"] = colName
+            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
         elif col.type == types.RealType:
             definition["type"] = "real"
-            definition["description"] = colName
+            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
         elif col.type == types.StringType:
             definition["type"] = "string"
-            definition["description"] = colName
+            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
         elif col.type == types.BooleanType:
             definition["type"] = "boolean"
-            definition["description"] = colName
+            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
         else:
             raise error.Error("Unexpected attribute type " + col.type)
         properties[colName] = definition
@@ -385,7 +419,7 @@ def getDefinition(table, definitions):
     sub = {}
     sub["$ref"] = "#/definitions/" + table.name + "Config"
     sub["description"] = "Configuration of " + table.name
-    properties["config"] = sub
+    properties["configuration"] = sub
     sub = {}
     sub["$ref"] = "#/definitions/" + table.name + "Status"
     sub["description"] = "Status of " + table.name
@@ -393,10 +427,17 @@ def getDefinition(table, definitions):
     sub = {}
     sub["$ref"] = "#/definitions/" + table.name + "Stats"
     sub["description"] = "Statistics of " + table.name
-    properties["stats"] = sub
+    properties["statistics"] = sub
 
     definitions[table.name + "All"] = {"properties": properties}
 
+    properties = {}
+    sub = {}
+    sub["$ref"] = "#/definitions/" + table.name + "Config"
+    sub["description"] = "Configuration of " + table.name
+    properties["configuration"] = sub
+
+    definitions[table.name + "ConfigOnly"] = {"properties": properties}
 
 def genRefAPI(paths, definitions, schema, table, resource_name, parent, parents, parent_plurality):
     prefix = "/system"
