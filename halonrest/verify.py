@@ -18,12 +18,10 @@ def verify_data(data, resource, schema, idl, http_method):
 
 def verify_post_data(data, resource, schema, idl):
 
-    # all POST data should be enclosed in { 'configuration' : { DATA } } JSON
-    if OVSDB_SCHEMA_CONFIG not in data:
-        app_log.info("JSON is missing configuration data")
-        return None
+    _data = get_config_data(data)
 
-    _data = data[OVSDB_SCHEMA_CONFIG]
+    if ERROR in _data:
+        return _data
 
     # verify config and reference columns data
     verified_data = {}
@@ -46,7 +44,8 @@ def verify_post_data(data, resource, schema, idl):
     is_root = schema.ovs_tables[resource.next.table].is_root
     if resource.relation == OVSDB_SCHEMA_TOP_LEVEL and not is_root:
         if OVSDB_SCHEMA_REFERENCED_BY not in data:
-            return None
+            error_json = to_json_error("Missing %s" % OVSDB_SCHEMA_REFERENCED_BY, None, OVSDB_SCHEMA_REFERENCED_BY)
+            return {ERROR: error_json}
 
         _data = data[OVSDB_SCHEMA_REFERENCED_BY]
         try:
@@ -57,9 +56,10 @@ def verify_post_data(data, resource, schema, idl):
                 verified_data.update(verified_referenced_by_data)
 
         except Exception as e:
-            app_log.debug(e)
-            app_log.info('referenced_by uri verification failed')
-            return None
+            app_log.debug('referenced_by uri verification failed')
+            app_log.debug("Reason: %s" % e)
+            error_json = to_json_error(str(e), None, OVSDB_SCHEMA_REFERENCED_BY)
+            return {ERROR: error_json}
 
     elif resource.relation == OVSDB_SCHEMA_BACK_REFERENCE:
         for key,value in schema.ovs_tables[resource.next.table].references.iteritems():
@@ -70,12 +70,10 @@ def verify_post_data(data, resource, schema, idl):
 
 def verify_put_data(data, resource, schema, idl):
 
-    # all POST data should be enclosed in { 'configuration' : { DATA } } JSON
-    if OVSDB_SCHEMA_CONFIG not in data:
-        app_log.info("JSON is missing configuration data")
-        return None
+    _data = get_config_data(data)
 
-    _data = data[OVSDB_SCHEMA_CONFIG]
+    if ERROR in _data:
+        return _data
 
     # We neet to verify Open_vSwitch table
     if resource.next is None:
@@ -105,7 +103,8 @@ def verify_put_data(data, resource, schema, idl):
     if resource.relation == OVSDB_SCHEMA_TOP_LEVEL and not is_root:
         if OVSDB_SCHEMA_REFERENCED_BY in data:
             app_log.info('referenced_by is not allowed when doing PUT')
-            return None
+            error_json = to_json_error("%s not allowed for PUT" % OVSDB_SCHEMA_REFERENCED_BY, None, OVSDB_SCHEMA_REFERENCED_BY)
+            return {ERROR: error_json}
 
     return verified_data
 
@@ -427,3 +426,12 @@ def get_non_mutable_attributes(resource, schema):
             result.append(key)
 
     return result
+
+def get_config_data(data):
+    # all PUT/POST data should be enclosed in { 'configuration' : { DATA } } JSON
+    if OVSDB_SCHEMA_CONFIG not in data:
+        app_log.debug("JSON is missing configuration data")
+        error_json = to_json_error("Missing %s" % OVSDB_SCHEMA_CONFIG, None, OVSDB_SCHEMA_CONFIG)
+        return {ERROR: error_json}
+
+    return data[OVSDB_SCHEMA_CONFIG]
