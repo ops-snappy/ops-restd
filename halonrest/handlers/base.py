@@ -92,8 +92,7 @@ class AutoHandler(BaseHandler):
 
             if self.resource_path is None:
                 self.set_status(httplib.NOT_FOUND)
-
-        self.finish()
+                self.finish()
 
     def on_finish(self):
         app_log.debug("Finished handling of request from %s", self.request.remote_ip)
