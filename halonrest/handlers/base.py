@@ -87,6 +87,7 @@ class AutoHandler(BaseHandler):
         if not is_authenticated:
             self.set_status(httplib.UNAUTHORIZED)
             self.set_header("Link", "/login")
+            self.finish()
         else:
             self.resource_path = parse_url_path(self.request.path, self.schema, self.idl, self.request.method)
 
