@@ -12,6 +12,47 @@ from halonrest.constants import *
 from halonrest.utils.utils import *
 from halonrest import get, post, delete, put
 
+import userauth
+
+class LoginHandler(web.RequestHandler):
+
+    # pass the application reference to the handlers
+    def initialize(self, ref_object):
+        self.ref_object = ref_object
+
+        # CORS
+        allow_origin = self.request.protocol + "://"
+        allow_origin += self.request.host.split(":")[0] # removing port if present
+        self.set_header("Access-Control-Allow-Origin", allow_origin)
+        self.set_header("Access-Control-Expose-Headers", "Date")
+
+        # TODO - remove next line before release - needed for testing
+        self.set_header("Access-Control-Allow-Origin", "*")
+
+    @gen.coroutine
+    def get(self):
+
+        is_authenticated = userauth.is_user_authenticated(self)
+        if not is_authenticated:
+            self.set_status(httplib.UNAUTHORIZED)
+            self.set_header("Link", "/login")
+        else:
+            self.set_status(httplib.OK)
+
+        self.finish()
+
+    @gen.coroutine
+    def post(self):
+
+        login_success = userauth.handle_user_login(self)
+        if not login_success:
+            self.set_status(httplib.UNAUTHORIZED)
+            self.set_header("Link", "/login")
+        else:
+            self.set_status(httplib.OK)
+
+        self.finish()
+
 class BaseHandler(web.RequestHandler):
 
     # pass the application reference to the handlers
@@ -37,11 +78,18 @@ class AutoHandler(BaseHandler):
 
         app_log.debug("Incoming request from %s: %s", self.request.remote_ip, self.request)
 
-        self.resource_path = parse_url_path(self.request.path, self.schema, self.idl, self.request.method)
+        is_authenticated = userauth.is_user_authenticated(self)
 
-        if self.resource_path is None:
-            self.set_status(httplib.NOT_FOUND)
-            self.finish()
+        if not is_authenticated:
+            self.set_status(httplib.UNAUTHORIZED)
+            self.set_header("Link", "/login")
+        else:
+            self.resource_path = parse_url_path(self.request.path, self.schema, self.idl, self.request.method)
+
+            if self.resource_path is None:
+                self.set_status(httplib.NOT_FOUND)
+
+        self.finish()
 
     def on_finish(self):
         app_log.debug("Finished handling of request from %s", self.request.remote_ip)
