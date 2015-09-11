@@ -317,7 +317,7 @@ def verify_forward_reference(data, resource, schema, idl):
             reference_list = []
             for index in index_list:
                 index_values = index.split('/')
-                row = utils.index_to_row(index_values[-1], schema.ovs_tables[ref_table], idl.tables[ref_table])
+                row = utils.index_to_row(index_values[-1:], schema.ovs_tables[ref_table], idl.tables[ref_table])
                 reference_list.append(row)
             verified_references[key] = reference_list
 
