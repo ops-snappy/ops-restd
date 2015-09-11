@@ -87,13 +87,13 @@ class AutoHandler(BaseHandler):
         if not is_authenticated:
             self.set_status(httplib.UNAUTHORIZED)
             self.set_header("Link", "/login")
+            self.finish()
         else:
             self.resource_path = parse_url_path(self.request.path, self.schema, self.idl, self.request.method)
 
             if self.resource_path is None:
                 self.set_status(httplib.NOT_FOUND)
-
-        self.finish()
+                self.finish()
 
     def on_finish(self):
         app_log.debug("Finished handling of request from %s", self.request.remote_ip)
