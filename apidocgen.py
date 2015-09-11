@@ -69,7 +69,7 @@ def genCoreParams(table, parent_plurality, is_plural = True):
 def genGetResource(table, parent_plurality, is_plural):
     op = {}
     op["summary"] = "Get operation"
-    op["description"] = "Get a list of resource ids"
+    op["description"] = "Get a list of resources"
     op["tags"] = [table.name]
 
     params = genCoreParams(table, parent_plurality, is_plural)
@@ -78,7 +78,7 @@ def genGetResource(table, parent_plurality, is_plural):
 
     responses = {}
     response = {}
-    response["description"] = "A list of ids"
+    response["description"] = "A list of URIs"
     schema = {}
     schema["type"] = "array"
     item = {}
@@ -138,31 +138,22 @@ def genPostResource(table, parent_plurality, is_plural):
     param = {}
     param["name"] = "data"
     param["in"] = "body"
-    param["description"] = "configuration"
+    param["description"] = "data"
     param["required"] = True
-    param["schema"] = {'$ref': "#/definitions/"+table.name+"ConfigOnly"}
-    params.append(param)
 
-    # For referenced resource
     if table.parent is None:
-        param = {}
-        param["name"] = "referenced_by"
-        param["in"] = "body"
-        param["description"] = "List of referers"
-        param["required"] = True
-        schema = {}
-        schema["type"] = "array"
-        schema["items"] = {'$ref': "#/definitions/ReferencedBy"}
-        param["schema"] = schema
-        params.append(param)
+        # For referenced resource
+        param["schema"] = {'$ref': "#/definitions/"+table.name+"ConfigReferenced"}
+    else:
+        param["schema"] = {'$ref': "#/definitions/"+table.name+"ConfigOnly"}
 
+    params.append(param)
     op["parameters"] = params
 
     responses = {}
     response = {}
     response["description"] = "New resource created"
     schema = {}
-    item = {}
     schema["$ref"] = "#/definitions/Resource"
     response["schema"] = schema
     responses["200"] = response
@@ -439,6 +430,23 @@ def getDefinition(table, definitions):
 
     definitions[table.name + "ConfigOnly"] = {"properties": properties}
 
+    properties = {}
+    sub = {}
+    sub["$ref"] = "#/definitions/" + table.name + "Config"
+    sub["description"] = "Configuration of " + table.name
+    properties["configuration"] = sub
+
+    sub = {}
+    sub["type"] = "array"
+    sub["description"] = "A list of reference points"
+    item = {}
+    item["$ref"] = "#/definitions/ReferencedBy"
+    sub["items"] = item
+    properties["referenced_by"] = sub
+
+    definitions[table.name + "ConfigReferenced"] = {"properties": properties}
+
+
 def genRefAPI(paths, definitions, schema, table, resource_name, parent, parents, parent_plurality):
     prefix = "/system"
     depth = len(parents)
@@ -573,8 +581,8 @@ def getFullAPI(schema):
     info["version"] = "1.0.0"
     api["info"] = info
 
-    api["host"] = "api-halon.hp.com"
-    api["schemes"] = ["https"]
+    api["host"] = ""
+    api["schemes"] = ["http"]
     api["basePath"] = "/rest/v1"
     api["produces"] = ["application/json"]
 
@@ -623,20 +631,23 @@ def getFullAPI(schema):
     properties["fields"] = {"type": "string"}
     definitions["Error"] = {"properties": properties}
 
-    properties = {}
-    properties["id"] = {"type": "string", "description": "Resource ID"}
-    properties["uri"] = {"type": "string", "description": "Resource URI"}
-    definitions["Resource"] = {"properties": properties}
+    definition = {}
+    definition["type"] = "string"
+    definition["description"] = "Resource URI"
+    definitions["Resource"] = definition
 
     properties = {}
     definition = {}
     definition["type"] = "string"
     definition["description"] = "URI of the resource making the reference"
-    properties["referer"] = definition
+    properties["uri"] = definition
     definition = {}
-    definition["type"] = "string"
-    definition["description"] = "Column name of the reference point"
-    properties["refpoint"] = definition
+    definition["type"] = "array"
+    definition["description"] = "A list of reference points, can be empty for default"
+    items = {}
+    items["type"] = "string"
+    definition["items"] = items
+    properties["attributes"] = definition
     definitions["ReferencedBy"] = {"properties": properties}
 
     api["definitions"] = definitions
