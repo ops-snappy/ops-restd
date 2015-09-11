@@ -13,6 +13,7 @@ from halonrest.utils.utils import *
 from halonrest import get, post, delete, put
 
 import userauth
+from halonrest.settings import settings
 
 class LoginHandler(web.RequestHandler):
 
@@ -78,7 +79,10 @@ class AutoHandler(BaseHandler):
 
         app_log.debug("Incoming request from %s: %s", self.request.remote_ip, self.request)
 
-        is_authenticated = userauth.is_user_authenticated(self)
+        if settings['auth_enabled']:
+            is_authenticated = userauth.is_user_authenticated(self)
+        else:
+            is_authenticated = True
 
         if not is_authenticated:
             self.set_status(httplib.UNAUTHORIZED)
