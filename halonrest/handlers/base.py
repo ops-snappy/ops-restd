@@ -100,6 +100,21 @@ class AutoHandler(BaseHandler):
         app_log.debug("Finished handling of request from %s", self.request.remote_ip)
 
     @gen.coroutine
+    def options(self):
+
+        resource = self.resource_path
+        while resource.next is not None:
+            resource = resource.next
+
+        allowed_methods = ', '.join(resource.get_allowed_methods(self.schema))
+
+        self.set_header(HTTP_HEADER_ALLOW, allowed_methods)
+        self.set_header(HTTP_HEADER_ACCESS_CONTROL_ALLOW_METHODS, allowed_methods)
+
+        self.set_status(httplib.OK)
+        self.finish()
+
+    @gen.coroutine
     def get(self):
 
         selector = self.get_query_argument(REST_QUERY_PARAM_SELECTOR, None)
