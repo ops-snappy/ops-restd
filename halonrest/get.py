@@ -104,12 +104,7 @@ def get_table_json(table, schema, idl, uri):
     uri_list = []
 
     for row in db_table.rows.itervalues():
-        tmp = []
-        for index in indexes:
-            if index == 'uuid':
-                tmp.append(str(row.uuid))
-            else:
-                tmp.append(str(row.__getattr__(index)))
+        tmp = utils.get_table_key(row, table, schema)
         _uri = create_uri(uri, tmp)
         uri_list.append(_uri)
 
@@ -121,21 +116,30 @@ def get_column_json(column, row, table, schema, idl, uri):
     db_row = db_table.rows[row]
     db_col = db_row.__getattr__(column)
 
-    # column is a reference. Get the table name
-    col_table = schema.ovs_tables[table].references[column].ref_table
-    indexes = schema.ovs_tables[col_table].indexes
+    current_table = schema.ovs_tables[table]
 
-    if schema.ovs_tables[col_table].parent is None:
-        uri = OVSDB_BASE_URI + schema.ovs_tables[col_table].plural_name
+    # column is a reference. Get the table name
+    col_table = current_table.references[column].ref_table
+    column_table = schema.ovs_tables[col_table]
+
+    # Is a top level table
+    if column_table.parent is None:
+        uri = OVSDB_BASE_URI + column_table.plural_name
+    # Is a child table, is faster concatenate the uri instead searching
+    elif column_table.parent == current_table.name:
+        #If we are at a child reference URI we don't add the column path.
+        if column_table.plural_name not in uri:
+            uri = uri.rstrip('/')
+            uri += '/' + column_table.plural_name
 
     uri_list = []
     for row in db_col:
-        tmp = []
-        for index in indexes:
-            if index == 'uuid':
-                tmp.append(str(row.uuid))
-            else:
-                tmp.append(str(row.__getattr__(index)))
+        #Reference with different parent, search the parent
+        if column_table.parent is not None and column_table.parent != current_table.name:
+            uri = OVSDB_BASE_URI
+            uri += utils.get_reference_parent_uri(col_table, row, schema, idl)
+            uri += column_table.plural_name
+        tmp = utils.get_table_key(row, column_table.name, schema)
         _uri = create_uri(uri, tmp)
         uri_list.append(_uri)
 
@@ -158,12 +162,7 @@ def get_back_references_json(parent_row, parent_table, table, schema, idl, uri):
     for row in idl.tables[table].rows.itervalues():
         ref = row.__getattr__(_refCol)
         if ref.uuid == parent_row:
-            tmp = []
-            for index in indexes:
-                if index == 'uuid':
-                    tmp.append(str(row.uuid))
-                else:
-                    tmp.append(str(row.__getattr__(index)))
+            tmp = utils.get_table_key(row, table, schema)
             _uri = create_uri(uri, tmp)
             uri_list.append(_uri)
 
@@ -193,4 +192,4 @@ def create_uri(uri, paths):
     else:
         result_path += "/" + paths[0]
 
-    return urllib.quote(result_path, '/%')
+    return result_path

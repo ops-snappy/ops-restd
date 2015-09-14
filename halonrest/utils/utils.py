@@ -5,6 +5,7 @@ import ovs.db.types as ovs_types
 import types
 import uuid
 import re
+import urllib
 
 from halonrest.resource import Resource
 from halonrest.constants import *
@@ -427,3 +428,68 @@ def escaped_split(s_in):
         res_strings.append(s)
 
     return res_strings
+
+def get_reference_parent_uri(table_name, row, schema, idl):
+    uri = ''
+    path = get_parent_trace(table_name, row, schema, idl)
+    #Don't include Open_vSwitch table
+    for table_name,indexes in path[1:]:
+        plural_name = schema.ovs_tables[table_name].plural_name
+        uri += str(plural_name) + '/' + "/".join(indexes) + '/'
+    app_log.debug("Reference uri %s" % uri)
+    return uri
+
+'''
+Get the parent trace to one row
+Returns (table, index) list
+'''
+def get_parent_trace(table_name, row, schema, idl):
+    table = schema.ovs_tables[table_name]
+    path = []
+    while table.parent is not None and row is not None:
+        parent_table = schema.ovs_tables[table.parent]
+        column = get_parent_column_ref(parent_table.name, table.name, schema)
+        row = get_parent_row(parent_table.name, row, column, schema, idl)
+        index_list = get_table_key(row, parent_table.name, schema)
+        table_path = (parent_table.name, index_list)
+        path.insert(0, table_path)
+        table = parent_table
+    return path
+
+'''
+Get column name where the child table is being referenced
+Returns column name
+'''
+def get_parent_column_ref(table_name, table_ref, schema):
+    table = schema.ovs_tables[table_name]
+    for column_name,reference in table.references.iteritems():
+        if reference.ref_table == table_ref and reference.relation == 'child':
+            return column_name
+
+'''
+Get the row where the item is being referenced
+Returns idl.Row object
+'''
+def get_parent_row(table_name, row, column, schema, idl):
+    table = schema.ovs_tables[table_name]
+    for uuid, row_ref in idl.tables[table_name].rows.iteritems():
+        reflist = get_column(row_ref, column, idl)
+        for item in reflist:
+            if item.uuid == row.uuid:
+                return row_ref
+
+'''
+Get the row index
+Return the row index
+'''
+def get_table_key(row, table_name, schema):
+    table = schema.ovs_tables[table_name]
+    indexes = table.indexes
+    index_list = []
+    for index in indexes:
+        if index == 'uuid':
+            index_list.append(str(row.uuid))
+        else:
+            value = urllib.quote(str(row.__getattr__(index)), safe='')
+            index_list.append(value)
+    return index_list

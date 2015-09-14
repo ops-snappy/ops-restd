@@ -11,7 +11,7 @@ from tornado.log import app_log
 
 def split_path(path):
     path = path.split('/')
-    path = [i for i in path if i!= '']
+    path = [urllib.unquote(i) for i in path if i!= '']
     return path
 
 def parse_url_path(path, schema, idl, http_method):
@@ -21,7 +21,6 @@ def parse_url_path(path, schema, idl, http_method):
 
     # remove version and split path
     path = path[len(REST_VERSION_PATH):]
-    path = urllib.unquote(path)
     path = split_path(path)
     if not path:
         return None
