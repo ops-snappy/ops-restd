@@ -253,6 +253,9 @@ def row_to_json(row, column_keys):
     data_json = {}
     for key in column_keys:
         data_json[key] = to_json(row.__getattr__(key))
+        # Convert single element lists to scalar if schema defines a max of 1 element
+        if type(data_json[key]) is list and column_keys[key].n_max == 1:
+            data_json[key] = data_json[key][0]
 
     return data_json
 
