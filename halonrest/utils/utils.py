@@ -1,7 +1,7 @@
 import json
 import ovs.db.idl
 import ovs
-import ovs.db.types
+import ovs.db.types as ovs_types
 import types
 import uuid
 import re
@@ -267,17 +267,20 @@ def get_empty_by_basic_type(data):
     elif type_ is types.ListType:
         return []
 
-    elif type_ is types.UnicodeType:
+    elif type_ in ovs_types.StringType.python_types:
         return ''
+
+    elif type_ in ovs_types.IntegerType.python_types:
+        return 0
+
+    elif type_ in ovs_types.RealType.python_types:
+        return 0.0
 
     elif type_ is types.BooleanType:
         return False
 
     elif type_ is types.NoneType:
         return None
-
-    elif type_ is types.IntType:
-        return 0
 
     else:
         return ''
@@ -291,8 +294,14 @@ def to_json(data):
     elif type_ is types.ListType:
         return list_to_json(data)
 
-    elif type_ is types.UnicodeType:
+    elif type_ in ovs_types.StringType.python_types:
         return str(data)
+
+    elif type_ in ovs_types.IntegerType.python_types:
+        return data
+
+    elif type_ in ovs_types.RealType.python_types:
+        return data
 
     elif type_ is types.BooleanType:
         return json.dumps(data)
@@ -316,7 +325,12 @@ def has_column_changed(json_data, data):
     if json_type_ != type_:
         return False
 
-    if type_ is types.DictType or type_ is types.ListType or type_ is types.NoneType or type_ is types.BooleanType:
+    if type_ is types.DictType or \
+       type_ is types.ListType or \
+       type_ is types.NoneType or \
+       type_ is types.BooleanType or \
+       type_ in ovs_types.IntegerType.python_types or \
+       type_ in ovs_types.RealType.python_types:
         return json_data == data
 
     else:
@@ -339,6 +353,10 @@ def dict_to_json(data):
             data_json[key] = str(value.uuid)
         if value is None:
             data_json[key] = 'null'
+        if type_ in ovs_types.IntegerType.python_types:
+            data_json[key] = value
+        elif type_ in ovs_types.RealType.python_types:
+            data_json[key] = value
         else:
             data_json[key] = str(value)
 
@@ -355,7 +373,12 @@ def list_to_json(data):
         if isinstance(value, ovs.db.idl.Row):
             data_json.append(str(value.uuid))
         else:
-            data_json.append(str(value))
+            if type_ in ovs_types.IntegerType.python_types:
+                data_json.append(value)
+            elif type_ in ovs_types.RealType.python_types:
+                data_json.append(value)
+            else:
+                data_json.append(str(value))
 
     return data_json
 
