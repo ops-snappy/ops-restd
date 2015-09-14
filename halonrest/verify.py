@@ -143,7 +143,7 @@ def verify_config_data(data, resource, schema, http_method):
                     verified_config_data[column_name] = data[column_name]
                     check_type_result = verify_attribute_type(column_name, config_keys[column_name], data[column_name])
                     if ERROR in check_type_result:
-                        check_type_result
+                        return check_type_result
                     check_range_result = verify_attribute_range(column_name, config_keys[column_name], data[column_name])
                     if ERROR in check_range_result:
                         return check_range_result
