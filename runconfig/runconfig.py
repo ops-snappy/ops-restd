@@ -32,13 +32,15 @@ class RunConfigUtil():
             # print self.idl.change_seqno
             if init_seq_no != self.idl.change_seqno:
                 break
-            time.sleep(1)
+            time.sleep(0.001)
 
         self.restschema = restparser.parseSchema(settings.get('ext_schema'))
+        self.uuid_seq = {}
 
     def __init__(self, idl, restschema):
         self.idl = idl
         self.restschema = restschema
+        self.uuid_seq = {}
 
 # READ CONFIG
 
@@ -79,7 +81,7 @@ class RunConfigUtil():
             # this is a list of references
             reflist = []
             for i in refdata:
-                reflist.append(utils.row_to_index(self.restschema.ovs_tables[column.ref_table], i))
+                reflist.append(utils.row_to_index(self.restschema.ovs_tables[column.ref_table], i, self.uuid_seq))
             if len(reflist) > 0:
                 rowobj[column_name] = reflist
 
@@ -103,7 +105,7 @@ class RunConfigUtil():
             if uuid == parent_uuid:
                 rowdata = self.get_row_data(schema_table, row)
                 if len(rowdata) > 0:
-                    tableobj[utils.row_to_index(schema_table, row)] = rowdata
+                    tableobj[utils.row_to_index(schema_table, row, self.uuid_seq)] = rowdata
 
         return tableobj
 
@@ -123,7 +125,10 @@ class RunConfigUtil():
         for item in rows:
             rowdata = self.get_row_data(schema_table, item)
             if len(rowdata) > 0:
-                tableobj[utils.row_to_index(schema_table, item)] = rowdata
+                if table_name == 'Open_vSwitch':
+                    tableobj = rowdata
+                else:
+                    tableobj[utils.row_to_index(schema_table, item, self.uuid_seq)] = rowdata
 
         return tableobj
 
@@ -163,6 +168,9 @@ class RunConfigUtil():
             print traceback.format_exc()
             print "Unexpected error:", sys.exc_info()[0]
             return None
+
+    def get_config(self):
+        return self.get_running_config()
 
     # WRITE CONFIG
 
@@ -347,7 +355,7 @@ class RunConfigUtil():
                 continue
 
             # back reference
-            if parent_column is not None:
+            if parent_column is not None and isNew:
                 row.__setattr__(parent_column, parent)
 
             rows.append(row)
@@ -458,11 +466,11 @@ class RunConfigUtil():
 
         # start with Open_vSwitch table
         table_name = 'Open_vSwitch'
-        if len(data[table_name]) != 1:
-            # TODO: return error - this is not allowed
-            return
 
-        self.setup_table(table_name, data[table_name], txn, reflist)
+        # reconstruct Open_vSwitch record with correct UUID from the DB
+        system_uuid = str(self.idl.tables[table_name].rows.keys()[0])
+
+        self.setup_table(table_name, {system_uuid:data[table_name]}, txn, reflist)
 
         # All other top level tables, according to schema
         for table_name, table_data in self.restschema.ovs_tables.iteritems():
@@ -484,7 +492,11 @@ class RunConfigUtil():
 
         # the tables are all set up, now connect the references together
         for table_name,value in data.iteritems():
-            self.setup_references(table_name, data[table_name], txn, reflist)
+            if table_name == 'Open_vSwitch':
+                new_data = {system_uuid:data[table_name]}
+            else:
+                new_data = data[table_name]
+            self.setup_references(table_name, new_data, txn, reflist)
 
         # remove orphaned rows
         # TODO: FIX THIS and turn on - not critical right away since VRF entry can't be removed
@@ -492,8 +504,10 @@ class RunConfigUtil():
 
         # verify txn
         # commit txn
-        print txn.commit_block()
-        print txn.get_error()
+        result = txn.commit_block()
+        error = txn.get_error()
+
+        return (result, error)
 
 def test_write():
     # read the config file
@@ -549,5 +563,4 @@ def test_read():
 
 if __name__ == "__main__":
     #test_read()
-    #time.sleep(1)
     test_write()

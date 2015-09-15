@@ -407,12 +407,25 @@ def index_to_row(index_values, table_schema, dbtable):
 
     return None
 
-def row_to_index(table_schema, row):
+def row_to_index(table_schema, row, uuid_sequencer = None):
 
     tmp = []
     for index in table_schema.indexes:
         if index == 'uuid':
-            return str(row.uuid)
+            if uuid_sequencer is None:
+                return str(row.uuid)
+
+            # Generate dummy index for all entries in tables that don't have anything besides UUID
+            if (table_schema.name,str(row.uuid)) not in uuid_sequencer:
+
+                if (table_schema.name,'last_sequence') not in uuid_sequencer:
+                    uuid_sequencer[(table_schema.name,'last_sequence')] = 0
+
+                next_sequence = uuid_sequencer[(table_schema.name,'last_sequence')] + 1
+                uuid_sequencer[(table_schema.name,'last_sequence')] = next_sequence
+                uuid_sequencer[(table_schema.name,str(row.uuid))] = table_schema.name + str(next_sequence)
+
+            return uuid_sequencer[(table_schema.name,str(row.uuid))]
         else:
             val = str(row.__getattr__(index))
             tmp.append(str(val.replace('/','\/')))
