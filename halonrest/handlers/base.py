@@ -115,6 +115,9 @@ class AutoHandler(BaseHandler):
         self.set_header(HTTP_HEADER_ALLOW, allowed_methods)
         self.set_header(HTTP_HEADER_ACCESS_CONTROL_ALLOW_METHODS, allowed_methods)
 
+        if HTTP_HEADER_ACCESS_CONTROL_REQUEST_HEADERS in self.request.headers:
+            self.set_header(HTTP_HEADER_ACCESS_CONTROL_ALLOW_HEADERS, self.request.headers[HTTP_HEADER_ACCESS_CONTROL_REQUEST_HEADERS])
+
         self.set_status(httplib.OK)
         self.finish()
 

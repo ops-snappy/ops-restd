@@ -39,6 +39,8 @@ HTTP_HEADER_CONTENT_LENGTH = 'Content-Length'
 HTTP_HEADER_ALLOW = 'Allow'
 HTTP_HEADER_ORIGIN = 'Origin'
 HTTP_HEADER_ACCESS_CONTROL_ALLOW_METHODS = 'Access-Control-Allow-Methods'
+HTTP_HEADER_ACCESS_CONTROL_ALLOW_HEADERS = 'Access-Control-Allow-Headers'
+HTTP_HEADER_ACCESS_CONTROL_REQUEST_HEADERS = 'Access-Control-Request-Headers'
 
 # HTTP Content Types
 HTTP_CONTENT_TYPE_JSON = 'application/json; charset=UTF-8'
