@@ -97,37 +97,6 @@ def genGetResource(table, parent_plurality, is_plural):
     return op
 
 
-def genGetReferences(table, parent_plurality):
-    op = {}
-    op["summary"] = "Get operation"
-    op["description"] = "Get a list of references"
-    op["tags"] = [table.name]
-
-    params = genCoreParams(table, parent_plurality, False)
-    if params:
-        op["parameters"] = params
-
-    responses = {}
-    response = {}
-    response["description"] = "A list of references"
-    schema = {}
-    schema["type"] = "array"
-    item = {}
-    item["description"] = "Resource URI"
-    item["$ref"] = "#/definitions/Resource"
-    schema["items"] = item
-    response["schema"] = schema
-    responses["200"] = response
-    response = {}
-    response["description"] = "Unexpected error"
-    response["schema"] = {'$ref': "#/definitions/Error"}
-    responses["default"] = response
-
-    op["responses"] = responses
-
-    return op
-
-
 def genPostResource(table, parent_plurality, is_plural):
     op = {}
     op["summary"] = "Post operation"
@@ -154,41 +123,6 @@ def genPostResource(table, parent_plurality, is_plural):
     response = {}
     response["description"] = "New resource created"
     schema = {}
-    schema["$ref"] = "#/definitions/Resource"
-    response["schema"] = schema
-    responses["200"] = response
-    response = {}
-    response["description"] = "Unexpected error"
-    response["schema"] = {'$ref': "#/definitions/Error"}
-    responses["default"] = response
-
-    op["responses"] = responses
-
-    return op
-
-
-def genPostReference(table, parent_plurality):
-    op = {}
-    op["summary"] = "Post operation"
-    op["description"] = "Add a new reference"
-    op["tags"] = [table.name]
-
-    params = genCoreParams(table, parent_plurality, False)
-    param = {}
-    param["name"] = "reference"
-    param["in"] = "body"
-    param["description"] = "reference"
-    param["required"] = True
-    param["schema"] = {'$ref': "#/definitions/Resource"}
-    params.append(param)
-
-    op["parameters"] = params
-
-    responses = {}
-    response = {}
-    response["description"] = "New reference added"
-    schema = {}
-    item = {}
     schema["$ref"] = "#/definitions/Resource"
     response["schema"] = schema
     responses["200"] = response
@@ -291,29 +225,6 @@ def genDelInstance(table, parent_plurality, is_plural):
 
     return op
 
-
-def genDelReference(table, parent_plurality):
-    op = {}
-    op["summary"] = "Delete operation"
-    op["description"] = "Remove a reference"
-    op["tags"] = [table.name]
-
-    params = genCoreParams(table, parent_plurality, True)
-    if params:
-        op["parameters"] = params
-
-    responses = {}
-    response = {}
-    response["description"] = "Reference deleted"
-    responses["204"] = response
-    response = {}
-    response["description"] = "Unexpected error"
-    response["schema"] = {'$ref': "#/definitions/Error"}
-    responses["default"] = response
-
-    op["responses"] = responses
-
-    return op
 
     #Reading the xml file
 def readxml():
@@ -447,30 +358,6 @@ def getDefinition(table, definitions):
     definitions[table.name + "ConfigReferenced"] = {"properties": properties}
 
 
-def genRefAPI(paths, definitions, schema, table, resource_name, parent, parents, parent_plurality):
-    prefix = "/system"
-    depth = len(parents)
-    for index, ancestor in enumerate(parents):
-        prefix = prefix + "/" + ancestor
-        if parent_plurality[index]:
-            idname = "{" + "p"*(depth - index) + "id}"
-            prefix = prefix + "/" + idname
-
-    path = prefix + "/" + resource_name
-    ops = {}
-    op = genGetReferences(table, parent_plurality)
-    ops["get"] = op
-    op = genPostReference(table, parent_plurality)
-    ops["post"] = op
-    paths[path] = ops
-
-    path = path + "/{id}"
-    ops = {}
-    op = genDelReference(table, parent_plurality)
-    ops["delete"] = op
-    paths[path] = ops
-
-
 def genAPI(paths, definitions, schema, table, resource_name, parent, parents, parent_plurality):
     prefix = "/system"
     depth = len(parents)
@@ -548,12 +435,8 @@ def genAPI(paths, definitions, schema, table, resource_name, parent, parents, pa
         elif table.references[col_name].relation == "parent":
             continue
         else:
-            # Referenced resources
-            parents.append(resource_name)
-            parent_plurality.append(is_plural)
-            genRefAPI(paths, definitions, schema, child_table, col_name, table, parents, parent_plurality)
-            parents.pop()
-            parent_plurality.pop()
+            # Referenced resources (no operation exposed)
+            continue
 
     # For child resources declared with "parent" relationship
     for col_name in table.children:
@@ -606,8 +489,8 @@ def getFullAPI(schema):
             parent_plurality = []
             genAPI(paths, definitions, schema, table, col_name, systemTable, parents, parent_plurality)
         else:
-            # Referenced resources
-            genRefAPI(paths, definitions, schema, table, col_name, systemTable, parents, parent_plurality)
+            # Referenced resources (no operation exposed)
+            continue
 
     # Put referenced resources at the top level
     for table_name, table in schema.ovs_tables.iteritems():
