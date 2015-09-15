@@ -26,10 +26,12 @@ class LoginHandler(web.RequestHandler):
         allow_origin += self.request.host.split(":")[0] # removing port if present
         self.set_header("Cache-control", "no-cache")
         self.set_header("Access-Control-Allow-Origin", allow_origin)
+        self.set_header("Access-Control-Allow-Credentials", "true")
         self.set_header("Access-Control-Expose-Headers", "Date")
 
         # TODO - remove next line before release - needed for testing
-        self.set_header("Access-Control-Allow-Origin", "*")
+        if HTTP_HEADER_ORIGIN in self.request.headers:
+            self.set_header("Access-Control-Allow-Origin", self.request.headers[HTTP_HEADER_ORIGIN])
 
     @gen.coroutine
     def get(self):
@@ -68,10 +70,12 @@ class BaseHandler(web.RequestHandler):
         allow_origin = self.request.protocol + "://"
         allow_origin += self.request.host.split(":")[0] # removing port if present
         self.set_header("Access-Control-Allow-Origin", allow_origin)
+        self.set_header("Access-Control-Allow-Credentials", "true")
         self.set_header("Access-Control-Expose-Headers", "Date")
 
         # TODO - remove next line before release - needed for testing
-        self.set_header("Access-Control-Allow-Origin", "*")
+        if HTTP_HEADER_ORIGIN in self.request.headers:
+            self.set_header("Access-Control-Allow-Origin", self.request.headers[HTTP_HEADER_ORIGIN])
 
 class AutoHandler(BaseHandler):
 
