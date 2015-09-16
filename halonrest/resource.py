@@ -17,3 +17,7 @@ class Resource(object):
         self.index = None
         self.relation = None
         self.next = None
+
+    def get_allowed_methods(self, schema):
+        # TODO: Process schema to determine allowed methods
+        return ["DELETE", "GET", "OPTIONS", "POST", "PUT"]

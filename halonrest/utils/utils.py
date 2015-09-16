@@ -1,10 +1,11 @@
 import json
 import ovs.db.idl
 import ovs
-import ovs.db.types
+import ovs.db.types as ovs_types
 import types
 import uuid
 import re
+import urllib
 
 from halonrest.resource import Resource
 from halonrest.constants import *
@@ -253,6 +254,10 @@ def row_to_json(row, column_keys):
     data_json = {}
     for key in column_keys:
         data_json[key] = to_json(row.__getattr__(key))
+        # Convert single element lists to scalar if schema defines a max of 1 element
+        if type(data_json[key]) is list and column_keys[key].n_max == 1:
+            if len(data_json[key]) > 0:
+                data_json[key] = data_json[key][0]
 
     return data_json
 
@@ -264,17 +269,20 @@ def get_empty_by_basic_type(data):
     elif type_ is types.ListType:
         return []
 
-    elif type_ is types.UnicodeType:
+    elif type_ in ovs_types.StringType.python_types:
         return ''
+
+    elif type_ in ovs_types.IntegerType.python_types:
+        return 0
+
+    elif type_ in ovs_types.RealType.python_types:
+        return 0.0
 
     elif type_ is types.BooleanType:
         return False
 
     elif type_ is types.NoneType:
         return None
-
-    elif type_ is types.IntType:
-        return 0
 
     else:
         return ''
@@ -288,8 +296,14 @@ def to_json(data):
     elif type_ is types.ListType:
         return list_to_json(data)
 
-    elif type_ is types.UnicodeType:
+    elif type_ in ovs_types.StringType.python_types:
         return str(data)
+
+    elif type_ in ovs_types.IntegerType.python_types:
+        return data
+
+    elif type_ in ovs_types.RealType.python_types:
+        return data
 
     elif type_ is types.BooleanType:
         return json.dumps(data)
@@ -313,7 +327,12 @@ def has_column_changed(json_data, data):
     if json_type_ != type_:
         return False
 
-    if type_ is types.DictType or type_ is types.ListType or type_ is types.NoneType or type_ is types.BooleanType:
+    if type_ is types.DictType or \
+       type_ is types.ListType or \
+       type_ is types.NoneType or \
+       type_ is types.BooleanType or \
+       type_ in ovs_types.IntegerType.python_types or \
+       type_ in ovs_types.RealType.python_types:
         return json_data == data
 
     else:
@@ -336,6 +355,10 @@ def dict_to_json(data):
             data_json[key] = str(value.uuid)
         if value is None:
             data_json[key] = 'null'
+        if type_ in ovs_types.IntegerType.python_types:
+            data_json[key] = value
+        elif type_ in ovs_types.RealType.python_types:
+            data_json[key] = value
         else:
             data_json[key] = str(value)
 
@@ -352,7 +375,12 @@ def list_to_json(data):
         if isinstance(value, ovs.db.idl.Row):
             data_json.append(str(value.uuid))
         else:
-            data_json.append(str(value))
+            if type_ in ovs_types.IntegerType.python_types:
+                data_json.append(value)
+            elif type_ in ovs_types.RealType.python_types:
+                data_json.append(value)
+            else:
+                data_json.append(str(value))
 
     return data_json
 
@@ -379,12 +407,25 @@ def index_to_row(index_values, table_schema, dbtable):
 
     return None
 
-def row_to_index(table_schema, row):
+def row_to_index(table_schema, row, uuid_sequencer = None):
 
     tmp = []
     for index in table_schema.indexes:
         if index == 'uuid':
-            return str(row.uuid)
+            if uuid_sequencer is None:
+                return str(row.uuid)
+
+            # Generate dummy index for all entries in tables that don't have anything besides UUID
+            if (table_schema.name,str(row.uuid)) not in uuid_sequencer:
+
+                if (table_schema.name,'last_sequence') not in uuid_sequencer:
+                    uuid_sequencer[(table_schema.name,'last_sequence')] = 0
+
+                next_sequence = uuid_sequencer[(table_schema.name,'last_sequence')] + 1
+                uuid_sequencer[(table_schema.name,'last_sequence')] = next_sequence
+                uuid_sequencer[(table_schema.name,str(row.uuid))] = table_schema.name + str(next_sequence)
+
+            return uuid_sequencer[(table_schema.name,str(row.uuid))]
         else:
             val = str(row.__getattr__(index))
             tmp.append(str(val.replace('/','\/')))
@@ -400,3 +441,68 @@ def escaped_split(s_in):
         res_strings.append(s)
 
     return res_strings
+
+def get_reference_parent_uri(table_name, row, schema, idl):
+    uri = ''
+    path = get_parent_trace(table_name, row, schema, idl)
+    #Don't include Open_vSwitch table
+    for table_name,indexes in path[1:]:
+        plural_name = schema.ovs_tables[table_name].plural_name
+        uri += str(plural_name) + '/' + "/".join(indexes) + '/'
+    app_log.debug("Reference uri %s" % uri)
+    return uri
+
+'''
+Get the parent trace to one row
+Returns (table, index) list
+'''
+def get_parent_trace(table_name, row, schema, idl):
+    table = schema.ovs_tables[table_name]
+    path = []
+    while table.parent is not None and row is not None:
+        parent_table = schema.ovs_tables[table.parent]
+        column = get_parent_column_ref(parent_table.name, table.name, schema)
+        row = get_parent_row(parent_table.name, row, column, schema, idl)
+        index_list = get_table_key(row, parent_table.name, schema)
+        table_path = (parent_table.name, index_list)
+        path.insert(0, table_path)
+        table = parent_table
+    return path
+
+'''
+Get column name where the child table is being referenced
+Returns column name
+'''
+def get_parent_column_ref(table_name, table_ref, schema):
+    table = schema.ovs_tables[table_name]
+    for column_name,reference in table.references.iteritems():
+        if reference.ref_table == table_ref and reference.relation == 'child':
+            return column_name
+
+'''
+Get the row where the item is being referenced
+Returns idl.Row object
+'''
+def get_parent_row(table_name, row, column, schema, idl):
+    table = schema.ovs_tables[table_name]
+    for uuid, row_ref in idl.tables[table_name].rows.iteritems():
+        reflist = get_column(row_ref, column, idl)
+        for item in reflist:
+            if item.uuid == row.uuid:
+                return row_ref
+
+'''
+Get the row index
+Return the row index
+'''
+def get_table_key(row, table_name, schema):
+    table = schema.ovs_tables[table_name]
+    indexes = table.indexes
+    index_list = []
+    for index in indexes:
+        if index == 'uuid':
+            index_list.append(str(row.uuid))
+        else:
+            value = urllib.quote(str(row.__getattr__(index)), safe='')
+            index_list.append(value)
+    return index_list

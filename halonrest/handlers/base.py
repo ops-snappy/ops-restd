@@ -24,11 +24,14 @@ class LoginHandler(web.RequestHandler):
         # CORS
         allow_origin = self.request.protocol + "://"
         allow_origin += self.request.host.split(":")[0] # removing port if present
+        self.set_header("Cache-control", "no-cache")
         self.set_header("Access-Control-Allow-Origin", allow_origin)
+        self.set_header("Access-Control-Allow-Credentials", "true")
         self.set_header("Access-Control-Expose-Headers", "Date")
 
         # TODO - remove next line before release - needed for testing
-        self.set_header("Access-Control-Allow-Origin", "*")
+        if HTTP_HEADER_ORIGIN in self.request.headers:
+            self.set_header("Access-Control-Allow-Origin", self.request.headers[HTTP_HEADER_ORIGIN])
 
     @gen.coroutine
     def get(self):
@@ -67,10 +70,12 @@ class BaseHandler(web.RequestHandler):
         allow_origin = self.request.protocol + "://"
         allow_origin += self.request.host.split(":")[0] # removing port if present
         self.set_header("Access-Control-Allow-Origin", allow_origin)
+        self.set_header("Access-Control-Allow-Credentials", "true")
         self.set_header("Access-Control-Expose-Headers", "Date")
 
         # TODO - remove next line before release - needed for testing
-        self.set_header("Access-Control-Allow-Origin", "*")
+        if HTTP_HEADER_ORIGIN in self.request.headers:
+            self.set_header("Access-Control-Allow-Origin", self.request.headers[HTTP_HEADER_ORIGIN])
 
 class AutoHandler(BaseHandler):
 
@@ -97,6 +102,24 @@ class AutoHandler(BaseHandler):
 
     def on_finish(self):
         app_log.debug("Finished handling of request from %s", self.request.remote_ip)
+
+    @gen.coroutine
+    def options(self):
+
+        resource = self.resource_path
+        while resource.next is not None:
+            resource = resource.next
+
+        allowed_methods = ', '.join(resource.get_allowed_methods(self.schema))
+
+        self.set_header(HTTP_HEADER_ALLOW, allowed_methods)
+        self.set_header(HTTP_HEADER_ACCESS_CONTROL_ALLOW_METHODS, allowed_methods)
+
+        if HTTP_HEADER_ACCESS_CONTROL_REQUEST_HEADERS in self.request.headers:
+            self.set_header(HTTP_HEADER_ACCESS_CONTROL_ALLOW_HEADERS, self.request.headers[HTTP_HEADER_ACCESS_CONTROL_REQUEST_HEADERS])
+
+        self.set_status(httplib.OK)
+        self.finish()
 
     @gen.coroutine
     def get(self):
