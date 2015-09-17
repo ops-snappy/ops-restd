@@ -2,7 +2,7 @@
   "name": "OpenHalon",
   "version": "0.1.8",
   "tables": {
-    "Open_vSwitch": {
+    "System": {
       "columns": {
         "subsystems": {
           "category": "child",

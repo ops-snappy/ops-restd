@@ -17,7 +17,7 @@ import types
 import uuid
 
 # immutable tables cannot have any additions or deletions
-immutable_tables = ['Fan', 'Power_supply', 'LED', 'Temp_sensor', 'Open_vSwitch', 'Subsystem', 'VRF']
+immutable_tables = ['Fan', 'Power_supply', 'LED', 'Temp_sensor', 'System', 'Subsystem', 'VRF']
 
 class RunConfigUtil():
     def __init__(self, settings):
@@ -125,7 +125,7 @@ class RunConfigUtil():
         for item in rows:
             rowdata = self.get_row_data(schema_table, item)
             if len(rowdata) > 0:
-                if table_name == 'Open_vSwitch':
+                if table_name == 'System':
                     tableobj = rowdata
                 else:
                     tableobj[utils.row_to_index(schema_table, item, self.uuid_seq)] = rowdata
@@ -196,8 +196,8 @@ class RunConfigUtil():
     def setup_row(self, index_values, table, row_data, txn, reflist, parent=None):
 
         # find out if this row exists
-        # If table is Open_vswitch, return first row from table
-        if table == 'Open_vSwitch':
+        # If table is System, return first row from table
+        if table == 'System':
             row = self.idl.tables[table].rows.values()[0]
         else:
             row = utils.index_to_row(index_values, self.restschema.ovs_tables[table], self.idl.tables[table])
@@ -464,10 +464,10 @@ class RunConfigUtil():
         # maintain a dict with all index:references
         reflist = {}
 
-        # start with Open_vSwitch table
-        table_name = 'Open_vSwitch'
+        # start with System table
+        table_name = 'System'
 
-        # reconstruct Open_vSwitch record with correct UUID from the DB
+        # reconstruct System record with correct UUID from the DB
         system_uuid = str(self.idl.tables[table_name].rows.keys()[0])
 
         self.setup_table(table_name, {system_uuid:data[table_name]}, txn, reflist)
@@ -478,7 +478,7 @@ class RunConfigUtil():
             if table_data.parent is not None:
                 continue
 
-            if table_name == 'Open_vSwitch':
+            if table_name == 'System':
                 continue
             if table_name not in data:
                 new_data = {}
@@ -492,7 +492,7 @@ class RunConfigUtil():
 
         # the tables are all set up, now connect the references together
         for table_name,value in data.iteritems():
-            if table_name == 'Open_vSwitch':
+            if table_name == 'System':
                 new_data = {system_uuid:data[table_name]}
             else:
                 new_data = data[table_name]

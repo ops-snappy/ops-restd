@@ -6,11 +6,11 @@ from tornado.log import app_log
 
 def put_resource(data, resource, schema, txn, idl):
 
-    # Allow PUT operation on Open_vSwitch table
+    # Allow PUT operation on System table
     if resource is None:
         return None
 
-    #We want to modify Open_vSwitch table
+    #We want to modify System table
     if resource.next is None:
         resource_update = resource
     else:
@@ -34,7 +34,7 @@ def put_resource(data, resource, schema, txn, idl):
     if ERROR in verified_data:
         return verified_data
 
-    #We want to modify Open_vSwitch table
+    #We want to modify System table
     if resource.next is None:
         updated_row = utils.update_row(resource, verified_data, schema, txn, idl)
 

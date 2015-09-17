@@ -14,9 +14,9 @@ def post_resource(data, resource, schema, txn, idl):
 
 
 
-    # POST not allowed on Open_vSwitch table
+    # POST not allowed on System table
     if resource is None or resource.next is None:
-        app_log.info("POST is not allowed on Open_vSwitch table")
+        app_log.info("POST is not allowed on System table")
         return None
 
     while True:

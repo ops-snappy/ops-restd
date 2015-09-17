@@ -20,7 +20,7 @@ REST_VERSION_PATH = '/rest/v1/'
 REST_QUERY_PARAM_SELECTOR = 'selector'
 
 # Ovsdb schema constants
-OVSDB_SCHEMA_SYSTEM_TABLE = 'Open_vSwitch'
+OVSDB_SCHEMA_SYSTEM_TABLE = 'System'
 OVSDB_SCHEMA_SYSTEM_URI = 'system'
 OVSDB_SCHEMA_CONFIG = 'configuration'
 OVSDB_SCHEMA_STATS = 'statistics'
