@@ -24,20 +24,17 @@ import shutil
 from halonvsi.docker import *
 from halonvsi.halon import *
 from halonutils.halonutil import *
-from restdconfig import *
 
 NUM_OF_SWITCHES = 1
 NUM_HOSTS_PER_SWITCH = 0
 
-SWITCH_PREFIX = "s"
 
 class myTopo(Topo):
     def build (self, hsts=0, sws=1, **_opts):
 
         self.hsts = hsts
         self.sws = sws
-
-        switch = self.addSwitch("%s1" % SWITCH_PREFIX)
+        switch = self.addSwitch("s1")
 
 
 class configTest (HalonTest):
@@ -46,7 +43,7 @@ class configTest (HalonTest):
                                        sws = NUM_OF_SWITCHES,
                                        hopts = self.getHostOpts(),
                                        sopts = self.getSwitchOpts()),
-                                       switch = SWITCH_TYPE,
+                                       switch = HalonSwitch,
                                        host = HalonHost,
                                        link = HalonLink,
                                        controller = None,
@@ -78,7 +75,7 @@ class configTest (HalonTest):
         assert res == -1, "\n### Write was not successful ###\n"
         info("\n### Write was successful ###\n")
 
-@pytest.mark.skipif(True, reason="Does not cleanup dockers fully")
+
 class Test_config:
     def setup (self):
         pass
