@@ -478,7 +478,7 @@ def getFullAPI(schema):
     parent_plurality = []
     genAPI(paths, definitions, schema, systemTable, None, None, parents, parent_plurality)
 
-    # Top-level tables exposed in open_vswitch table
+    # Top-level tables exposed in system table
     for col_name in systemTable.references:
         name = systemTable.references[col_name].ref_table
         table = schema.ovs_tables[name]
@@ -550,8 +550,8 @@ def parseSchema(schemaFile, title=None, version=None):
 def docGen(schemaFile, xmlFile, title=None, version=None):
     schema = parseSchema(schemaFile)
 
-    # Special treat Open_vSwitch table as /system resource
-    schema.ovs_tables["System"] = schema.ovs_tables.pop("Open_vSwitch")
+    # Special treat System table as /system resource
+    schema.ovs_tables["System"] = schema.ovs_tables.pop("System")
     schema.ovs_tables["System"].name = "System"
 
     api = getFullAPI(schema)

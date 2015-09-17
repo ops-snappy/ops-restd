@@ -12,7 +12,7 @@ def get_resource(idl, resource, schema, uri=None, selector=None):
     if resource is None:
         return None
 
-    # GET Open_vSwitch table
+    # GET System table
     if resource.next is None:
         return get_row_json(resource.row, resource.table, schema, idl, uri, selector)
 

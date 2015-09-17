@@ -75,7 +75,7 @@ def verify_put_data(data, resource, schema, idl):
     if ERROR in _data:
         return _data
 
-    # We neet to verify Open_vSwitch table
+    # We neet to verify System table
     if resource.next is None:
         resource_verify = resource
     else:
