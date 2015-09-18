@@ -35,6 +35,7 @@ from halonlib.restparser import OVSReference
 from halonlib.restparser import OVSTable
 from halonlib.restparser import RESTSchema
 from halonlib.restparser import normalizeName
+from halonlib.restparser import parseSchema
 
 
 #
@@ -226,95 +227,94 @@ def genDelInstance(table, parent_plurality, is_plural):
     return op
 
 
-    #Reading the xml file
-def readxml():
-    with open(args[1], 'rt') as f:
-        tree = ET.parse(f)
-
-    return tree
-
-    #Reading the description for each column and parsing the description
-def parse_xml_desc(xmlTable, xmlColumn, tree):
-    columnDesc = ""
-    for node in tree.iter():
-        if node.tag == 'table' and xmlTable == node.attrib['name']:
-            for group in node.getchildren():
-                for column in group.getchildren():
-                    if column.tag == 'column' and xmlColumn == column.attrib['name']:
-                        columnDesc = ET.tostring(column, encoding='utf8', method='html')
-                    if columnDesc == None:
-                        columnDesc = ""
-    # Removing unecessary tags at the beginning of each description
-    if columnDesc != "":
-        columnDesc = " ".join(columnDesc.split())
-    reg =  '<column .*?>(.*)</column>'
-    r = re.search(reg, columnDesc)
-    if r == None:
-        return ""
+# Generate definition for a given base type
+def genBaseType(type, min, max, desc):
+    item = {}
+    if type == types.IntegerType:
+        item["type"] = "integer"
+        if min != None and min !=0:
+            item["minimum"] = min
+        if max != None and max != sys.maxint:
+            item["maximum"] = max
+    elif type == types.RealType:
+        item["type"] = "real"
+        if min != None and min != 0:
+            item["minimum"] = min
+        if max != None and max != sys.maxint:
+            item["maximum"] = max
+    elif type == types.BooleanType:
+        item["type"] = "boolean"
+    elif type == types.StringType:
+        item["type"] = "string"
+        if min != None and min != 0:
+            item["minLength"] = min
+        if max != None and max != sys.maxint:
+            item["maxLength"] = max
     else:
-        return str(r.group(1)).lstrip().rstrip()
+        raise error.Error("Unexpected attribute type " + type)
+
+    item["description"] = desc
+
+    return item
+
+
+# Generate definition for a column in a table
+def genDefinition(table_name, col, definitions):
+    properties = {}
+    if col.is_dict and col.enum:
+        # Key-Value type
+        for key in col.enum:
+            definition = {}
+            # keys specified in schema file are all of string type
+            definition["type"] = "string"
+            properties[key] = definition
+
+    if col.kvs:
+        for key, detail in col.kvs.iteritems():
+            if 'type' in detail.keys():
+                type = detail['type']
+            else:
+                type = col.type
+            if 'rangeMin' in detail.keys():
+                min = detail['rangeMin']
+            else:
+                min = col.rangeMin
+            if 'rangeMax' in detail.keys():
+                max = detail['rangeMax']
+            else:
+                max = col.rangeMax
+            if 'desc' in detail.keys():
+                desc = detail['desc']
+            else:
+                desc = ""
+            properties[key] = genBaseType(type, min, max, desc)
+
+    if properties:
+        definitions[table_name + "-" + col.name + "-KV"] = {"properties": properties}
+
+        sub = {}
+        sub["$ref"] = "#/definitions/" + table_name + "-" + col.name + "-KV"
+        sub["description"] = "Key-Value pairs for " + col.name
+        return sub
+    else:
+        # simple attributes
+        return genBaseType(col.type, col.rangeMin, col.rangeMax, col.desc)
 
 
 def getDefinition(table, definitions):
-    tree = readxml()
     properties = {}
     for colName, col in table.config.iteritems():
-        definition = {}
-        if col.type == types.IntegerType:
-            definition["type"] = "integer"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        elif col.type == types.RealType:
-            definition["type"] = "real"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        elif col.type == types.StringType:
-            definition["type"] = "string"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        elif col.type == types.BooleanType:
-            definition["type"] = "boolean"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        else:
-            raise error.Error("Unexpected attribute type " + col.type)
-        properties[colName] = definition
+        properties[colName] = genDefinition(table.name, col, definitions)
     definitions[table.name + "Config"] = {"properties": properties}
 
     properties = {}
     for colName, col in table.status.iteritems():
-        definition = {}
-        if col.type == types.IntegerType:
-            definition["type"] = "integer"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        elif col.type == types.RealType:
-            definition["type"] = "real"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        elif col.type == types.StringType:
-            definition["type"] = "string"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        elif col.type == types.BooleanType:
-            definition["type"] = "boolean"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        else:
-            raise error.Error("Unexpected attribute type " + col.type)
-        properties[colName] = definition
+        properties[colName] = genDefinition(table.name, col, definitions)
     definitions[table.name + "Status"] = {"properties": properties}
 
     properties = {}
     for colName, col in table.stats.iteritems():
-        definition = {}
-        if col.type == types.IntegerType:
-            definition["type"] = "integer"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        elif col.type == types.RealType:
-            definition["type"] = "real"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        elif col.type == types.StringType:
-            definition["type"] = "string"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        elif col.type == types.BooleanType:
-            definition["type"] = "boolean"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        else:
-            raise error.Error("Unexpected attribute type " + col.type)
-        properties[colName] = definition
+        properties[colName] = genDefinition(table.name, col, definitions)
     definitions[table.name + "Stats"] = {"properties": properties}
 
     properties = {}
@@ -537,15 +537,6 @@ def getFullAPI(schema):
 
     return api
 
-def parseSchema(schemaFile, title=None, version=None):
-    schema = RESTSchema.from_json(ovs.json.from_file(schemaFile))
-
-    if title == None:
-        title = schema.name
-    if version == None:
-        version = "UNKNOWN"
-
-    return schema
 
 def docGen(schemaFile, xmlFile, title=None, version=None):
     schema = parseSchema(schemaFile)
