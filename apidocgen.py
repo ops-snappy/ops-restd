@@ -459,12 +459,13 @@ def getFullAPI(schema):
     api["swagger"] = "2.0"
 
     info = {}
-    info["title"] = "Halon REST API"
-    info["description"] = "the Halon REST API for management plane"
+    info["title"] = "OpenSwitch REST API"
+    info["description"] = "REST interface for management plane"
     info["version"] = "1.0.0"
     api["info"] = info
 
     api["host"] = ""
+    # Should be changed to use https instead
     api["schemes"] = ["http"]
     api["basePath"] = "/rest/v1"
     api["produces"] = ["application/json"]
