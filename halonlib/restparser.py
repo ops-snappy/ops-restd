@@ -64,7 +64,7 @@ def extractColDesc(column_desc):
 
 class OVSColumn(object):
     """__init__() functions as the class constructor"""
-    def __init__(self, table, col_name, type_, is_optional=True, mutable=True, enum=set([])):
+    def __init__(self, table, col_name, type_, is_optional=True, mutable=True):
         self.name = col_name
 
         # is this column entry optional
@@ -249,17 +249,13 @@ class OVSTable(object):
             parser.finish()
 
             is_optional = False
-            enum = set([])
             if isinstance(column_json['type'], dict):
                 if 'min' in column_json['type'] and column_json['type']['min'] == 0:
                     is_optional = True
-                if 'key' in column_json['type'] and 'enum' in column_json['type']['key']:
-                    if column_json['type']['key']['enum'][0] == 'set':
-                        enum.update(column_json['type']['key']['enum'][1])
 
             table.columns.append(column_name)
             if category == "configuration":
-                table.config[column_name] = OVSColumn(table, column_name, type_, is_optional, mutable, enum)
+                table.config[column_name] = OVSColumn(table, column_name, type_, is_optional, mutable)
             elif category == "status":
                 table.status[column_name] = OVSColumn(table, column_name, type_, is_optional)
             elif category == "statistics":

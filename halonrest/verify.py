@@ -201,7 +201,7 @@ def verify_valid_attribute_values(request_data, column_data):
                 valid = False
 
         # Check if single request value is valid
-        elif request_data not in column_data.enum:
+        elif column_data.enum.__contains__(request_data):
             valid = False
 
     return valid
