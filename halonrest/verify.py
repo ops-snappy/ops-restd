@@ -84,6 +84,7 @@ def verify_put_data(data, resource, schema, idl):
     # verify config and reference columns data
     verified_data = {}
     verified_config_data = verify_config_data(_data, resource_verify, schema, 'PUT')
+
     if verified_config_data is not None:
         if ERROR in verified_config_data:
             return verified_config_data
@@ -121,75 +122,68 @@ def verify_config_data(data, resource, schema, http_method):
         error_json = to_json_error("Unknown configuration attribute", None, unknown_attribute)
         return {ERROR: error_json}
 
+    non_mutable_attributes = get_non_mutable_attributes(resource, schema)
+
     # Check for all required/valid attributes to be present
     for column_name in config_keys:
-        if http_method == 'POST':
-            if column_name in data:
+
+        if column_name in data:
+
+            check_type_result = verify_attribute_type(column_name, config_keys[column_name], data[column_name])
+            if ERROR in check_type_result:
+                return check_type_result
+
+            check_range_result = verify_attribute_range(column_name, config_keys[column_name], data[column_name])
+            if ERROR in check_range_result:
+                return check_range_result
+
+            if http_method == 'POST':
                 verified_config_data[column_name] = data[column_name]
-                check_type_result = verify_attribute_type(column_name, config_keys[column_name], data[column_name])
-                if ERROR in check_type_result:
-                    return check_type_result
-                check_range_result = verify_attribute_range(column_name, config_keys[column_name], data[column_name])
-                if ERROR in check_range_result:
-                    return check_range_result
-            else:
+
+            elif http_method == 'PUT':
+                if column_name not in non_mutable_attributes:
+                    verified_config_data[column_name] = data[column_name]
+
+        # PUT ignores non mutable attributes, otherwise they are required
+        elif http_method == 'PUT':
+            if column_name not in non_mutable_attributes:
                 error_json = to_json_error("Attribute is missing from request", None, column_name)
                 return {ERROR: error_json}
 
-        elif http_method == 'PUT':
-            non_mutable_attributes = get_non_mutable_attributes(resource, schema)
-            if column_name in data:
-                if column_name not in non_mutable_attributes:
-                    verified_config_data[column_name] = data[column_name]
-                    check_type_result = verify_attribute_type(column_name, config_keys[column_name], data[column_name])
-                    if ERROR in check_type_result:
-                        return check_type_result
-                    check_range_result = verify_attribute_range(column_name, config_keys[column_name], data[column_name])
-                    if ERROR in check_range_result:
-                        return check_range_result
-            elif column_name not in non_mutable_attributes:
-                error_json = to_json_error("Attribute is missing from request", None, column_name)
-                return {ERROR: error_json}
+        # Anything else (POST) requires all attributes
+        else:
+            error_json = to_json_error("Attribute is missing from request", None, column_name)
+            return {ERROR: error_json}
 
     return verified_config_data
 
 def verify_attribute_type(column_name, column_data, request_data):
-    data_type = type(request_data)
-    result = {}
+    data = request_data
+    data_type = type(data)
+    valid_types = column_data.type.python_types
     error_json = {}
+    result = {}
 
     # If column is a list, data must be a list
-    # and its values must be in the column's enum
     if column_data.is_list:
-        if data_type is not list:
-            error_json = to_json_error("Attribute type mismatch: list expected", None, column_name)
-        elif not verify_valid_attribute_values(request_data, column_data):
-            error_json = to_json_error("Attribute value is invalid", None, column_name)
+        valid_types = [list]
 
     # If column is a dictionary, data must be a dictionary
     elif column_data.is_dict:
-        if data_type is not dict:
-            error_json = to_json_error("Attribute type mismatch: dictionary expected", None, column_name)
+        valid_types = [dict]
 
     # If data is a list but column is not,
     # we expect a single value in the list
-    # and that value must be in the column's enum
     elif data_type is list:
-        if len(request_data) == 1:
-            if type(request_data[0]) not in column_data.type.python_types:
-                error_json = to_json_error("Attribute type mismatch", None, column_name)
-            elif not verify_valid_attribute_values(request_data, column_data):
-                error_json = to_json_error("Attribute value is invalid", None, column_name)
-        else:
-            error_json = to_json_error("Attribute type mismatch", None, column_name)
+        if len(data) == 1:
+            data = data[0]
+            data_type = type(data)
 
-    # If data is a single value, check type against column's
-    elif data_type not in column_data.type.python_types:
+    if data_type in valid_types:
+        if not verify_valid_attribute_values(data, column_data):
+            error_json = to_json_error("Attribute value is invalid", None, column_name)
+    else:
         error_json = to_json_error("Attribute type mismatch", None, column_name)
-
-    # If data is a single value, check it's in the column's enum
-    elif not verify_valid_attribute_values(request_data, column_data):
-        error_json = to_json_error("Attribute value is invalid", None, column_name)
 
     if error_json:
         result = {ERROR: error_json}
@@ -199,12 +193,14 @@ def verify_attribute_type(column_name, column_data, request_data):
 def verify_valid_attribute_values(request_data, column_data):
     valid = True
 
+    # If data has an enum defined, check for a valid value
     if column_data.enum:
+        # Check if request's list contains values not valid
         if type(request_data) is list:
-            # Request contains values not valid
             if set(request_data).difference(column_data.enum):
                 valid = False
-        # Request value is not valid
+
+        # Check if single request value is valid
         elif request_data not in column_data.enum:
             valid = False
 

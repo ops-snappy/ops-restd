@@ -253,16 +253,33 @@ def row_to_json(row, column_keys):
 
     data_json = {}
     for key in column_keys:
-        data_json[key] = to_json(row.__getattr__(key))
-        # Convert single element lists to scalar if schema defines a max of 1 element
-        if type(data_json[key]) is list and column_keys[key].n_max == 1:
-            if len(data_json[key]) > 0:
-                data_json[key] = data_json[key][0]
+
+        attribute = row.__getattr__(key)
+        attribute_type = type(attribute)
+
+        # Convert single element lists to scalar
+        # if schema defines a max of 1 element
+        if attribute_type is list and column_keys[key].n_max == 1:
+            if len(attribute) > 0:
+                attribute = attribute[0]
+            else:
+                attribute = get_empty_by_basic_type(column_keys[key].type)
+
+        value_type = column_keys[key].type
+        if attribute_type is dict:
+            value_type = column_keys[key].value_type
+
+        data_json[key] = to_json(attribute, value_type)
 
     return data_json
 
 def get_empty_by_basic_type(data):
     type_ = type(data)
+
+    # If data is already a type, just use it
+    if type_ is type:
+        type_ = data
+
     if type_ is types.DictType:
         return {}
 
@@ -287,29 +304,27 @@ def get_empty_by_basic_type(data):
     else:
         return ''
 
-def to_json(data):
+def to_json(data, value_type=None):
     type_ = type(data)
 
     if type_ is types.DictType:
-        return dict_to_json(data)
+        return dict_to_json(data, value_type)
 
     elif type_ is types.ListType:
-        return list_to_json(data)
+        return list_to_json(data, value_type)
 
     elif type_ in ovs_types.StringType.python_types:
         return str(data)
 
-    elif type_ in ovs_types.IntegerType.python_types:
-        return data
-
-    elif type_ in ovs_types.RealType.python_types:
+    elif (type_ in ovs_types.IntegerType.python_types or
+            type_ in ovs_types.RealType.python_types):
         return data
 
     elif type_ is types.BooleanType:
         return json.dumps(data)
 
     elif type_ is types.NoneType:
-        return data
+        return get_empty_by_basic_type(value_type)
 
     elif type_ is uuid.UUID:
         return str(data)
@@ -327,23 +342,23 @@ def has_column_changed(json_data, data):
     if json_type_ != type_:
         return False
 
-    if type_ is types.DictType or \
-       type_ is types.ListType or \
-       type_ is types.NoneType or \
-       type_ is types.BooleanType or \
-       type_ in ovs_types.IntegerType.python_types or \
-       type_ in ovs_types.RealType.python_types:
+    if (type_ is types.DictType or
+            type_ is types.ListType or
+            type_ is types.NoneType or
+            type_ is types.BooleanType or
+            type_ in ovs_types.IntegerType.python_types or
+            type_ in ovs_types.RealType.python_types):
         return json_data == data
 
     else:
         return json_data == str(data)
 
 def to_json_error(message, code=None, fields=None):
-    dict = {"code": code, "fields": fields, "message": message}
+    dictionary = {"code": code, "fields": fields, "message": message}
 
-    return dict_to_json(dict)
+    return dict_to_json(dictionary)
 
-def dict_to_json(data):
+def dict_to_json(data, value_type=None):
     if not data:
         return data
 
@@ -353,18 +368,20 @@ def dict_to_json(data):
 
         if isinstance(value, ovs.db.idl.Row):
             data_json[key] = str(value.uuid)
-        if value is None:
-            data_json[key] = 'null'
-        if type_ in ovs_types.IntegerType.python_types:
+
+        elif value is None:
+            data_json[key] = get_empty_by_basic_type(value_type)
+
+        elif (type_ in ovs_types.IntegerType.python_types or
+                type_ in ovs_types.RealType.python_types):
             data_json[key] = value
-        elif type_ in ovs_types.RealType.python_types:
-            data_json[key] = value
+
         else:
             data_json[key] = str(value)
 
     return data_json
 
-def list_to_json(data):
+def list_to_json(data, value_type=None):
     if not data:
         return data
 
@@ -374,13 +391,16 @@ def list_to_json(data):
 
         if isinstance(value, ovs.db.idl.Row):
             data_json.append(str(value.uuid))
+
+        elif (type_ in ovs_types.IntegerType.python_types or
+                type_ in ovs_types.RealType.python_types):
+            data_json.append(value)
+
+        elif value is None:
+            data_json.append(get_empty_by_basic_type(value_type))
+
         else:
-            if type_ in ovs_types.IntegerType.python_types:
-                data_json.append(value)
-            elif type_ in ovs_types.RealType.python_types:
-                data_json.append(value)
-            else:
-                data_json.append(str(value))
+            data_json.append(str(value))
 
     return data_json
 
