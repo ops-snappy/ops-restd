@@ -51,6 +51,7 @@ class configTest (HalonTest):
 
     def copy_to_docker (self):
         info("\n########## Copying required files to docker ##########\n")
+        src_path = os.path.dirname(os.path.realpath(__file__))
         switch = self.net.switches[0]
         testid = switch.testid
         script_shared_local = '/tmp/halon-test/' + testid +'/'+switch.name+'/shared/runconfig_test_in_docker.py'
@@ -59,11 +60,11 @@ class configTest (HalonTest):
         script_shared_test_file2 = '/tmp/halon-test/' + testid +'/'+switch.name+'/shared' + '/config_test2'
         script_shared_test_file3 = '/tmp/halon-test/' + testid +'/'+switch.name+'/shared' + '/empty_config.db'
 
-        shutil.copy2("runconfig_test_in_docker.py", script_shared_local)
-        shutil.copy2("config_test1.db", script_shared_test_file1)
-        #shutil.copy2("config_test2.db", script_shared_test_file2)
-        shutil.copy2("config_test3.db", script_shared_test_file2)
-        shutil.copy2("empty_config.db", script_shared_test_file3)
+        shutil.copy2(os.path.join(src_path, "runconfig_test_in_docker.py"), script_shared_local)
+        shutil.copy2(os.path.join(src_path, "config_test1.db"), script_shared_test_file1)
+        #shutil.copy2(os.path.join(src_path, "config_test2.db"), script_shared_test_file2)
+        shutil.copy2(os.path.join(src_path, "config_test3.db"), script_shared_test_file2)
+        shutil.copy2(os.path.join(src_path, "empty_config.db"), script_shared_test_file3)
 
     def verify_runconfig(self):
         info("\n########## Verify config writes for empty config and full config ##########\n")
