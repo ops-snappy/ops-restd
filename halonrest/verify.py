@@ -195,13 +195,16 @@ def verify_valid_attribute_values(request_data, column_data):
 
     # If data has an enum defined, check for a valid value
     if column_data.enum:
+
+        enum = set(column_data.enum.as_list())
+
         # Check if request's list contains values not valid
         if type(request_data) is list:
-            if set(request_data).difference(column_data.enum):
+            if set(request_data).difference(enum):
                 valid = False
 
         # Check if single request value is valid
-        elif column_data.enum.__contains__(request_data):
+        elif request_data not in enum:
             valid = False
 
     return valid
