@@ -69,6 +69,7 @@ class BaseHandler(web.RequestHandler):
         # CORS
         allow_origin = self.request.protocol + "://"
         allow_origin += self.request.host.split(":")[0] # removing port if present
+        self.set_header("Cache-control", "no-cache")
         self.set_header("Access-Control-Allow-Origin", allow_origin)
         self.set_header("Access-Control-Allow-Credentials", "true")
         self.set_header("Access-Control-Expose-Headers", "Date")
