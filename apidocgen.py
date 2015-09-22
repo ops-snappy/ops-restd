@@ -38,6 +38,104 @@ from halonlib.restparser import normalizeName
 from halonlib.restparser import parseSchema
 
 
+def addCommonResponse(responses):
+    response = {}
+    response["description"] = "Unauthorized"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["401"] = response
+
+    response = {}
+    response["description"] = "Forbidden"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["403"] = response
+
+    response = {}
+    response["description"] = "Not found"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["404"] = response
+
+    response = {}
+    response["description"] = "Method not allowed"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["405"] = response
+
+    response = {}
+    response["description"] = "Internal server error"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["500"] = response
+
+    response = {}
+    response["description"] = "Service unavailable"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["503"] = response
+
+
+def addGetResponse(responses):
+    response = {}
+    response["description"] = "Not acceptable"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["406"] = response
+
+    addCommonResponse(responses)
+
+
+def addPostResponse(responses):
+    response = {}
+    response["description"] = "Created"
+    schema = {}
+    schema["$ref"] = "#/definitions/Resource"
+    response["schema"] = schema
+    responses["201"] = response
+
+    response = {}
+    response["description"] = "Bad request"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["400"] = response
+
+    response = {}
+    response["description"] = "Not acceptable"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["406"] = response
+
+    response = {}
+    response["description"] = "Unsupported media type"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["415"] = response
+
+    addCommonResponse(responses)
+
+
+def addPutResponse(responses):
+    response = {}
+    response["description"] = "OK"
+    responses["200"] = response
+
+    response = {}
+    response["description"] = "Bad request"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["400"] = response
+
+    response = {}
+    response["description"] = "Not acceptable"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["406"] = response
+
+    response = {}
+    response["description"] = "Unsupported media type"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["415"] = response
+
+    addCommonResponse(responses)
+
+
+def addDeleteResponse(responses):
+    response = {}
+    response["description"] = "Resource deleted"
+    responses["204"] = response
+
+    addCommonResponse(responses)
+
+
 #
 # Pass in chain of parent resources on URI path
 #
@@ -79,20 +177,18 @@ def genGetResource(table, parent_plurality, is_plural):
 
     responses = {}
     response = {}
-    response["description"] = "A list of URIs"
+    response["description"] = "OK"
     schema = {}
     schema["type"] = "array"
     item = {}
     item["description"] = "Resource URI"
     item["$ref"] = "#/definitions/Resource"
     schema["items"] = item
+    schema["description"] = "A list of URIs"
     response["schema"] = schema
     responses["200"] = response
-    response = {}
-    response["description"] = "Unexpected error"
-    response["schema"] = {'$ref': "#/definitions/Error"}
-    responses["default"] = response
 
+    addGetResponse(responses)
     op["responses"] = responses
 
     return op
@@ -121,17 +217,7 @@ def genPostResource(table, parent_plurality, is_plural):
     op["parameters"] = params
 
     responses = {}
-    response = {}
-    response["description"] = "New resource created"
-    schema = {}
-    schema["$ref"] = "#/definitions/Resource"
-    response["schema"] = schema
-    responses["200"] = response
-    response = {}
-    response["description"] = "Unexpected error"
-    response["schema"] = {'$ref': "#/definitions/Error"}
-    responses["default"] = response
-
+    addPostResponse(responses)
     op["responses"] = responses
 
     return op
@@ -156,14 +242,11 @@ def genGetInstance(table, parent_plurality, is_plural):
 
         responses = {}
         response = {}
-        response["description"] = "Attributes returned"
+        response["description"] = "OK"
         response["schema"] = {'$ref': "#/definitions/"+table.name+"All"}
         responses["200"] = response
-        response = {}
-        response["description"] = "Unexpected error"
-        response["schema"] = {'$ref': "#/definitions/Error"}
-        responses["default"] = response
 
+        addGetResponse(responses)
         op["responses"] = responses
 
         return op
@@ -187,17 +270,7 @@ def genPutInstance(table, parent_plurality, is_plural):
         op["parameters"] = params
 
         responses = {}
-        response = {}
-        response["description"] = "Configuration updated"
-        responses["201"] = response
-        response = {}
-        response["description"] = "Configuration updated"
-        responses["200"] = response
-        response = {}
-        response["description"] = "Unexpected error"
-        response["schema"] = {'$ref': "#/definitions/Error"}
-        responses["default"] = response
-
+        addPutResponse(responses)
         op["responses"] = responses
 
         return op
@@ -214,14 +287,7 @@ def genDelInstance(table, parent_plurality, is_plural):
         op["parameters"] = params
 
     responses = {}
-    response = {}
-    response["description"] = "Resource deleted"
-    responses["204"] = response
-    response = {}
-    response["description"] = "Unexpected error"
-    response["schema"] = {'$ref': "#/definitions/Error"}
-    responses["default"] = response
-
+    addDeleteResponse(responses)
     op["responses"] = responses
 
     return op
@@ -510,9 +576,7 @@ def getFullAPI(schema):
     api["paths"] = paths
 
     properties = {}
-    properties["code"] = {"type": "integer", "format": "int32"}
     properties["message"] = {"type": "string"}
-    properties["fields"] = {"type": "string"}
     definitions["Error"] = {"properties": properties}
 
     definition = {}
