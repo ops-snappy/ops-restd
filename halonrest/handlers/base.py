@@ -85,7 +85,7 @@ class AutoHandler(BaseHandler):
 
         app_log.debug("Incoming request from %s: %s", self.request.remote_ip, self.request)
 
-        if settings['auth_enabled']:
+        if settings['auth_enabled'] and self.request.method != "OPTIONS":
             is_authenticated = userauth.is_user_authenticated(self)
         else:
             is_authenticated = True
