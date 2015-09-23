@@ -69,6 +69,7 @@ class BaseHandler(web.RequestHandler):
         # CORS
         allow_origin = self.request.protocol + "://"
         allow_origin += self.request.host.split(":")[0] # removing port if present
+        self.set_header("Cache-control", "no-cache")
         self.set_header("Access-Control-Allow-Origin", allow_origin)
         self.set_header("Access-Control-Allow-Credentials", "true")
         self.set_header("Access-Control-Expose-Headers", "Date")
@@ -84,7 +85,7 @@ class AutoHandler(BaseHandler):
 
         app_log.debug("Incoming request from %s: %s", self.request.remote_ip, self.request)
 
-        if settings['auth_enabled']:
+        if settings['auth_enabled'] and self.request.method != "OPTIONS":
             is_authenticated = userauth.is_user_authenticated(self)
         else:
             is_authenticated = True

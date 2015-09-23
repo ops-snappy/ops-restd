@@ -20,7 +20,9 @@ import json
 import sys
 import re
 import string
+
 import inflect
+import xml.etree.ElementTree as ET
 
 import ovs.dirs
 from ovs.db import error
@@ -31,7 +33,11 @@ import ovs.db.idl
 
 from tornado.log import app_log
 
+# Global variables
 inflect_engine = inflect.engine()
+
+xml_tree = None
+
 
 # Convert name into all lower case and into plural format
 def normalizeName(name):
@@ -41,15 +47,37 @@ def normalizeName(name):
     words[-1] = inflect_engine.plural_noun(words[-1])
     return(string.join(words, '_'))
 
+
+def extractColDesc(column_desc):
+    if column_desc == None:
+        column_desc = ""
+    # Remove unecessary tags at the beginning of each description
+    if column_desc != "":
+        column_desc = " ".join(column_desc.split())
+    reg =  '<column .*?>(.*)</column>'
+    r = re.search(reg, column_desc)
+    if r == None:
+        return ""
+    else:
+        return str(r.group(1)).lstrip().rstrip()
+
+
 class OVSColumn(object):
     """__init__() functions as the class constructor"""
-    def __init__(self, type_, is_optional=True, mutable=True, enum=set([])):
-        # Possible values
-        self.enum = enum
+    def __init__(self, table, col_name, type_, is_optional=True, mutable=True):
+        self.name = col_name
+
+        # is this column entry optional
+        self.is_optional = is_optional
+
+        # is this column modifiable after creation
         self.mutable = mutable
 
         base_key = type_.key
         base_value = type_.value
+
+        # Possible values for keys only
+        self.enum = base_key.enum
 
         self.type, self.rangeMin, self.rangeMax = self.process_type(base_key)
 
@@ -63,27 +91,62 @@ class OVSColumn(object):
         self.n_max = type_.n_max
         self.n_min = type_.n_min
 
-        # is this column entry optional
-        self.is_optional = is_optional
+        self.kvs = {}
+        self.desc = self.parse_xml_desc(table.name, col_name, self.kvs)
+
+
+    # Read the description for each column from XML source
+    def parse_xml_desc(self, xmlTable, xmlColumn, kvs):
+        columnDesc = ""
+        for node in xml_tree.iter():
+            if node.tag != 'table' or xmlTable != node.attrib['name']:
+                continue
+
+            for group in node.getchildren():
+                for column in group.getchildren():
+                    if column.tag != 'column' or xmlColumn != column.attrib['name']:
+                        continue
+
+                    if ('key' not in column.attrib):
+                        columnDesc = ET.tostring(column, encoding='utf8', method='html')
+                        continue
+
+                    # When an attribute is of type string in schema file,
+                    # it may have detailed structure information in its
+                    # companion XML description.
+                    kvs[column.attrib['key']] = {}
+                    if ('type' in column.attrib):
+                        typeData = json.loads(column.attrib['type'])
+                        base = types.BaseType.from_json(typeData)
+                        type, min, max = self.process_type(base)
+                        kvs[column.attrib['key']]['type'] = type
+                        kvs[column.attrib['key']]['rangeMin'] = min
+                        kvs[column.attrib['key']]['rangeMax'] = max
+                    key_desc = ET.tostring(column, encoding='utf8', method='html')
+                    kvs[column.attrib['key']]['desc'] = extractColDesc(key_desc)
+            break
+
+        return extractColDesc(columnDesc)
+
 
     def process_type(self, base):
-        type_ = base.type
+        type = base.type
         rangeMin = None
         rangeMax = None
 
-        if type_ not in types.ATOMIC_TYPES or \
-           type_ == types.VoidType or \
-           type_ == types.UuidType:
-            raise error.Error("unknown attribute type %s" % type_)
+        if type not in types.ATOMIC_TYPES or \
+           type == types.VoidType or \
+           type == types.UuidType:
+            raise error.Error("unknown attribute type %s" % type)
 
-        if type_ == types.StringType:
+        if type == types.StringType:
             rangeMin = base.min_length
             rangeMax = base.max_length
-        elif type_ != types.BooleanType:
+        elif type != types.BooleanType:
             rangeMin = base.min
             rangeMax = base.max
 
-        return (type_, rangeMin, rangeMax)
+        return (type, rangeMin, rangeMax)
 
 class OVSReference(object):
     """__init__() functions as the class constructor"""
@@ -186,21 +249,17 @@ class OVSTable(object):
             parser.finish()
 
             is_optional = False
-            enum = set([])
             if isinstance(column_json['type'], dict):
                 if 'min' in column_json['type'] and column_json['type']['min'] == 0:
                     is_optional = True
-                if 'key' in column_json['type'] and 'enum' in column_json['type']['key']:
-                    if column_json['type']['key']['enum'][0] == 'set':
-                        enum.update(column_json['type']['key']['enum'][1])
 
             table.columns.append(column_name)
             if category == "configuration":
-                table.config[column_name] = OVSColumn(type_, is_optional, mutable, enum)
+                table.config[column_name] = OVSColumn(table, column_name, type_, is_optional, mutable)
             elif category == "status":
-                table.status[column_name] = OVSColumn(type_, is_optional)
+                table.status[column_name] = OVSColumn(table, column_name, type_, is_optional)
             elif category == "statistics":
-                table.stats[column_name] = OVSColumn(type_, is_optional)
+                table.stats[column_name] = OVSColumn(table, column_name, type_, is_optional)
             elif category == "child":
                 table.references[column_name] = OVSReference(type_, category)
             elif category == "parent":
@@ -283,6 +342,7 @@ class RESTSchema(object):
 
         return RESTSchema(name, version, tables)
 
+
 def get_references_tables(schema, ref_table):
     table_references = {}
     for table in schema.ovs_tables:
@@ -295,6 +355,15 @@ def get_references_tables(schema, ref_table):
     return table_references
 
 def parseSchema(schemaFile, title=None, version=None):
+    # Initialize a global variable here
+    global xml_tree
+
+    # Assume the companion XML file and schema file differ only in extension
+    # for their names (.extschema vs .xml)
+    xmlFile = schemaFile[:-len("extschema")] + "xml"
+    with open(xmlFile, 'rt') as f:
+        xml_tree = ET.parse(f)
+
     schema = RESTSchema.from_json(ovs.json.from_file(schemaFile))
 
     if title == None:
@@ -348,18 +417,33 @@ if __name__ == "__main__":
             sys.exit(1)
 
         schema = parseSchema(args[0])
+
         for table_name, table in schema.ovs_tables.iteritems():
             print("Table %s: " % table_name)
             print("Parent  = %s" % table.parent)
             print("Configuration attributes: ")
             for column_name, column in table.config.iteritems():
                 print("Col name = %s: %s" % (column_name, "plural" if column.is_list else "singular"))
+                print("n_min = %d: n_max = %d" % (column.n_min, column.n_max))
+                print("key type = %s: min = %s, max = %s" % (column.type, column.rangeMin, column.rangeMax))
+                print("key enum = %s" % column.enum)
+                print("key kvs = %s" % column.kvs)
+                if column.value_type is not None:
+                    print("value type = %s: min = %s, max = %s" % (column.value_type, column.valueRangeMin, column.valueRangeMax))
             print("Status attributes: ")
             for column_name, column in table.status.iteritems():
                 print("Col name = %s: %s" % (column_name, "plural" if column.is_list else "singular"))
+                print("n_min = %d: n_max = %d" % (column.n_min, column.n_max))
+                print("key type = %s: min = %s, max = %s" % (column.type, column.rangeMin, column.rangeMax))
+                if column.value_type is not None:
+                    print("value type = %s: min = %s, max = %s" % (column.value_type, column.valueRangeMin, column.valueRangeMax))
             print("Stats attributes: ")
             for column_name, column in table.stats.iteritems():
                 print("Col name = %s: %s" % (column_name, "plural" if column.is_list else "singular"))
+                print("n_min = %d: n_max = %d" % (column.n_min, column.n_max))
+                print("key type = %s: min = %s, max = %s" % (column.type, column.rangeMin, column.rangeMax))
+                if column.value_type is not None:
+                    print("value type = %s: min = %s, max = %s" % (column.value_type, column.valueRangeMin, column.valueRangeMax))
             print("Subresources: ")
             for column_name, column in table.references.iteritems():
                 print("Col name = %s: %s, %s" % (column_name, column.relation, "plural" if column.is_plural else "singular"))

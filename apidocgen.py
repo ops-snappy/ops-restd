@@ -35,6 +35,105 @@ from halonlib.restparser import OVSReference
 from halonlib.restparser import OVSTable
 from halonlib.restparser import RESTSchema
 from halonlib.restparser import normalizeName
+from halonlib.restparser import parseSchema
+
+
+def addCommonResponse(responses):
+    response = {}
+    response["description"] = "Unauthorized"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["401"] = response
+
+    response = {}
+    response["description"] = "Forbidden"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["403"] = response
+
+    response = {}
+    response["description"] = "Not found"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["404"] = response
+
+    response = {}
+    response["description"] = "Method not allowed"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["405"] = response
+
+    response = {}
+    response["description"] = "Internal server error"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["500"] = response
+
+    response = {}
+    response["description"] = "Service unavailable"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["503"] = response
+
+
+def addGetResponse(responses):
+    response = {}
+    response["description"] = "Not acceptable"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["406"] = response
+
+    addCommonResponse(responses)
+
+
+def addPostResponse(responses):
+    response = {}
+    response["description"] = "Created"
+    schema = {}
+    schema["$ref"] = "#/definitions/Resource"
+    response["schema"] = schema
+    responses["201"] = response
+
+    response = {}
+    response["description"] = "Bad request"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["400"] = response
+
+    response = {}
+    response["description"] = "Not acceptable"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["406"] = response
+
+    response = {}
+    response["description"] = "Unsupported media type"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["415"] = response
+
+    addCommonResponse(responses)
+
+
+def addPutResponse(responses):
+    response = {}
+    response["description"] = "OK"
+    responses["200"] = response
+
+    response = {}
+    response["description"] = "Bad request"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["400"] = response
+
+    response = {}
+    response["description"] = "Not acceptable"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["406"] = response
+
+    response = {}
+    response["description"] = "Unsupported media type"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["415"] = response
+
+    addCommonResponse(responses)
+
+
+def addDeleteResponse(responses):
+    response = {}
+    response["description"] = "Resource deleted"
+    responses["204"] = response
+
+    addCommonResponse(responses)
 
 
 #
@@ -78,20 +177,18 @@ def genGetResource(table, parent_plurality, is_plural):
 
     responses = {}
     response = {}
-    response["description"] = "A list of URIs"
+    response["description"] = "OK"
     schema = {}
     schema["type"] = "array"
     item = {}
     item["description"] = "Resource URI"
     item["$ref"] = "#/definitions/Resource"
     schema["items"] = item
+    schema["description"] = "A list of URIs"
     response["schema"] = schema
     responses["200"] = response
-    response = {}
-    response["description"] = "Unexpected error"
-    response["schema"] = {'$ref': "#/definitions/Error"}
-    responses["default"] = response
 
+    addGetResponse(responses)
     op["responses"] = responses
 
     return op
@@ -120,17 +217,7 @@ def genPostResource(table, parent_plurality, is_plural):
     op["parameters"] = params
 
     responses = {}
-    response = {}
-    response["description"] = "New resource created"
-    schema = {}
-    schema["$ref"] = "#/definitions/Resource"
-    response["schema"] = schema
-    responses["200"] = response
-    response = {}
-    response["description"] = "Unexpected error"
-    response["schema"] = {'$ref': "#/definitions/Error"}
-    responses["default"] = response
-
+    addPostResponse(responses)
     op["responses"] = responses
 
     return op
@@ -155,14 +242,11 @@ def genGetInstance(table, parent_plurality, is_plural):
 
         responses = {}
         response = {}
-        response["description"] = "Attributes returned"
+        response["description"] = "OK"
         response["schema"] = {'$ref': "#/definitions/"+table.name+"All"}
         responses["200"] = response
-        response = {}
-        response["description"] = "Unexpected error"
-        response["schema"] = {'$ref': "#/definitions/Error"}
-        responses["default"] = response
 
+        addGetResponse(responses)
         op["responses"] = responses
 
         return op
@@ -186,17 +270,7 @@ def genPutInstance(table, parent_plurality, is_plural):
         op["parameters"] = params
 
         responses = {}
-        response = {}
-        response["description"] = "Configuration updated"
-        responses["201"] = response
-        response = {}
-        response["description"] = "Configuration updated"
-        responses["200"] = response
-        response = {}
-        response["description"] = "Unexpected error"
-        response["schema"] = {'$ref': "#/definitions/Error"}
-        responses["default"] = response
-
+        addPutResponse(responses)
         op["responses"] = responses
 
         return op
@@ -213,108 +287,100 @@ def genDelInstance(table, parent_plurality, is_plural):
         op["parameters"] = params
 
     responses = {}
-    response = {}
-    response["description"] = "Resource deleted"
-    responses["204"] = response
-    response = {}
-    response["description"] = "Unexpected error"
-    response["schema"] = {'$ref': "#/definitions/Error"}
-    responses["default"] = response
-
+    addDeleteResponse(responses)
     op["responses"] = responses
 
     return op
 
 
-    #Reading the xml file
-def readxml():
-    with open(args[1], 'rt') as f:
-        tree = ET.parse(f)
-
-    return tree
-
-    #Reading the description for each column and parsing the description
-def parse_xml_desc(xmlTable, xmlColumn, tree):
-    columnDesc = ""
-    for node in tree.iter():
-        if node.tag == 'table' and xmlTable == node.attrib['name']:
-            for group in node.getchildren():
-                for column in group.getchildren():
-                    if column.tag == 'column' and xmlColumn == column.attrib['name']:
-                        columnDesc = ET.tostring(column, encoding='utf8', method='html')
-                    if columnDesc == None:
-                        columnDesc = ""
-    # Removing unecessary tags at the beginning of each description
-    if columnDesc != "":
-        columnDesc = " ".join(columnDesc.split())
-    reg =  '<column .*?>(.*)</column>'
-    r = re.search(reg, columnDesc)
-    if r == None:
-        return ""
+# Generate definition for a given base type
+def genBaseType(type, min, max, desc):
+    item = {}
+    if type == types.IntegerType:
+        item["type"] = "integer"
+        if min != None and min !=0:
+            item["minimum"] = min
+        if max != None and max != sys.maxint:
+            item["maximum"] = max
+    elif type == types.RealType:
+        item["type"] = "real"
+        if min != None and min != 0:
+            item["minimum"] = min
+        if max != None and max != sys.maxint:
+            item["maximum"] = max
+    elif type == types.BooleanType:
+        item["type"] = "boolean"
+    elif type == types.StringType:
+        item["type"] = "string"
+        if min != None and min != 0:
+            item["minLength"] = min
+        if max != None and max != sys.maxint:
+            item["maxLength"] = max
     else:
-        return str(r.group(1)).lstrip().rstrip()
+        raise error.Error("Unexpected attribute type " + type)
+
+    item["description"] = desc
+
+    return item
+
+
+# Generate definition for a column in a table
+def genDefinition(table_name, col, definitions):
+    properties = {}
+    if col.is_dict and col.enum:
+        # Key-Value type
+        for key in col.enum:
+            definition = {}
+            # keys specified in schema file are all of string type
+            definition["type"] = "string"
+            properties[key] = definition
+
+    if col.kvs:
+        for key, detail in col.kvs.iteritems():
+            if 'type' in detail.keys():
+                type = detail['type']
+            else:
+                type = col.type
+            if 'rangeMin' in detail.keys():
+                min = detail['rangeMin']
+            else:
+                min = col.rangeMin
+            if 'rangeMax' in detail.keys():
+                max = detail['rangeMax']
+            else:
+                max = col.rangeMax
+            if 'desc' in detail.keys():
+                desc = detail['desc']
+            else:
+                desc = ""
+            properties[key] = genBaseType(type, min, max, desc)
+
+    if properties:
+        definitions[table_name + "-" + col.name + "-KV"] = {"properties": properties}
+
+        sub = {}
+        sub["$ref"] = "#/definitions/" + table_name + "-" + col.name + "-KV"
+        sub["description"] = "Key-Value pairs for " + col.name
+        return sub
+    else:
+        # simple attributes
+        return genBaseType(col.type, col.rangeMin, col.rangeMax, col.desc)
 
 
 def getDefinition(table, definitions):
-    tree = readxml()
     properties = {}
     for colName, col in table.config.iteritems():
-        definition = {}
-        if col.type == types.IntegerType:
-            definition["type"] = "integer"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        elif col.type == types.RealType:
-            definition["type"] = "real"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        elif col.type == types.StringType:
-            definition["type"] = "string"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        elif col.type == types.BooleanType:
-            definition["type"] = "boolean"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        else:
-            raise error.Error("Unexpected attribute type " + col.type)
-        properties[colName] = definition
+        properties[colName] = genDefinition(table.name, col, definitions)
     definitions[table.name + "Config"] = {"properties": properties}
 
     properties = {}
     for colName, col in table.status.iteritems():
-        definition = {}
-        if col.type == types.IntegerType:
-            definition["type"] = "integer"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        elif col.type == types.RealType:
-            definition["type"] = "real"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        elif col.type == types.StringType:
-            definition["type"] = "string"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        elif col.type == types.BooleanType:
-            definition["type"] = "boolean"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        else:
-            raise error.Error("Unexpected attribute type " + col.type)
-        properties[colName] = definition
+        properties[colName] = genDefinition(table.name, col, definitions)
     definitions[table.name + "Status"] = {"properties": properties}
 
     properties = {}
     for colName, col in table.stats.iteritems():
-        definition = {}
-        if col.type == types.IntegerType:
-            definition["type"] = "integer"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        elif col.type == types.RealType:
-            definition["type"] = "real"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        elif col.type == types.StringType:
-            definition["type"] = "string"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        elif col.type == types.BooleanType:
-            definition["type"] = "boolean"
-            definition["description"] = str(parse_xml_desc(table.name, colName, tree))
-        else:
-            raise error.Error("Unexpected attribute type " + col.type)
-        properties[colName] = definition
+        properties[colName] = genDefinition(table.name, col, definitions)
     definitions[table.name + "Stats"] = {"properties": properties}
 
     properties = {}
@@ -459,12 +525,13 @@ def getFullAPI(schema):
     api["swagger"] = "2.0"
 
     info = {}
-    info["title"] = "Halon REST API"
-    info["description"] = "the Halon REST API for management plane"
+    info["title"] = "OpenSwitch REST API"
+    info["description"] = "REST interface for management plane"
     info["version"] = "1.0.0"
     api["info"] = info
 
     api["host"] = ""
+    # Should be changed to use https instead
     api["schemes"] = ["http"]
     api["basePath"] = "/rest/v1"
     api["produces"] = ["application/json"]
@@ -509,9 +576,7 @@ def getFullAPI(schema):
     api["paths"] = paths
 
     properties = {}
-    properties["code"] = {"type": "integer", "format": "int32"}
     properties["message"] = {"type": "string"}
-    properties["fields"] = {"type": "string"}
     definitions["Error"] = {"properties": properties}
 
     definition = {}
@@ -537,15 +602,6 @@ def getFullAPI(schema):
 
     return api
 
-def parseSchema(schemaFile, title=None, version=None):
-    schema = RESTSchema.from_json(ovs.json.from_file(schemaFile))
-
-    if title == None:
-        title = schema.name
-    if version == None:
-        version = "UNKNOWN"
-
-    return schema
 
 def docGen(schemaFile, xmlFile, title=None, version=None):
     schema = parseSchema(schemaFile)
