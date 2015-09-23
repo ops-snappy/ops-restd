@@ -14,9 +14,9 @@ with open('json.data') as data_file:
 http = httplib2.Http()
 
 _headers = { "Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-url = 'http://172.17.0.39:8091/rest/v1/system/full-configuration?type=running'
+url = 'http://172.17.0.10:8091/rest/v1/system/full-configuration?type=running'
 
-_headers = { "Content-type": "multipart/form-data", "Accept": "text/plain"}
+_headers = { "Content-type": "application/json", "Accept": "text/plain"}
 response, content = http.request(url, 'PUT', headers=_headers, body=json.dumps(_data))
 print(response)
 print(content)
