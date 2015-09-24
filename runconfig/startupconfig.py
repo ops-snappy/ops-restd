@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
-from halonrest.settings import settings
-from halonrest.manager import OvsdbConnectionManager
-from halonrest.utils import utils
-from halonrest import resource
-from halonlib import restparser
+from opsrest.settings import settings
+from opsrest.manager import OvsdbConnectionManager
+from opsrest.utils import utils
+from opsrest import resource
+from opslib import restparser
 import ovs
 import json
 import sys

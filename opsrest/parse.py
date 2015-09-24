@@ -1,6 +1,6 @@
-from halonrest.resource import Resource
-from halonrest.utils import utils
-from halonrest.constants import *
+from opsrest.resource import Resource
+from opsrest.utils import utils
+from opsrest.constants import *
 import ovs.ovsuuid
 
 import types

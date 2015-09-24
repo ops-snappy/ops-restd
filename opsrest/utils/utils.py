@@ -7,8 +7,8 @@ import uuid
 import re
 import urllib
 
-from halonrest.resource import Resource
-from halonrest.constants import *
+from opsrest.resource import Resource
+from opsrest.constants import *
 from tornado.log import app_log
 
 

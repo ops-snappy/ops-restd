@@ -1,11 +1,11 @@
-from halonrest import parse
-from halonrest.utils import utils
-from halonrest.constants import *
+from opsrest import parse
+from opsrest.utils import utils
+from opsrest.constants import *
 import types
 import httplib
 
 from tornado.log import app_log
-from halonrest.utils.utils import to_json_error
+from opsrest.utils.utils import to_json_error
 from ovs.db import types as ovs_types
 
 def verify_data(data, resource, schema, idl, http_method):

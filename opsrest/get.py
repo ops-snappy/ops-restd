@@ -1,6 +1,6 @@
 import ovs.db.idl
-from halonrest.constants import *
-from halonrest.utils import utils
+from opsrest.constants import *
+from opsrest.utils import utils
 
 import types
 import json

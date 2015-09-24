@@ -6,14 +6,14 @@ import json
 import httplib
 import re
 
-from halonrest.resource import Resource
-from halonrest.parse import parse_url_path
-from halonrest.constants import *
-from halonrest.utils.utils import *
-from halonrest import get, post, delete, put
+from opsrest.resource import Resource
+from opsrest.parse import parse_url_path
+from opsrest.constants import *
+from opsrest.utils.utils import *
+from opsrest import get, post, delete, put
 
 import userauth
-from halonrest.settings import settings
+from opsrest.settings import settings
 
 class LoginHandler(web.RequestHandler):
 

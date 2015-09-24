@@ -21,44 +21,51 @@ import time
 import pytest
 import subprocess
 import shutil
-from halonvsi.docker import *
-from halonvsi.halon import *
-from halonutils.halonutil import *
+from opsvsi.docker import *
+from opsvsi.opsvsitest import *
+from opsvsiutils.systemutil import *
 
 NUM_OF_SWITCHES = 1
 NUM_HOSTS_PER_SWITCH = 0
 
 
 class myTopo(Topo):
-    def build (self, hsts=0, sws=1, **_opts):
+    def build(self, hsts=0, sws=1, **_opts):
 
         self.hsts = hsts
         self.sws = sws
         switch = self.addSwitch("s1")
 
 
-class configTest (HalonTest):
-    def setupNet (self):
-        self.net = Mininet(topo=myTopo(hsts = NUM_HOSTS_PER_SWITCH,
-                                       sws = NUM_OF_SWITCHES,
-                                       hopts = self.getHostOpts(),
-                                       sopts = self.getSwitchOpts()),
-                                       switch = HalonSwitch,
-                                       host = HalonHost,
-                                       link = HalonLink,
-                                       controller = None,
-                                       build = True)
+class configTest (OpsVsiTest):
+    def setupNet(self):
+        self.net = Mininet(topo=myTopo(hsts=NUM_HOSTS_PER_SWITCH,
+                                       sws=NUM_OF_SWITCHES,
+                                       hopts=self.getHostOpts(),
+                                       sopts=self.getSwitchOpts()),
+                           switch=VsiOpenSwitch,
+                           host=Host,
+                           link=OpsVsiLink,
+                           controller=None,
+                           build=True)
 
-    def copy_to_docker (self):
+    def copy_to_docker(self):
         info("\n########## Copying required files to docker ##########\n")
         src_path = os.path.dirname(os.path.realpath(__file__))
         switch = self.net.switches[0]
         testid = switch.testid
-        script_shared_local = '/tmp/halon-test/' + testid +'/'+switch.name+'/shared/runconfig_test_in_docker.py'
-        script_shared_local_runconfig = '/tmp/halon-test/' + testid +'/'+switch.name+'/shared/runconfig.py'
-        script_shared_test_file1 = '/tmp/halon-test/' + testid +'/'+switch.name+'/shared' + '/config_test1'
-        script_shared_test_file2 = '/tmp/halon-test/' + testid +'/'+switch.name+'/shared' + '/config_test2'
-        script_shared_test_file3 = '/tmp/halon-test/' + testid +'/'+switch.name+'/shared' + '/empty_config.db'
+        script_shared_local = '/tmp/openswitch-test/' + testid + '/' + \
+                              switch.name + \
+                              '/shared/runconfig_test_in_docker.py'
+        script_shared_local_runconfig = '/tmp/openswitch-test/' + testid + \
+                                        '/' + switch.name + \
+                                        '/shared/runconfig.py'
+        script_shared_test_file1 = '/tmp/openswitch-test/' + testid + '/' + \
+                                   switch.name + '/shared' + '/config_test1'
+        script_shared_test_file2 = '/tmp/openswitch-test/' + testid + '/' + \
+                                   switch.name + '/shared' + '/config_test2'
+        script_shared_test_file3 = '/tmp/openswitch-test/' + testid + '/' + \
+                                   switch.name + '/shared' + '/empty_config.db'
 
         shutil.copy2(os.path.join(src_path, "runconfig_test_in_docker.py"), script_shared_local)
         shutil.copy2(os.path.join(src_path, "config_test1.db"), script_shared_test_file1)
@@ -67,7 +74,8 @@ class configTest (HalonTest):
         shutil.copy2(os.path.join(src_path, "empty_config.db"), script_shared_test_file3)
 
     def verify_runconfig(self):
-        info("\n########## Verify config writes for empty config and full config ##########\n")
+        info("\n########## Verify config writes for empty config and \
+        full config ##########\n")
         switch = self.net.switches[0]
         script_shared_docker = '/shared/runconfig_test_in_docker.py'
         out = switch.cmd('python ' + script_shared_docker)
@@ -78,27 +86,27 @@ class configTest (HalonTest):
 
 
 class Test_config:
-    def setup (self):
+    def setup(self):
         pass
 
-    def teardown (self):
+    def teardown(self):
         pass
 
-    def setup_class (cls):
+    def setup_class(cls):
         Test_config.test_var = configTest()
 
-    def teardown_class (cls):
+    def teardown_class(cls):
         Test_config.test_var.net.stop()
 
-    def setup_method (self, method):
+    def setup_method(self, method):
         pass
 
-    def teardown_method (self, method):
+    def teardown_method(self, method):
         pass
 
-    def __del__ (self):
+    def __del__(self):
         del self.test_var
 
-    def test_run (self):
+    def test_run(self):
         self.test_var.copy_to_docker()
         self.test_var.verify_runconfig()

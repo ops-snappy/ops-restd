@@ -5,8 +5,8 @@ from tornado.log import app_log
 from ovs.db.idl import Idl, SchemaHelper
 from ovs.poller import Poller
 
-from halonrest.transaction import OvsdbTransactionList, OvsdbTransaction
-from halonrest.constants import *
+from opsrest.transaction import OvsdbTransactionList, OvsdbTransaction
+from opsrest.constants import *
 
 class OvsdbConnectionManager:
     def __init__(self, remote, schema, *args, **kwargs):

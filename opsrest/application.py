@@ -5,9 +5,9 @@ from ovs.db.idl import Idl
 from ovs.db.idl import SchemaHelper
 from ovs.poller import Poller
 
-from halonrest.manager import OvsdbConnectionManager
-from halonlib import restparser
-from halonrest import constants
+from opsrest.manager import OvsdbConnectionManager
+from opslib import restparser
+from opsrest import constants
 import cookiesecret
 
 class OvsdbApiApplication(Application):

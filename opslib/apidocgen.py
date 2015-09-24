@@ -30,12 +30,12 @@ import ovs.util
 import ovs.daemon
 import ovs.db.idl
 
-from halonlib.restparser import OVSColumn
-from halonlib.restparser import OVSReference
-from halonlib.restparser import OVSTable
-from halonlib.restparser import RESTSchema
-from halonlib.restparser import normalizeName
-from halonlib.restparser import parseSchema
+from restparser import OVSColumn
+from restparser import OVSReference
+from restparser import OVSTable
+from restparser import RESTSchema
+from restparser import normalizeName
+from restparser import parseSchema
 
 
 def addCommonResponse(responses):
@@ -139,7 +139,7 @@ def addDeleteResponse(responses):
 #
 # Pass in chain of parent resources on URI path
 #
-def genCoreParams(table, parent_plurality, is_plural = True):
+def genCoreParams(table, parent_plurality, is_plural=True):
     depth = len(parent_plurality)
 
     params = []
@@ -209,7 +209,8 @@ def genPostResource(table, parent_plurality, is_plural):
 
     if table.parent is None:
         # For referenced resource
-        param["schema"] = {'$ref': "#/definitions/"+table.name+"ConfigReferenced"}
+        param["schema"] = {'$ref': "#/definitions/"+table.name
+                           + "ConfigReferenced"}
     else:
         param["schema"] = {'$ref': "#/definitions/"+table.name+"ConfigOnly"}
 
@@ -234,7 +235,8 @@ def genGetInstance(table, parent_plurality, is_plural):
         param = {}
         param["name"] = "selector"
         param["in"] = "query"
-        param["description"] = "select from config, status or stats, default to all"
+        param["description"] = "select from config, status or stats, \
+                                default to all"
         param["required"] = False
         param["type"] = "string"
         params.append(param)
@@ -298,23 +300,23 @@ def genBaseType(type, min, max, desc):
     item = {}
     if type == types.IntegerType:
         item["type"] = "integer"
-        if min != None and min !=0:
+        if min is not None and min is not 0:
             item["minimum"] = min
-        if max != None and max != sys.maxint:
+        if max is not None and max is not sys.maxint:
             item["maximum"] = max
     elif type == types.RealType:
         item["type"] = "real"
-        if min != None and min != 0:
+        if min is not None and min is not 0:
             item["minimum"] = min
-        if max != None and max != sys.maxint:
+        if max is not None and max is not sys.maxint:
             item["maximum"] = max
     elif type == types.BooleanType:
         item["type"] = "boolean"
     elif type == types.StringType:
         item["type"] = "string"
-        if min != None and min != 0:
+        if min is not None and min is not 0:
             item["minLength"] = min
-        if max != None and max != sys.maxint:
+        if max is not None and max is not sys.maxint:
             item["maxLength"] = max
     else:
         raise error.Error("Unexpected attribute type " + type)
@@ -356,7 +358,8 @@ def genDefinition(table_name, col, definitions):
             properties[key] = genBaseType(type, min, max, desc)
 
     if properties:
-        definitions[table_name + "-" + col.name + "-KV"] = {"properties": properties}
+        definitions[table_name + "-" + col.name + "-KV"] = {"properties":
+                                                            properties}
 
         sub = {}
         sub["$ref"] = "#/definitions/" + table_name + "-" + col.name + "-KV"
@@ -424,7 +427,8 @@ def getDefinition(table, definitions):
     definitions[table.name + "ConfigReferenced"] = {"properties": properties}
 
 
-def genAPI(paths, definitions, schema, table, resource_name, parent, parents, parent_plurality):
+def genAPI(paths, definitions, schema, table, resource_name, parent,
+           parents, parent_plurality):
     prefix = "/system"
     depth = len(parents)
     for index, ancestor in enumerate(parents):
@@ -495,7 +499,8 @@ def genAPI(paths, definitions, schema, table, resource_name, parent, parents, pa
             # True child resources
             parents.append(resource_name)
             parent_plurality.append(is_plural)
-            genAPI(paths, definitions, schema, child_table, col_name, table, parents, parent_plurality)
+            genAPI(paths, definitions, schema, child_table, col_name,
+                   table, parents, parent_plurality)
             parents.pop()
             parent_plurality.pop()
         elif table.references[col_name].relation == "parent":
@@ -515,7 +520,8 @@ def genAPI(paths, definitions, schema, table, resource_name, parent, parents, pa
         child_name = normalizeName(col_name)
         parents.append(resource_name)
         parent_plurality.append(is_plural)
-        genAPI(paths, definitions, schema, child_table, child_name, table, parents, parent_plurality)
+        genAPI(paths, definitions, schema, child_table, child_name,
+               table, parents, parent_plurality)
         parents.pop()
         parent_plurality.pop()
 
@@ -543,7 +549,8 @@ def getFullAPI(schema):
     systemTable = schema.ovs_tables["System"]
     parents = []
     parent_plurality = []
-    genAPI(paths, definitions, schema, systemTable, None, None, parents, parent_plurality)
+    genAPI(paths, definitions, schema, systemTable, None, None,
+           parents, parent_plurality)
 
     # Top-level tables exposed in system table
     for col_name in systemTable.references:
@@ -554,7 +561,8 @@ def getFullAPI(schema):
             # True child resources
             parents = []
             parent_plurality = []
-            genAPI(paths, definitions, schema, table, col_name, systemTable, parents, parent_plurality)
+            genAPI(paths, definitions, schema, table, col_name,
+                   systemTable, parents, parent_plurality)
         else:
             # Referenced resources (no operation exposed)
             continue
@@ -571,7 +579,8 @@ def getFullAPI(schema):
         parents = []
         parent_plurality = []
         # Use plural form of the resource name in the URI
-        genAPI(paths, definitions, schema, table, table.plural_name, None, parents, parent_plurality)
+        genAPI(paths, definitions, schema, table, table.plural_name,
+               None, parents, parent_plurality)
 
     api["paths"] = paths
 
@@ -591,7 +600,8 @@ def getFullAPI(schema):
     properties["uri"] = definition
     definition = {}
     definition["type"] = "array"
-    definition["description"] = "A list of reference points, can be empty for default"
+    definition["description"] = "A list of reference points, \
+                                 can be empty for default"
     items = {}
     items["type"] = "string"
     definition["items"] = items

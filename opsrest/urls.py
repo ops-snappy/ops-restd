@@ -1,4 +1,4 @@
-from halonrest.handlers import base, config
+from opsrest.handlers import base, config
 
 url_patterns = [
         (r'/login', base.LoginHandler),
