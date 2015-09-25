@@ -1,4 +1,4 @@
-from tornado.web import Application, RequestHandler
+from tornado.web import Application, RequestHandler, StaticFileHandler
 from tornado.ioloop import IOLoop
 
 from ovs.db.idl import Idl
@@ -25,7 +25,10 @@ class OvsdbApiApplication(Application):
     # adds 'self' to url_patterns
     def _get_url_patterns(self):
         from urls import url_patterns
-        modified_url_patterns = []
+        modified_url_patterns = [
+            # static REST API files
+            (r"/api/(.*)", StaticFileHandler, {"path": "/srv/www/api"})
+        ]
         for url in url_patterns:
             modified_url_patterns.append( url + ({ 'ref_object': self },))
         return modified_url_patterns
