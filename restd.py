@@ -7,8 +7,8 @@ import tornado.autoreload
 from tornado.options import options
 import tornado.web
 
-from halonrest.settings import settings
-from halonrest.application import OvsdbApiApplication
+from opsrest.settings import settings
+from opsrest.application import OvsdbApiApplication
 
 from tornado.log import app_log
 

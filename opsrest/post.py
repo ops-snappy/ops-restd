@@ -1,6 +1,6 @@
-from halonrest.constants import *
-from halonrest.utils import utils
-from halonrest.verify import *
+from opsrest.constants import *
+from opsrest.utils import utils
+from opsrest.verify import *
 
 from tornado.log import app_log
 
@@ -11,8 +11,6 @@ from tornado.log import app_log
 /system/bridges/bridge_normal/ports: POST NOT allowed as we are attemtping to add a Port as a reference on bridge
 '''
 def post_resource(data, resource, schema, txn, idl):
-
-
 
     # POST not allowed on System table
     if resource is None or resource.next is None:
@@ -37,7 +35,12 @@ def post_resource(data, resource, schema, txn, idl):
     if resource.relation == OVSDB_SCHEMA_CHILD:
         # create new row, populate it with data, add it as a reference to the parent resource
         new_row = utils.setup_new_row(resource.next, verified_data, schema, txn, idl)
-        utils.add_reference(new_row, resource, None, idl)
+
+        if schema.ovs_tables[resource.table].references[resource.column].kv_type:
+            keyname = schema.ovs_tables[resource.table].references[resource.column].column.keyname
+            utils.add_kv_reference(verified_data[keyname], new_row, resource, idl)
+        else:
+            utils.add_reference(new_row, resource, None, idl)
 
     elif resource.relation == OVSDB_SCHEMA_BACK_REFERENCE:
         # row for a back referenced item contains the parent's reference in the verified data

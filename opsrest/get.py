@@ -1,6 +1,6 @@
 import ovs.db.idl
-from halonrest.constants import *
-from halonrest.utils import utils
+from opsrest.constants import *
+from opsrest.utils import utils
 
 import types
 import json
@@ -118,30 +118,39 @@ def get_column_json(column, row, table, schema, idl, uri):
 
     current_table = schema.ovs_tables[table]
 
-    # column is a reference. Get the table name
-    col_table = current_table.references[column].ref_table
-    column_table = schema.ovs_tables[col_table]
-
-    # Is a top level table
-    if column_table.parent is None:
-        uri = OVSDB_BASE_URI + column_table.plural_name
-    # Is a child table, is faster concatenate the uri instead searching
-    elif column_table.parent == current_table.name:
-        #If we are at a child reference URI we don't add the column path.
-        if column_table.plural_name not in uri:
-            uri = uri.rstrip('/')
-            uri += '/' + column_table.plural_name
-
+    # uri list of resources to return
     uri_list = []
-    for row in db_col:
-        #Reference with different parent, search the parent
-        if column_table.parent is not None and column_table.parent != current_table.name:
-            uri = OVSDB_BASE_URI
-            uri += utils.get_reference_parent_uri(col_table, row, schema, idl)
-            uri += column_table.plural_name
-        tmp = utils.get_table_key(row, column_table.name, schema)
-        _uri = create_uri(uri, tmp)
-        uri_list.append(_uri)
+
+    # case 1: reference is of dict type with index/uuid pairs
+    if current_table.references[column].kv_type:
+        # we already have the keys
+        for key in db_col.keys():
+            uri_list.append(uri + '/' + str(key))
+
+    else:
+        # case 2: regular reference to a resource
+        col_table = current_table.references[column].ref_table
+        column_table = schema.ovs_tables[col_table]
+
+        # Is a top level table
+        if column_table.parent is None:
+            uri = OVSDB_BASE_URI + column_table.plural_name
+        # Is a child table, is faster concatenate the uri instead searching
+        elif column_table.parent == current_table.name:
+            #If we are at a child reference URI we don't add the column path.
+            if column_table.plural_name not in uri:
+                uri = uri.rstrip('/')
+                uri += '/' + column_table.plural_name
+
+        for row in db_col:
+            #Reference with different parent, search the parent
+            if column_table.parent is not None and column_table.parent != current_table.name:
+                uri = OVSDB_BASE_URI
+                uri += utils.get_reference_parent_uri(col_table, row, schema, idl)
+                uri += column_table.plural_name
+            tmp = utils.get_table_key(row, column_table.name, schema)
+            _uri = create_uri(uri, tmp)
+            uri_list.append(_uri)
 
     return uri_list
 

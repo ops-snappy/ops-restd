@@ -1,6 +1,6 @@
-from halonrest.constants import *
-from halonrest.utils import utils
-from halonrest.verify import *
+from opsrest.constants import *
+from opsrest.utils import utils
+from opsrest.verify import *
 
 from tornado.log import app_log
 
@@ -16,9 +16,10 @@ def delete_resource(resource, schema, txn, idl):
 
     if resource.relation == OVSDB_SCHEMA_CHILD:
 
-        # get the row, delete its reference from the parent, delete the row
-        row = utils.get_row(resource.next, idl)
-        utils.delete_reference(row, resource, None, idl)
+        if resource.next.row is None:
+            raise Exception({'status' : httplib.METHOD_NOT_ALLOWED})
+
+        row = utils.delete_reference(resource.next, resource, schema, idl)
         row.delete()
 
     elif resource.relation == OVSDB_SCHEMA_REFERENCE:

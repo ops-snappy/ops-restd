@@ -349,7 +349,7 @@
             "user_config": {}
         }
     },
-    "Open_vSwitch": {
+    "System": {
         "aaa": {
             "fallback": "false",
             "radius": "false",
@@ -385,7 +385,7 @@
         "other_config": {},
         "subsystems": {
             "base": {
-                "asset_tag_number": "Open Halon asset tag 222",
+                "asset_tag_number": "Open Switch asset tag 222",
                 "external_ids": {},
                 "other_config": {}
             }

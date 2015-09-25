@@ -1,6 +1,6 @@
-from halonrest.constants import *
-from halonrest.utils import utils
-from halonrest.verify import *
+from opsrest.constants import *
+from opsrest.utils import utils
+from opsrest.verify import *
 
 from tornado.log import app_log
 

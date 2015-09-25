@@ -15,11 +15,11 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from halonrest.settings import settings
-from halonrest.manager import OvsdbConnectionManager
-from halonrest.utils import utils
-from halonrest import resource
-from halonlib import restparser
+from opsrest.settings import settings
+from opsrest.manager import OvsdbConnectionManager
+from opsrest.utils import utils
+from opsrest import resource
+from opslib import restparser
 import ovs
 import json
 import sys
@@ -121,9 +121,9 @@ def test_write_read_compare(fname):
 if __name__ == "__main__":
     result = test_empty_config(CONFIG_FILENAME_2, CONFIG_FILENAME_3)
     if result == True:
-        result = test_write_read_compare(CONFIG_FILENAME_1)
+        #result = test_write_read_compare(CONFIG_FILENAME_1)
         if result == True:
-            result = test_write_read_compare(CONFIG_FILENAME_2)
+            #result = test_write_read_compare(CONFIG_FILENAME_2)
         else:
             print "Test Failure"
     else:

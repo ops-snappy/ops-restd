@@ -107,6 +107,9 @@ class OVSColumn(object):
                     if column.tag != 'column' or xmlColumn != column.attrib['name']:
                         continue
 
+                    if('keyname' in column.attrib):
+                        self.keyname = column.attrib['keyname']
+
                     if ('key' not in column.attrib):
                         columnDesc = ET.tostring(column, encoding='utf8', method='html')
                         continue
@@ -134,14 +137,12 @@ class OVSColumn(object):
         rangeMin = None
         rangeMax = None
 
-        if type not in types.ATOMIC_TYPES or \
-           type == types.VoidType or \
-           type == types.UuidType:
-            raise error.Error("unknown attribute type %s" % type)
-
         if type == types.StringType:
             rangeMin = base.min_length
             rangeMax = base.max_length
+        elif type == types.UuidType:
+            rangeMin = None
+            rangeMax = None
         elif type != types.BooleanType:
             rangeMin = base.min
             rangeMax = base.max
@@ -155,8 +156,10 @@ class OVSReference(object):
         self.mutable = mutable
 
         # Name of the table being referenced
+        self.kv_type = False
         if base_type.type != types.UuidType:
             # referenced table name must be in value part of KV pair
+            self.kv_type = True
             base_type = type_.value
         self.ref_table = base_type.ref_table_name
 
@@ -262,6 +265,7 @@ class OVSTable(object):
                 table.stats[column_name] = OVSColumn(table, column_name, type_, is_optional)
             elif category == "child":
                 table.references[column_name] = OVSReference(type_, category)
+                table.references[column_name].column = OVSColumn(table, column_name, type_)
             elif category == "parent":
                 table.references[column_name] = OVSReference(type_, category)
             elif category == "reference":
