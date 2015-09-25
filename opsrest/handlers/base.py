@@ -239,12 +239,14 @@ class AutoHandler(BaseHandler):
                 app_log.debug("Successful transaction!")
                 self.set_status(httplib.NO_CONTENT)
 
-        # TODO: Improve exception handler
         except Exception, e:
-            app_log.debug("Unexpected exception: %s", e)
+            if isinstance(e.message,dict):
+                self.set_status(e.message.get('status', httplib.INTERNAL_SERVER_ERROR))
+            else:
+                app_log.debug("Unexpected exception: %s", e.message)
+                self.set_status(httplib.INTERNAL_SERVER_ERROR)
 
             self.txn.abort()
-            self.set_status(httplib.INTERNAL_SERVER_ERROR)
 
         self.finish()
 

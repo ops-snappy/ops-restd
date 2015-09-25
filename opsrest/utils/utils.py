@@ -104,7 +104,21 @@ def check_resource(resource, column=None, idl=None):
 
     return None
 
-# add a Row reference to a Resource
+# add a Row reference that is of type {key:reference}
+def add_kv_reference(key, reference, resource, idl):
+
+    row = idl.tables[resource.table].rows[resource.row]
+    kv_references = get_column(row, resource.column)
+
+    updated_kv_references = {}
+    for k,v in kv_references.iteritems():
+        updated_kv_references[k] = v
+
+    updated_kv_references[key] = reference
+    row.__setattr__(resource.column, updated_kv_references)
+    return True
+
+# add a Row reference
 def add_reference(reference, resource, column=None, idl=None):
 
     ref = check_reference(reference, idl)
@@ -139,27 +153,42 @@ def add_reference(reference, resource, column=None, idl=None):
     return False
 
 # delete a Row reference from a Resource
-def delete_reference(reference, resource, column=None, idl=None):
+def delete_reference(resource, parent, schema, idl):
 
-    ref = check_reference(reference, idl)
-    if ref is None:
-        return False
+    # kv type reference
+    ref = None
+    if schema.ovs_tables[parent.table].references[parent.column].kv_type:
+        app_log.debug('Deleting KV type reference')
+        key = resource.index[0]
+        parent_row = idl.tables[parent.table].rows[parent.row]
+        kv_references = get_column(parent_row, parent.column)
+        updated_kv_references = {}
+        for k,v in kv_references.iteritems():
+            if str(k) == key:
+                ref = v
+            else:
+                updated_kv_references[k] = v
 
-    (row, column) = check_resource(resource, column, idl)
-    if row is None or column is None:
-        return False
+        parent_row.__setattr__(parent.column, updated_kv_references)
+    else:
+        # normal reference
+        app_log.debug('Deleting normal reference')
+        ref = get_row(resource, idl)
+        parent_row = get_row(parent, idl)
+        reflist = get_column(parent_row, parent.column, idl)
 
-    reflist = get_column(row, column, idl)
-    if reflist is None:
-        return False
+        if reflist is None:
+            app_log.debug('reference list is empty')
+            return False
 
-    updated_list = []
-    for item in reflist:
-        if item.uuid != ref.uuid:
-            updated_list.append(item)
+        updated_references = []
+        for item in reflist:
+            if item.uuid != ref.uuid:
+                updated_references.append(item)
 
-    row.__setattr__(column, updated_list)
-    return True
+        parent_row.__setattr__(parent.column, updated_references)
+
+    return ref
 
 def delete_all_references(resource, schema, idl):
     row = get_row(resource, idl)
@@ -404,6 +433,12 @@ def list_to_json(data, value_type=None):
 
     return data_json
 
+'''
+This subroutine fetches the row reference using index_values.
+index_values is a list which contains the combination indices
+that are used to identify a resource.
+'''
+
 def index_to_row(index_values, table_schema, dbtable):
 
     indexes = table_schema.indexes
@@ -424,6 +459,25 @@ def index_to_row(index_values, table_schema, dbtable):
 
         if i == len(indexes):
             return row
+
+    return None
+
+'''
+This subroutine fetches the row reference using the index as key.
+Current feature uses a single index and not a combination of multiple
+indices. This is used for the new key/uuid type forward references introduced
+for BGP
+'''
+def kv_index_to_row(index_values, parent, idl):
+
+    index = index_values[0]
+    column = parent.column
+    row = idl.tables[parent.table].rows[parent.row]
+
+    column_item = row.__getattr__(parent.column)
+    for key, value in column_item.iteritems():
+        if str(key) == index:
+            return value
 
     return None
 

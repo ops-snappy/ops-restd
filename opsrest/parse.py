@@ -138,7 +138,7 @@ def parse(path, resource, schema, idl, http_method):
             raise Exception
 
     # verify non-backreference resource existence
-    row = verify_index(new_resource, index_list, schema, idl)
+    row = verify_index(new_resource, resource, index_list, schema, idl)
     if row is None:
         raise Exception
     else:
@@ -175,7 +175,7 @@ def verify_back_reference(resource, new_resource, schema, idl, index_list=None):
 
     # Look for back reference using the index
     if index_list is not None:
-        row = verify_index(new_resource, index_list, schema, idl)
+        row = verify_index(new_resource, None, index_list, schema, idl)
         if row.__getattr__(_refCol).uuid == resource.row:
             return True
         else:
@@ -200,13 +200,25 @@ def verify_back_reference(resource, new_resource, schema, idl, index_list=None):
 '''
     Verify if a resource exists in the DB Table using the index.
 '''
-def verify_index(resource, index_values, schema, idl):
+def verify_index(resource, parent, index_values, schema, idl):
 
     if resource.table not in idl.tables:
         return None
 
-    dbtable = idl.tables[resource.table]
-    table_schema = schema.ovs_tables[resource.table]
+    # check if we are dealing with key/value type of forward reference
+    kv_type = False
+    if parent is not None and parent.relation == OVSDB_SCHEMA_CHILD:
+        if schema.ovs_tables[parent.table].references[parent.column].kv_type:
+            kv_type = True
 
-    row = utils.index_to_row(index_values, table_schema, dbtable)
+    if kv_type:
+        # check in parent table that the index exists
+        app_log.debug('verifying key/value type reference')
+        row = utils.kv_index_to_row(index_values, parent, idl)
+    else:
+        dbtable = idl.tables[resource.table]
+        table_schema = schema.ovs_tables[resource.table]
+
+        row = utils.index_to_row(index_values, table_schema, dbtable)
+
     return row

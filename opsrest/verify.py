@@ -25,6 +25,21 @@ def verify_post_data(data, resource, schema, idl):
 
     # verify config and reference columns data
     verified_data = {}
+
+    # when adding a child with kv_type of forward referencing, the configuration
+    # data must contain the 'keyname' used to identify the reference of the new
+    # resource created.
+    if resource.relation is OVSDB_SCHEMA_CHILD:
+        reference = schema.ovs_tables[resource.table].references[resource.column]
+        if reference.kv_type:
+            keyname = reference.column.keyname
+            if keyname not in _data:
+                error_json = to_json_error('Missing keyname attribute to reference the new resource from the parent')
+                return { ERROR: error_json}
+            else:
+                verified_data[keyname] = _data[keyname]
+                _data.pop(keyname)
+
     verified_config_data = verify_config_data(_data, resource.next, schema, 'POST')
     if verified_config_data is not None:
         if ERROR in verified_config_data:
