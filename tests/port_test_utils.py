@@ -18,6 +18,7 @@
 import json
 import httplib
 import urllib
+from copy import deepcopy
 
 import request_test_utils
 
@@ -76,3 +77,48 @@ def compare_dict(dict1, dict2):
             dicts_are_equal = dicts_are_equal and (dict1[key] == dict2[key])
 
     return dicts_are_equal
+
+def execute_port_operations(data, port_name, http_method, operation_uri, switch_ip):
+
+    results = []
+
+    for attribute in data:
+
+        attribute_name = attribute[0]
+        attribute_value = attribute[1]
+        expected_code = attribute[2]
+
+        request_data = deepcopy(test_data)
+        request_data['configuration']['name'] = "{0}_{1}_{2}".format(port_name, attribute_name, expected_code)
+
+        if http_method == 'PUT':
+
+            # Create a test port
+            status_code, response_data = request_test_utils.execute_request(operation_uri, "POST", json.dumps(request_data), switch_ip)
+
+            if status_code != httplib.CREATED:
+                return []
+
+            port_uri = operation_uri + "/%s" % request_data['configuration']['name']
+
+            # Delete reference_by from PUT
+            del request_data['referenced_by']
+        else:
+            port_uri = operation_uri
+
+        # Execute request
+
+        print "Attempting to {0} a port with value '{1}' ({3}) for attribute '{2}'".format(http_method, attribute_value, attribute_name, type(attribute_value).__name__)
+        # Change value for specified attribute
+        request_data['configuration'][attribute_name] = attribute_value
+        # Execute request
+        status_code, response_data = request_test_utils.execute_request(port_uri, http_method, json.dumps(request_data), switch_ip)
+
+        # Check if status code was as expected
+
+        if status_code != expected_code:
+            results.append((attribute_name, False, status_code))
+        else:
+            results.append((attribute_name, True, status_code))
+
+    return results
