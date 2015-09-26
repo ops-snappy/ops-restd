@@ -32,6 +32,7 @@ CONFIG_FILENAME_1 = "/shared/config_test1"
 CONFIG_FILENAME_2 = "/shared/config_test2"
 CONFIG_FILENAME_3 = "/shared/empty_config.db"
 
+
 def ordered(obj):
     if isinstance(obj, dict):
         return sorted((k, ordered(v)) for k, v in obj.items())
@@ -40,8 +41,10 @@ def ordered(obj):
     else:
         return obj
 
+
 def test_read():
-    manager = OvsdbConnectionManager(settings.get('ovs_remote'), settings.get('ovs_schema'))
+    manager = OvsdbConnectionManager(settings.get('ovs_remote'),
+                                     settings.get('ovs_schema'))
     manager.start()
     idl = manager.idl
 
@@ -60,9 +63,11 @@ def test_read():
     config = run_config_util.get_running_config()
     filename = 'config.db'
     with open(filename, 'w') as fp:
-        json.dump(config, fp, sort_keys = True, indent=4, separators=(',', ': '))
+        json.dump(config, fp, sort_keys=True, indent=4,
+                  separators=(',', ': '))
         fp.write('\n')
     return config
+
 
 def test_write(filename):
 
@@ -71,7 +76,8 @@ def test_write(filename):
         json_data.close()
 
     # set up IDL
-    manager = OvsdbConnectionManager(settings.get('ovs_remote'), settings.get('ovs_schema'))
+    manager = OvsdbConnectionManager(settings.get('ovs_remote'),
+                                     settings.get('ovs_schema'))
     manager.start()
     manager.idl.run()
 
@@ -85,6 +91,7 @@ def test_write(filename):
     schema = restparser.parseSchema(settings.get('ext_schema'))
     run_config_util = runconfig.RunConfigUtil(manager.idl, schema)
     run_config_util.write_config_to_db(data)
+
 
 #empty config test case
 def test_empty_config(full_config, empty_config):
@@ -104,6 +111,7 @@ def test_empty_config(full_config, empty_config):
     print res
     return res
 
+
 #read and modify
 def test_write_read_compare(fname):
     #print("Test case for full config\n\n")
@@ -115,15 +123,17 @@ def test_write_read_compare(fname):
 
     config = test_read()
     res = ordered(config_to_write) == ordered(config)
+
     print res
     return res
 
+
 if __name__ == "__main__":
     result = test_empty_config(CONFIG_FILENAME_2, CONFIG_FILENAME_3)
-    if result == True:
-        #result = test_write_read_compare(CONFIG_FILENAME_1)
-        if result == True:
-            #result = test_write_read_compare(CONFIG_FILENAME_2)
+    if result:
+        result = test_write_read_compare(CONFIG_FILENAME_1)
+        if result:
+            result = test_write_read_compare(CONFIG_FILENAME_2)
         else:
             print "Test Failure"
     else:

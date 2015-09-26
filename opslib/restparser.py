@@ -49,14 +49,14 @@ def normalizeName(name):
 
 
 def extractColDesc(column_desc):
-    if column_desc == None:
+    if column_desc is None:
         column_desc = ""
     # Remove unecessary tags at the beginning of each description
     if column_desc != "":
         column_desc = " ".join(column_desc.split())
-    reg =  '<column .*?>(.*)</column>'
+    reg = '<column .*?>(.*)</column>'
     r = re.search(reg, column_desc)
-    if r == None:
+    if r is None:
         return ""
     else:
         return str(r.group(1)).lstrip().rstrip()
@@ -83,7 +83,8 @@ class OVSColumn(object):
 
         self.value_type = None
         if base_value is not None:
-            self.value_type, self.valueRangeMin, self.valueRangeMax = self.process_type(base_value)
+            self.value_type, self.valueRangeMin, self.valueRangeMax = \
+                self.process_type(base_value)
 
         # The number of instances
         self.is_dict = self.value_type is not None
@@ -94,7 +95,6 @@ class OVSColumn(object):
         self.kvs = {}
         self.desc = self.parse_xml_desc(table.name, col_name, self.kvs)
 
-
     # Read the description for each column from XML source
     def parse_xml_desc(self, xmlTable, xmlColumn, kvs):
         columnDesc = ""
@@ -104,14 +104,16 @@ class OVSColumn(object):
 
             for group in node.getchildren():
                 for column in group.getchildren():
-                    if column.tag != 'column' or xmlColumn != column.attrib['name']:
+                    if (column.tag != 'column' or
+                            xmlColumn != column.attrib['name']):
                         continue
 
                     if('keyname' in column.attrib):
                         self.keyname = column.attrib['keyname']
 
                     if ('key' not in column.attrib):
-                        columnDesc = ET.tostring(column, encoding='utf8', method='html')
+                        columnDesc = ET.tostring(column, encoding='utf8',
+                                                 method='html')
                         continue
 
                     # When an attribute is of type string in schema file,
@@ -125,12 +127,12 @@ class OVSColumn(object):
                         kvs[column.attrib['key']]['type'] = type
                         kvs[column.attrib['key']]['rangeMin'] = min
                         kvs[column.attrib['key']]['rangeMax'] = max
-                    key_desc = ET.tostring(column, encoding='utf8', method='html')
+                    key_desc = ET.tostring(column, encoding='utf8',
+                                           method='html')
                     kvs[column.attrib['key']]['desc'] = extractColDesc(key_desc)
             break
 
         return extractColDesc(columnDesc)
-
 
     def process_type(self, base):
         type = base.type
@@ -148,6 +150,7 @@ class OVSColumn(object):
             rangeMax = base.max
 
         return (type, rangeMin, rangeMax)
+
 
 class OVSReference(object):
     """__init__() functions as the class constructor"""
@@ -179,9 +182,10 @@ class OVSReference(object):
         self.n_max = type_.n_max
         self.n_min = type_.n_min
 
+
 class OVSTable(object):
     """__init__() functions as the class constructor"""
-    def __init__(self, name, is_root, is_many = True, indexes = ['uuid']):
+    def __init__(self, name, is_root, is_many=True, indexes=['uuid']):
         self.name = name
         self.plural_name = normalizeName(name)
 
@@ -192,7 +196,6 @@ class OVSTable(object):
 
         # What is the name of the index column
         self.indexes = indexes
-
 
         # Is the table in plural form?
         self.is_many = is_many
@@ -234,7 +237,7 @@ class OVSTable(object):
 
         parser.finish()
 
-        if max_rows == None:
+        if max_rows is None:
             max_rows = sys.maxint
         elif max_rows <= 0:
             raise error.Error("maxRows must be at least 1", json)
@@ -249,12 +252,14 @@ class OVSTable(object):
             relationship = parser.get_optional("relationship", [str, unicode])
             mutable = parser.get_optional("mutable", [bool], True)
             ephemeral = parser.get_optional("ephemeral", [bool], False)
-            type_ = types.Type.from_json(parser.get("type", [dict, str, unicode]))
+            type_ = types.Type.from_json(parser.get("type", [dict, str,
+                                                             unicode]))
             parser.finish()
 
             is_optional = False
             if isinstance(column_json['type'], dict):
-                if 'min' in column_json['type'] and column_json['type']['min'] == 0:
+                if ('min' in column_json['type'] and
+                        column_json['type']['min'] == 0):
                     is_optional = True
 
             table.columns.append(column_name)
@@ -269,26 +274,35 @@ class OVSTable(object):
             elif relationship == "reference":
                 table.references[column_name] = OVSReference(type_, "reference")
             elif category == "configuration":
-                table.config[column_name] = OVSColumn(table, column_name, type_, is_optional, mutable)
+                table.config[column_name] = OVSColumn(table, column_name,
+                                                      type_, is_optional,
+                                                      mutable)
             elif category == "status":
-                table.status[column_name] = OVSColumn(table, column_name, type_, is_optional)
+                table.status[column_name] = OVSColumn(table, column_name,
+                                                      type_, is_optional)
             elif category == "statistics":
-                table.stats[column_name] = OVSColumn(table, column_name, type_, is_optional)
+                table.stats[column_name] = OVSColumn(table, column_name,
+                                                     type_, is_optional)
             # the following code can be removed after schema change
             # switchover
             elif category == "child":
                 table.references[column_name] = OVSReference(type_, category)
-                table.references[column_name].column = OVSColumn(table, column_name, type_)
+                table.references[column_name].column = OVSColumn(table,
+                                                                 column_name,
+                                                                 type_)
             elif category == "parent":
                 table.references[column_name] = OVSReference(type_, category)
             elif category == "reference":
-                table.references[column_name] = OVSReference(type_, category, mutable)
+                table.references[column_name] = OVSReference(type_,
+                                                             category,
+                                                             mutable)
 
         indexes_list = []
         for index_list in indexes_json:
             tmp_indexes = []
             for index in index_list:
-                if index in table.references and table.references[index].relation == "parent":
+                if (index in table.references and
+                        table.references[index].relation == "parent"):
                     continue
                 tmp_indexes.append(index)
             if len(tmp_indexes) > 0:
@@ -312,7 +326,7 @@ class RESTSchema(object):
         # get a table name map for all references
         self.reference_map = {}
         for table in self.ovs_tables:
-            for k,v in self.ovs_tables[table].references.iteritems():
+            for k, v in self.ovs_tables[table].references.iteritems():
                 if k not in self.reference_map:
                     self.reference_map[k] = v.ref_table
 
@@ -336,9 +350,9 @@ class RESTSchema(object):
         parser.finish()
 
         if (version is not None and
-            not re.match('[0-9]+\.[0-9]+\.[0-9]+$', version)):
-            raise error.Error('schema version "%s" not in format x.y.z'
-                              % version)
+                not re.match('[0-9]+\.[0-9]+\.[0-9]+$', version)):
+                raise error.Error('schema version "%s" not in format x.y.z'
+                                  % version)
 
         tables = {}
         for tableName, tableJson in tablesJson.iteritems():
@@ -364,12 +378,14 @@ def get_references_tables(schema, ref_table):
     table_references = {}
     for table in schema.ovs_tables:
         columns = []
-        for column_name, reference in schema.ovs_tables[table].references.iteritems():
+        references = schema.ovs_tables[table].references
+        for column_name, reference in references.iteritems():
             if reference.ref_table == ref_table:
                 columns.append(column_name)
         if columns:
             table_references[table] = columns
     return table_references
+
 
 def parseSchema(schemaFile, title=None, version=None):
     # Initialize a global variable here
@@ -383,9 +399,9 @@ def parseSchema(schemaFile, title=None, version=None):
 
     schema = RESTSchema.from_json(ovs.json.from_file(schemaFile))
 
-    if title == None:
+    if title is None:
         title = schema.name
-    if version == None:
+    if version is None:
         version = "UNKNOWN"
 
     return schema
@@ -440,30 +456,46 @@ if __name__ == "__main__":
             print("Parent  = %s" % table.parent)
             print("Configuration attributes: ")
             for column_name, column in table.config.iteritems():
-                print("Col name = %s: %s" % (column_name, "plural" if column.is_list else "singular"))
+                print("Col name = %s: %s" % (column_name,
+                      "plural" if column.is_list else "singular"))
                 print("n_min = %d: n_max = %d" % (column.n_min, column.n_max))
-                print("key type = %s: min = %s, max = %s" % (column.type, column.rangeMin, column.rangeMax))
+                print("key type = %s: min = %s, max = %s" % (column.type,
+                      column.rangeMin, column.rangeMax))
                 print("key enum = %s" % column.enum)
                 print("key kvs = %s" % column.kvs)
                 if column.value_type is not None:
-                    print("value type = %s: min = %s, max = %s" % (column.value_type, column.valueRangeMin, column.valueRangeMax))
+                    print("value type = %s: min = %s, max = %s" %
+                          (column.value_type,
+                           column.valueRangeMin,
+                           column.valueRangeMax))
             print("Status attributes: ")
             for column_name, column in table.status.iteritems():
-                print("Col name = %s: %s" % (column_name, "plural" if column.is_list else "singular"))
+                print("Col name = %s: %s" % (column_name,
+                      "plural" if column.is_list else "singular"))
                 print("n_min = %d: n_max = %d" % (column.n_min, column.n_max))
-                print("key type = %s: min = %s, max = %s" % (column.type, column.rangeMin, column.rangeMax))
+                print("key type = %s: min = %s, max = %s" %
+                      (column.type, column.rangeMin, column.rangeMax))
                 if column.value_type is not None:
-                    print("value type = %s: min = %s, max = %s" % (column.value_type, column.valueRangeMin, column.valueRangeMax))
+                    print("value type = %s: min = %s, max = %s" %
+                          (column.value_type,
+                           column.valueRangeMin,
+                           column.valueRangeMax))
             print("Stats attributes: ")
             for column_name, column in table.stats.iteritems():
-                print("Col name = %s: %s" % (column_name, "plural" if column.is_list else "singular"))
+                print("Col name = %s: %s" % (column_name,
+                      "plural" if column.is_list else "singular"))
                 print("n_min = %d: n_max = %d" % (column.n_min, column.n_max))
-                print("key type = %s: min = %s, max = %s" % (column.type, column.rangeMin, column.rangeMax))
+                print("key type = %s: min = %s, max = %s" %
+                      (column.type, column.rangeMin, column.rangeMax))
                 if column.value_type is not None:
-                    print("value type = %s: min = %s, max = %s" % (column.value_type, column.valueRangeMin, column.valueRangeMax))
+                    print("value type = %s: min = %s, max = %s" %
+                          (column.value_type,
+                           column.valueRangeMin,
+                           column.valueRangeMax))
             print("Subresources: ")
             for column_name, column in table.references.iteritems():
-                print("Col name = %s: %s, %s" % (column_name, column.relation, "plural" if column.is_plural else "singular"))
+                print("Col name = %s: %s, %s" % (column_name, column.relation,
+                      "plural" if column.is_plural else "singular"))
             print("\n")
 
     except error.Error, e:

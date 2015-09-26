@@ -6,10 +6,10 @@
             "options": {},
             "other_config": {},
             "split_children": [
-                "49-4",
-                "49-2",
+                "49-1",
                 "49-3",
-                "49-1"
+                "49-2",
+                "49-4"
             ],
             "type": "system",
             "user_config": {}
@@ -64,10 +64,10 @@
             "options": {},
             "other_config": {},
             "split_children": [
-                "50-1",
+                "50-4",
                 "50-2",
                 "50-3",
-                "50-4"
+                "50-1"
             ],
             "type": "system",
             "user_config": {}
@@ -122,10 +122,10 @@
             "options": {},
             "other_config": {},
             "split_children": [
-                "51-1",
+                "51-2",
                 "51-3",
-                "51-4",
-                "51-2"
+                "51-1",
+                "51-4"
             ],
             "type": "system",
             "user_config": {}
@@ -180,10 +180,10 @@
             "options": {},
             "other_config": {},
             "split_children": [
-                "52-4",
+                "52-3",
                 "52-1",
                 "52-2",
-                "52-3"
+                "52-4"
             ],
             "type": "system",
             "user_config": {}
@@ -238,10 +238,10 @@
             "options": {},
             "other_config": {},
             "split_children": [
-                "53-4",
+                "53-3",
                 "53-1",
                 "53-2",
-                "53-3"
+                "53-4"
             ],
             "type": "system",
             "user_config": {}
@@ -296,10 +296,10 @@
             "options": {},
             "other_config": {},
             "split_children": [
-                "54-1",
-                "54-2",
                 "54-4",
-                "54-3"
+                "54-2",
+                "54-3",
+                "54-1"
             ],
             "type": "system",
             "user_config": {}
@@ -347,6 +347,27 @@
             ],
             "type": "system",
             "user_config": {}
+        }
+    },
+    "Port": {
+        "p1": {
+            "admin": [],
+            "bond_active_slave": [],
+            "bond_mode": [],
+            "bond_options": {},
+            "external_ids": {},
+            "ip4_address": [],
+            "ip4_address_secondary": [],
+            "ip6_address": [],
+            "ip6_address_secondary": [],
+            "lacp": [],
+            "mac": [],
+            "name": "p1",
+            "other_config": {},
+            "tag": [],
+            "trunks": [],
+            "vlan_mode": [],
+            "vlan_options": {}
         }
     },
     "System": {
@@ -419,26 +440,6 @@
                 "name": "vrf_default",
                 "other_config": {}
             }
-        }
-    },
-    "Port": {
-        "p1": {
-            "bond_active_slave": [],
-            "bond_mode": [],
-            "bond_options": {},
-            "external_ids": {},
-            "ip4_address": [],
-            "ip4_address_secondary": [],
-            "ip6_address": [],
-            "ip6_address_secondary": [],
-            "lacp": [],
-            "mac": [],
-            "name": "p1",
-            "other_config": {},
-            "tag": [],
-            "trunks": [],
-            "vlan_mode": [],
-            "vlan_options": {}
         }
     }
 }

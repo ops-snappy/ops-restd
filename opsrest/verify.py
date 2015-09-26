@@ -1,3 +1,17 @@
+# Copyright (C) 2015 Hewlett Packard Enterprise Development LP
+#
+#  Licensed under the Apache License, Version 2.0 (the "License"); you may
+#  not use this file except in compliance with the License. You may obtain
+#  a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#  License for the specific language governing permissions and limitations
+#  under the License.
+
 from opsrest import parse
 from opsrest.utils import utils
 from opsrest.constants import *
@@ -8,6 +22,7 @@ from tornado.log import app_log
 from opsrest.utils.utils import to_json_error
 from ovs.db import types as ovs_types
 
+
 def verify_data(data, resource, schema, idl, http_method):
 
     if http_method == 'POST':
@@ -15,6 +30,7 @@ def verify_data(data, resource, schema, idl, http_method):
 
     elif http_method == 'PUT':
         return verify_put_data(data, resource, schema, idl)
+
 
 def verify_post_data(data, resource, schema, idl):
 
@@ -26,28 +42,34 @@ def verify_post_data(data, resource, schema, idl):
     # verify config and reference columns data
     verified_data = {}
 
-    # when adding a child with kv_type of forward referencing, the configuration
-    # data must contain the 'keyname' used to identify the reference of the new
-    # resource created.
+    # when adding a child with kv_type of forward referencing,
+    # the configuration data must contain the 'keyname' used to
+    # identify the reference of the new resource created.
     if resource.relation is OVSDB_SCHEMA_CHILD:
-        reference = schema.ovs_tables[resource.table].references[resource.column]
+        ref = schema.ovs_tables[resource.table].references[resource.column]
+        reference = ref
         if reference.kv_type:
             keyname = reference.column.keyname
             if keyname not in _data:
-                error_json = to_json_error('Missing keyname attribute to reference the new resource from the parent')
-                return { ERROR: error_json}
+                error_json = to_json_error('Missing keyname attribute to \
+                    reference the new resource from the parent')
+                return {ERROR: error_json}
             else:
                 verified_data[keyname] = _data[keyname]
                 _data.pop(keyname)
 
-    verified_config_data = verify_config_data(_data, resource.next, schema, 'POST')
+    verified_config_data = verify_config_data(_data,
+                                              resource.next,
+                                              schema, 'POST')
     if verified_config_data is not None:
         if ERROR in verified_config_data:
             return verified_config_data
         else:
             verified_data.update(verified_config_data)
 
-    verified_reference_data = verify_forward_reference(_data, resource.next, schema, idl)
+    verified_reference_data = verify_forward_reference(_data,
+                                                       resource.next,
+                                                       schema, idl)
     if verified_reference_data is not None:
         if ERROR in verified_reference_data:
             return verified_reference_data
@@ -59,12 +81,16 @@ def verify_post_data(data, resource, schema, idl):
     is_root = schema.ovs_tables[resource.next.table].is_root
     if resource.relation == OVSDB_SCHEMA_TOP_LEVEL and not is_root:
         if OVSDB_SCHEMA_REFERENCED_BY not in data:
-            error_json = to_json_error("Missing %s" % OVSDB_SCHEMA_REFERENCED_BY, None, OVSDB_SCHEMA_REFERENCED_BY)
+            error_json = to_json_error("Missing %s"
+                                       % OVSDB_SCHEMA_REFERENCED_BY,
+                                       None, OVSDB_SCHEMA_REFERENCED_BY)
             return {ERROR: error_json}
 
         _data = data[OVSDB_SCHEMA_REFERENCED_BY]
         try:
-            verified_referenced_by_data = verify_referenced_by(_data, resource.next, schema, idl)
+            verified_referenced_by_data = verify_referenced_by(_data,
+                                                               resource.next,
+                                                               schema, idl)
             if ERROR in verified_referenced_by_data:
                 return verified_referenced_by_data
             else:
@@ -73,15 +99,18 @@ def verify_post_data(data, resource, schema, idl):
         except Exception as e:
             app_log.debug('referenced_by uri verification failed')
             app_log.debug("Reason: %s" % e)
-            error_json = to_json_error(str(e), None, OVSDB_SCHEMA_REFERENCED_BY)
+            error_json = to_json_error(str(e), None,
+                                       OVSDB_SCHEMA_REFERENCED_BY)
             return {ERROR: error_json}
 
     elif resource.relation == OVSDB_SCHEMA_BACK_REFERENCE:
-        for key,value in schema.ovs_tables[resource.next.table].references.iteritems():
+        references = schema.ovs_tables[resource.next.table].references
+        for key, value in references.iteritems():
             if value.relation == 'parent':
-                verified_data.update({key : resource})
+                verified_data.update({key: resource})
 
     return verified_data
+
 
 def verify_put_data(data, resource, schema, idl):
 
@@ -98,7 +127,9 @@ def verify_put_data(data, resource, schema, idl):
 
     # verify config and reference columns data
     verified_data = {}
-    verified_config_data = verify_config_data(_data, resource_verify, schema, 'PUT')
+    verified_config_data = verify_config_data(_data,
+                                              resource_verify,
+                                              schema, 'PUT')
 
     if verified_config_data is not None:
         if ERROR in verified_config_data:
@@ -106,7 +137,9 @@ def verify_put_data(data, resource, schema, idl):
         else:
             verified_data.update(verified_config_data)
 
-    verified_reference_data = verify_forward_reference(_data, resource_verify, schema, idl)
+    verified_reference_data = verify_forward_reference(_data,
+                                                       resource_verify,
+                                                       schema, idl)
     if verified_reference_data is not None:
         if ERROR in verified_reference_data:
             return verified_reference_data
@@ -119,10 +152,13 @@ def verify_put_data(data, resource, schema, idl):
     if resource.relation == OVSDB_SCHEMA_TOP_LEVEL and not is_root:
         if OVSDB_SCHEMA_REFERENCED_BY in data:
             app_log.info('referenced_by is not allowed when doing PUT')
-            error_json = to_json_error("%s not allowed for PUT" % OVSDB_SCHEMA_REFERENCED_BY, None, OVSDB_SCHEMA_REFERENCED_BY)
+            error_json = to_json_error("%s not allowed for PUT"
+                                       % OVSDB_SCHEMA_REFERENCED_BY,
+                                       None, OVSDB_SCHEMA_REFERENCED_BY)
             return {ERROR: error_json}
 
     return verified_data
+
 
 def verify_config_data(data, resource, schema, http_method):
     config_keys = schema.ovs_tables[resource.table].config
@@ -132,9 +168,12 @@ def verify_config_data(data, resource, schema, http_method):
     error_json = {}
 
     # Check for extra or unknown attributes
-    unknown_attribute = find_unknown_attribute(data, config_keys, reference_keys)
+    unknown_attribute = find_unknown_attribute(data,
+                                               config_keys,
+                                               reference_keys)
     if unknown_attribute is not None:
-        error_json = to_json_error("Unknown configuration attribute", None, unknown_attribute)
+        error_json = to_json_error("Unknown configuration attribute",
+                                   None, unknown_attribute)
         return {ERROR: error_json}
 
     non_mutable_attributes = get_non_mutable_attributes(resource, schema)
@@ -144,11 +183,16 @@ def verify_config_data(data, resource, schema, http_method):
 
         if column_name in data:
 
-            check_type_result = verify_attribute_type(column_name, config_keys[column_name], data[column_name])
+            check_type_result = verify_attribute_type(column_name,
+                                                      config_keys[column_name],
+                                                      data[column_name])
             if ERROR in check_type_result:
                 return check_type_result
 
-            check_range_result = verify_attribute_range(column_name, config_keys[column_name], data[column_name])
+            check_range_result = \
+                verify_attribute_range(column_name,
+                                       config_keys[column_name],
+                                       data[column_name])
             if ERROR in check_range_result:
                 return check_range_result
 
@@ -162,15 +206,18 @@ def verify_config_data(data, resource, schema, http_method):
         # PUT ignores non mutable attributes, otherwise they are required
         elif http_method == 'PUT':
             if column_name not in non_mutable_attributes:
-                error_json = to_json_error("Attribute is missing from request", None, column_name)
+                error_json = to_json_error("Attribute is missing from request",
+                                           None, column_name)
                 return {ERROR: error_json}
 
         # Anything else (POST) requires all attributes
         else:
-            error_json = to_json_error("Attribute is missing from request", None, column_name)
+            error_json = to_json_error("Attribute is missing from request",
+                                       None, column_name)
             return {ERROR: error_json}
 
     return verified_config_data
+
 
 def verify_attribute_type(column_name, column_data, request_data):
     data = request_data
@@ -196,14 +243,17 @@ def verify_attribute_type(column_name, column_data, request_data):
 
     if data_type in valid_types:
         if not verify_valid_attribute_values(data, column_data):
-            error_json = to_json_error("Attribute value is invalid", None, column_name)
+            error_json = to_json_error("Attribute value is invalid",
+                                       None, column_name)
     else:
-        error_json = to_json_error("Attribute type mismatch", None, column_name)
+        error_json = to_json_error("Attribute type mismatch",
+                                   None, column_name)
 
     if error_json:
         result = {ERROR: error_json}
 
     return result
+
 
 def verify_valid_attribute_values(request_data, column_data):
     valid = True
@@ -223,6 +273,7 @@ def verify_valid_attribute_values(request_data, column_data):
             valid = False
 
     return valid
+
 
 def verify_attribute_range(column_name, column_data, request_data):
 
@@ -247,7 +298,8 @@ def verify_attribute_range(column_name, column_data, request_data):
 
         request_len = len(request_list)
         if request_len < column_data.n_min or request_len > column_data.n_max:
-            error_json = to_json_error("List's number of elements is out of range", None, column_name)
+            error_json = to_json_error("List's number of elements is \
+                                       out of range", None, column_name)
         else:
             for element in request_list:
                 # We usually check the value itself
@@ -256,15 +308,19 @@ def verify_attribute_range(column_name, column_data, request_data):
                 if type(element) in ovs_types.StringType.python_types:
                     value = len(element)
 
-                if value < column_data.rangeMin or value > column_data.rangeMax:
-                    error_json = to_json_error("List element '%s' is out of range" % element, None, column_name)
+                if (value < column_data.rangeMin or
+                        value > column_data.rangeMax):
+                    error_json = to_json_error("List element '%s' is \
+                                               out of range" % element,
+                                               None, column_name)
                     break
 
     # Check elements in a dictionary
     elif column_data.is_dict:
         request_len = len(request_data)
         if request_len < column_data.n_min or request_len > column_data.n_max:
-            error_json = to_json_error("Dictionary's number of elements is out of range", None, column_name)
+            error_json = to_json_error("Dictionary's number of elements\
+                                       is out of range", None, column_name)
         else:
             for key, data in request_data.iteritems():
 
@@ -272,16 +328,22 @@ def verify_attribute_range(column_name, column_data, request_data):
                 if type(key) in ovs_types.StringType.python_types:
                     value = len(key)
 
-                if value < column_data.rangeMin or value > column_data.rangeMax:
-                    error_json = to_json_error("Dictionary key '%s' is out of range" % key, None, column_name)
+                if (value < column_data.rangeMin or
+                        value > column_data.rangeMax):
+                    error_json = to_json_error("Dictionary key '%s' is \
+                                               out of range" % key,
+                                               None, column_name)
                     break
 
                 value = data
                 if type(data) in ovs_types.StringType.python_types:
                     value = len(data)
 
-                if value < column_data.valueRangeMin or value > column_data.valueRangeMax:
-                    error_json = to_json_error("Dictionary value '%s' is out of range" % data, None, column_name)
+                if (value < column_data.valueRangeMin or
+                        value > column_data.valueRangeMax):
+                    error_json = to_json_error("Dictionary value '%s' \
+                                               is out of range" % data,
+                                               None, column_name)
                     break
 
     # Check single elements (non-list/non-dictionary)
@@ -300,12 +362,14 @@ def verify_attribute_range(column_name, column_data, request_data):
             value = len(value)
 
         if value < column_data.rangeMin or value > column_data.rangeMax:
-            error_json = to_json_error("Attribute value is out of range", None, column_name)
+            error_json = to_json_error("Attribute value is out of range",
+                                       None, column_name)
 
     if error_json:
         result = {ERROR: error_json}
 
     return result
+
 
 def verify_forward_reference(data, resource, schema, idl):
     reference_keys = schema.ovs_tables[resource.table].references
@@ -325,13 +389,16 @@ def verify_forward_reference(data, resource, schema, idl):
             reference_min = reference_keys[key].n_min
             reference_max = reference_keys[key].n_max
             if index_len < reference_min or index_len > reference_max:
-                error_json = to_json_error("Reference list out of range", None, key)
+                error_json = to_json_error("Reference list out of range",
+                                           None, key)
                 return {ERROR: error_json}
 
             reference_list = []
             for index in index_list:
                 index_values = index.split('/')
-                row = utils.index_to_row(index_values[-1:], schema.ovs_tables[ref_table], idl.tables[ref_table])
+                row = utils.index_to_row(index_values[-1:],
+                                         schema.ovs_tables[ref_table],
+                                         idl.tables[ref_table])
                 reference_list.append(row)
             verified_references[key] = reference_list
 
@@ -359,11 +426,13 @@ subroutine to validate referenced_by uris/attribute JSON
     ]
 }
 '''
+
+
 def verify_referenced_by(data, resource, schema, idl):
 
     table = resource.table
 
-    verified_referenced_by = {OVSDB_SCHEMA_REFERENCED_BY : []}
+    verified_referenced_by = {OVSDB_SCHEMA_REFERENCED_BY: []}
     for item in data:
         uri = item['uri']
         attributes = None
@@ -397,17 +466,18 @@ def verify_referenced_by(data, resource, schema, idl):
                 if references[attribute].relation is not 'reference':
                     raise Exception('attribute should be a reference')
 
-            # if attribute list has only one element, make it a non-list
-            # to keep it consistent with single attribute case (that need not be mentioned)
+        # if attribute list has only one element, make it a non-list to keep
+        # it consistent with single attribute case (that need not be mentioned)
             if len(attributes) == 1:
                 attributes = attributes[0]
         else:
             # find the lone attribute
             _found = False
-            for key,value in references.iteritems():
+            for key, value in references.iteritems():
                 if value.ref_table == table:
                     if _found:
-                        raise Exception('multiple attributes possible, specify one')
+                        raise Exception('multiple attributes possible,\
+                                        specify one')
                     else:
                         _found = True
                         attributes = key
@@ -418,13 +488,16 @@ def verify_referenced_by(data, resource, schema, idl):
 
     return verified_referenced_by
 
+
 def find_unknown_attribute(data, config_keys, reference_keys):
 
     for column_name in data:
-        if not (column_name in config_keys or column_name in reference_keys):
+        if not (column_name in config_keys or
+                column_name in reference_keys):
             return column_name
 
     return None
+
 
 def get_non_mutable_attributes(resource, schema):
     config_keys = schema.ovs_tables[resource.table].config
@@ -441,11 +514,13 @@ def get_non_mutable_attributes(resource, schema):
 
     return result
 
+
 def get_config_data(data):
-    # all PUT/POST data should be enclosed in { 'configuration' : { DATA } } JSON
+# all PUT/POST data should be enclosed in { 'configuration' : { DATA } } JSON
     if OVSDB_SCHEMA_CONFIG not in data:
         app_log.debug("JSON is missing configuration data")
-        error_json = to_json_error("Missing %s" % OVSDB_SCHEMA_CONFIG, None, OVSDB_SCHEMA_CONFIG)
+        error_json = to_json_error("Missing %s" % OVSDB_SCHEMA_CONFIG,
+                                   None, OVSDB_SCHEMA_CONFIG)
         return {ERROR: error_json}
 
     return data[OVSDB_SCHEMA_CONFIG]

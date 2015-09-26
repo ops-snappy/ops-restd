@@ -1,3 +1,17 @@
+# Copyright (C) 2015 Hewlett Packard Enterprise Development LP
+#
+#  Licensed under the Apache License, Version 2.0 (the "License"); you may
+#  not use this file except in compliance with the License. You may obtain
+#  a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#  License for the specific language governing permissions and limitations
+#  under the License.
+
 import ovs.db.idl
 from opsrest.constants import *
 from opsrest.utils import utils
@@ -7,6 +21,7 @@ import json
 import urllib
 from tornado.log import app_log
 
+
 def get_resource(idl, resource, schema, uri=None, selector=None):
 
     if resource is None:
@@ -14,7 +29,8 @@ def get_resource(idl, resource, schema, uri=None, selector=None):
 
     # GET System table
     if resource.next is None:
-        return get_row_json(resource.row, resource.table, schema, idl, uri, selector)
+        return get_row_json(resource.row, resource.table, schema,
+                            idl, uri, selector)
 
     # Other tables
     while True:
@@ -23,6 +39,7 @@ def get_resource(idl, resource, schema, uri=None, selector=None):
         resource = resource.next
 
     return get_resource_from_db(resource, schema, idl, uri, selector)
+
 
 # get resource from db using resource->next_resource pair
 def get_resource_from_db(resource, schema, idl, uri=None, selector=None):
@@ -33,27 +50,35 @@ def get_resource_from_db(resource, schema, idl, uri=None, selector=None):
         if resource.next.row is None:
             return get_table_json(resource.next.table, schema, idl, uri)
         else:
-            return get_row_json(resource.next.row, resource.next.table, schema, idl, uri, selector)
+            return get_row_json(resource.next.row, resource.next.table,
+                                schema, idl, uri, selector)
 
     elif resource.relation is OVSDB_SCHEMA_CHILD:
 
         if resource.next.row is None:
-            return get_column_json(resource.column, resource.row, resource.table, schema, idl, uri)
+            return get_column_json(resource.column, resource.row,
+                                   resource.table, schema, idl, uri)
         else:
-            return get_row_json(resource.next.row, resource.next.table, schema, idl, uri, selector)
+            return get_row_json(resource.next.row, resource.next.table,
+                                schema, idl, uri, selector)
 
     elif resource.relation is OVSDB_SCHEMA_REFERENCE:
         uri = get_uri(resource, schema, uri)
-        return get_column_json(resource.column, resource.row, resource.table, schema, idl, uri)
+        return get_column_json(resource.column, resource.row, resource.table,
+                               schema, idl, uri)
 
     elif resource.relation is OVSDB_SCHEMA_BACK_REFERENCE:
         if type(resource.next.row) is types.ListType:
-            return get_back_references_json(resource.row, resource.table, resource.next.table, schema, idl, uri)
+            return get_back_references_json(resource.row, resource.table,
+                                            resource.next.table, schema,
+                                            idl, uri)
         else:
-            return get_row_json(resource.next.row, resource.next.table, schema, idl, uri, selector)
+            return get_row_json(resource.next.row, resource.next.table,
+                                schema, idl, uri, selector)
 
     else:
         return None
+
 
 def get_row_json(row, table, schema, idl, uri, selector):
 
@@ -78,21 +103,26 @@ def get_row_json(row, table, schema, idl, uri, selector):
     reference_data = {}
     # get URIs of all references
     for key in reference_keys:
-        reference_data[key] = get_column_json(key, row, table, schema, idl, uri)
+        reference_data[key] = get_column_json(key,
+                                              row,
+                                              table,
+                                              schema, idl, uri)
 
     # references are part of configuration
     config_data.update(reference_data)
 
     if selector == OVSDB_SCHEMA_CONFIG:
-        data = {OVSDB_SCHEMA_CONFIG:config_data}
+        data = {OVSDB_SCHEMA_CONFIG: config_data}
     elif selector == OVSDB_SCHEMA_STATS:
-        data = {OVSDB_SCHEMA_STATS:stats_data}
+        data = {OVSDB_SCHEMA_STATS: stats_data}
     elif selector == OVSDB_SCHEMA_STATUS:
-        data = {OVSDB_SCHEMA_STATUS:status_data}
+        data = {OVSDB_SCHEMA_STATUS: status_data}
     else:
-        data = {OVSDB_SCHEMA_CONFIG:config_data, OVSDB_SCHEMA_STATS:stats_data, OVSDB_SCHEMA_STATUS:status_data}
+        data = {OVSDB_SCHEMA_CONFIG: config_data, OVSDB_SCHEMA_STATS:
+                stats_data, OVSDB_SCHEMA_STATUS: status_data}
 
     return data
+
 
 # get list of all table row entries
 def get_table_json(table, schema, idl, uri):
@@ -109,6 +139,7 @@ def get_table_json(table, schema, idl, uri):
         uri_list.append(_uri)
 
     return uri_list
+
 
 def get_column_json(column, row, table, schema, idl, uri):
 
@@ -144,9 +175,11 @@ def get_column_json(column, row, table, schema, idl, uri):
 
         for row in db_col:
             #Reference with different parent, search the parent
-            if column_table.parent is not None and column_table.parent != current_table.name:
+            if (column_table.parent is not None and
+                    column_table.parent != current_table.name):
                 uri = OVSDB_BASE_URI
-                uri += utils.get_reference_parent_uri(col_table, row, schema, idl)
+                uri += utils.get_reference_parent_uri(col_table, row,
+                                                      schema, idl)
                 uri += column_table.plural_name
             tmp = utils.get_table_key(row, column_table.name, schema)
             _uri = create_uri(uri, tmp)
@@ -154,12 +187,15 @@ def get_column_json(column, row, table, schema, idl, uri):
 
     return uri_list
 
-def get_back_references_json(parent_row, parent_table, table, schema, idl, uri):
+
+def get_back_references_json(parent_row, parent_table, table,
+                             schema, idl, uri):
 
     references = schema.ovs_tables[table].references
     _refCol = None
-    for key,value in references.iteritems():
-        if value.relation == OVSDB_SCHEMA_PARENT and value.ref_table == parent_table:
+    for key, value in references.iteritems():
+        if (value.relation == OVSDB_SCHEMA_PARENT and
+                value.ref_table == parent_table):
             _refCol = key
             break
 
@@ -177,16 +213,20 @@ def get_back_references_json(parent_row, parent_table, table, schema, idl, uri):
 
     return uri_list
 
+
 def get_uri(resource, schema, uri=None):
 
     if resource.relation is OVSDB_SCHEMA_TOP_LEVEL:
         if resource.next.row is None:
-            uri = OVSDB_BASE_URI + schema.ovs_tables[resource.next.table].plural_name
+            uri = OVSDB_BASE_URI + \
+                schema.ovs_tables[resource.next.table].plural_name
 
     elif resource.relation is OVSDB_SCHEMA_REFERENCE:
-            uri = OVSDB_BASE_URI + schema.ovs_tables[resource.next.table].plural_name
+            uri = OVSDB_BASE_URI + \
+                schema.ovs_tables[resource.next.table].plural_name
 
     return uri
+
 
 def create_uri(uri, paths):
     '''

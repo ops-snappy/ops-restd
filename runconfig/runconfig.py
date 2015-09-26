@@ -1,4 +1,20 @@
 #!/usr/bin/env python
+#
+# Copyright (C) 2015 Hewlett Packard Enterprise Development LP
+# All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
+# not use this file except in compliance with the License. You may obtain
+# a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations
+# under the License.
+
 
 from opsrest.settings import settings
 from opsrest.manager import OvsdbConnectionManager
@@ -17,11 +33,14 @@ import types
 import uuid
 
 # immutable tables cannot have any additions or deletions
-immutable_tables = ['Fan', 'Power_supply', 'LED', 'Temp_sensor', 'System', 'Subsystem', 'VRF']
+immutable_tables = ['Fan', 'Power_supply', 'LED', 'Temp_sensor',
+                    'System', 'Subsystem', 'VRF']
+
 
 class RunConfigUtil():
     def __init__(self, settings):
-        manager = OvsdbConnectionManager(settings.get('ovs_remote'), settings.get('ovs_schema'))
+        manager = OvsdbConnectionManager(settings.get('ovs_remote'),
+                                         settings.get('ovs_schema'))
         manager.start()
         self.idl = manager.idl
 
@@ -61,15 +80,23 @@ class RunConfigUtil():
                 refdata = row.__getattr__(child_name)
 
                 reflist = []
-                for i in range(0,len(refdata)):
+                for i in range(0, len(refdata)):
                     reflist.append(refdata[i].uuid)
 
                 if len(reflist) > 0:
-                    tabledata = self.get_table_data(column.ref_table, self.restschema.ovs_tables[column.ref_table], reflist)
+                    table_ = self.restschema.ovs_tables[column.ref_table]
+                    tabledata = \
+                        self.get_table_data(column.ref_table,
+                                            table_,
+                                            reflist)
                     if len(tabledata) > 0:
                         rowobj[child_name] = tabledata
             else:
-                tabledata = self.get_table_data_by_parent(child_name, self.restschema.ovs_tables[child_name], row.uuid)
+                table_ = self.restschema.ovs_tables[child_name]
+                tabledata = \
+                    self.get_table_data_by_parent(child_name,
+                                                  table_,
+                                                  row.uuid)
                 if len(tabledata) > 0:
                     rowobj[child_name] = tabledata
 
@@ -81,13 +108,18 @@ class RunConfigUtil():
             # this is a list of references
             reflist = []
             for i in refdata:
-                reflist.append(utils.row_to_index(self.restschema.ovs_tables[column.ref_table], i, self.uuid_seq))
+                table_ = self.restschema.ovs_tables[column.ref_table]
+                reflist.append(utils.row_to_index(table_,
+                                                  i,
+                                                  self.uuid_seq))
             if len(reflist) > 0:
                 rowobj[column_name] = reflist
 
         return rowobj
 
-    def get_table_data_by_parent(self, table_name, schema_table, parent_uuid):
+    def get_table_data_by_parent(self, table_name,
+                                 schema_table,
+                                 parent_uuid):
 
         tableobj = {}
         dbtable = self.idl.tables[table_name]
@@ -105,11 +137,12 @@ class RunConfigUtil():
             if uuid == parent_uuid:
                 rowdata = self.get_row_data(schema_table, row)
                 if len(rowdata) > 0:
-                    tableobj[utils.row_to_index(schema_table, row, self.uuid_seq)] = rowdata
+                    tableobj[utils.row_to_index(schema_table,
+                                                row, self.uuid_seq)] = rowdata
 
         return tableobj
 
-    def get_table_data(self, table_name, schema_table, uuid_list = None):
+    def get_table_data(self, table_name, schema_table, uuid_list=None):
 
         tableobj = {}
         dbtable = self.idl.tables[table_name]
@@ -128,10 +161,10 @@ class RunConfigUtil():
                 if table_name == 'System':
                     tableobj = rowdata
                 else:
-                    tableobj[utils.row_to_index(schema_table, item, self.uuid_seq)] = rowdata
+                    tableobj[utils.row_to_index(schema_table,
+                                                item, self.uuid_seq)] = rowdata
 
         return tableobj
-
 
     def get_running_config(self):
         try:
@@ -140,20 +173,24 @@ class RunConfigUtil():
             #foreach table in Tables, create uri and add to the data
             for table_name, table in self.restschema.ovs_tables.iteritems():
 
-                # print("Parent  = %s" % table.parent)
-                # print("Configuration attributes: ")
-                # for column_name, column in table.config.iteritems():
-                #     print("Col name = %s: %s" % (column_name, "plural" if column.is_list else "singular"))
-                # print("Status attributes: ")
-                # for column_name, column in table.status.iteritems():
-                #     print("Col name = %s: %s" % (column_name, "plural" if column.is_list else "singular"))
-                # print("Stats attributes: ")
-                # for column_name, column in table.stats.iteritems():
-                #     print("Col name = %s: %s" % (column_name, "plural" if column.is_list else "singular"))
-                # print("Subresources: ")
-                # for column_name, column in table.references.iteritems():
-                #     print("Col name = %s: %s, %s" % (column_name, column.relation, "plural" if column.is_plural else "singular"))
-                # print("\n")
+# print("Parent  = %s" % table.parent)
+# print("Configuration attributes: ")
+# for column_name, column in table.config.iteritems():
+#     print("Col name = %s: %s" % (column_name, "plural" \
+#           if column.is_list else "singular"))
+# print("Status attributes: ")
+# for column_name, column in table.status.iteritems():
+#     print("Col name = %s: %s" % (column_name, "plural" \
+#           if column.is_list else "singular"))
+# print("Stats attributes: ")
+# for column_name, column in table.stats.iteritems():
+#     print("Col name = %s: %s" % (column_name, "plural"\
+#           if column.is_list else "singular"))
+# print("Subresources: ")
+# for column_name, column in table.references.iteritems():
+#     print("Col name = %s: %s, %s" % (column_name, column.relation,\
+#            "plural" if column.is_plural else "singular"))
+# print("\n")
 
                 if table.parent is not None:
                     continue
@@ -163,7 +200,7 @@ class RunConfigUtil():
                     config[table_name] = tabledata
 
             return config
-        except Exception,e:
+        except Exception, e:
             print str(e)
             print traceback.format_exc()
             print "Unexpected error:", sys.exc_info()[0]
@@ -174,33 +211,40 @@ class RunConfigUtil():
 
     # WRITE CONFIG
 
-    # this relies already on the references/children being marked as configurable or not
+    # this relies already on the references/children being
+    #marked as configurable or not
     def is_table_configurable(self, table_name):
         if len(self.restschema.ovs_tables[table_name].config.keys()) > 0:
             return True
         # references
-        for column_name, column in self.restschema.ovs_tables[table_name].references.iteritems():
+        i_ = self.restschema.ovs_tables[table_name].references
+        for column_name, column in i_.iteritems():
             if column.relation == 'reference':
                 return True
         # children
         for column_name in self.restschema.ovs_tables[table_name].children:
-            if column_name not in self.restschema.ovs_tables[table_name].references:
+            references_ = self.restschema.ovs_tables[table_name].references
+            if column_name not in references_:
                 child_table = column_name
             else:
-                child_table = self.restschema.ovs_tables[table_name].references[column_name].ref_table
+                child_table = self.restschema.ovs_tables[table_name].\
+                    references[column_name].ref_table
             if is_table_configurable(child_table):
                 return True
 
         return False
 
-    def setup_row(self, index_values, table, row_data, txn, reflist, parent=None):
+    def setup_row(self, index_values, table, row_data,
+                  txn, reflist, parent=None):
 
         # find out if this row exists
         # If table is System, return first row from table
         if table == 'System':
             row = self.idl.tables[table].rows.values()[0]
         else:
-            row = utils.index_to_row(index_values, self.restschema.ovs_tables[table], self.idl.tables[table])
+            row = utils.index_to_row(index_values,
+                                     self.restschema.ovs_tables[table],
+                                     self.idl.tables[table])
 
         is_new = False
         if row is None:
@@ -227,22 +271,28 @@ class RunConfigUtil():
                 continue
 
             if key not in row_data and not is_new:
-                row.__setattr__(key, utils.get_empty_by_basic_type(row.__getattr__(key)))
-            elif key in row_data and (is_new or row.__getattr__(key) != row_data[key]):
-                     row.__setattr__(key, row_data[key])
+                empty_val = utils.get_empty_by_basic_type(row.__getattr__(key))
+                row.__setattr__(key, empty_val)
+            elif (key in row_data and
+                    (is_new or row.__getattr__(key) != row_data[key])):
+                row.__setattr__(key, row_data[key])
 
         references = self.restschema.ovs_tables[table].references
         children = self.restschema.ovs_tables[table].children
 
         # delete all the keys that don't exist
         for key in children:
-            child_table = references[key].ref_table if key in references else key
+            child_table = references[key].ref_table \
+                if key in references else key
 
             if child_table in immutable_tables:
                 if (key not in row_data or not row_data[key]):
-                    # Deep cleanup children, even if missing or empty, if can't delete because immutable
+                    # Deep cleanup children, even if missing or empty,
+                    #if can't delete because immutable
                     if key in references:
-                        self.clean_subtree(child_table, row.__getattr__(key), txn)
+                        self.clean_subtree(child_table,
+                                           row.__getattr__(key),
+                                           txn)
                     else:
                         self.clean_subtree(child_table, [], txn, row)
                 continue
@@ -261,31 +311,37 @@ class RunConfigUtil():
 
         # set up children that exist
         for key in children:
-            child_table = references[key].ref_table if key in references else key
+            child_table = references[key].ref_table \
+                if key in references else key
 
             if key in row_data:
 
                 # forward child references
                 if key in references:
-                    child_reference_list = self.setup_table(child_table, row_data[key], txn, reflist)
+                    child_reference_list = self.setup_table(child_table,
+                                                            row_data[key],
+                                                            txn, reflist)
                     if child_table not in immutable_tables:
                         row.__setattr__(key, child_reference_list)
                 else:
-                    self.setup_table(child_table, row_data[key], txn, reflist, row)
+                    self.setup_table(child_table, row_data[key],
+                                     txn, reflist, row)
 
-        # Looks unnecessary - probably needs to be removed - commenting out for now
-        # for key,value in references.iteritems():
-        #     if key in self.restschema.ovs_tables[table].children and key in row_data:
-        #         child_table = value.ref_table
-        #
-        #         # this becomes the new reference list.
-        #         child_reference_list = self.setup_table(child_table, row_data[key], txn, reflist)
-        #         if child_table not in immutable_tables:
-        #             row.__setattr__(key, child_reference_list)
+# Looks unnecessary - probably needs to be removed - commenting out for now
+# for key,value in references.iteritems():
+#     if key in self.restschema.ovs_tables[table].children and key in row_data:
+#         child_table = value.ref_table
+#
+#         # this becomes the new reference list.
+#         child_reference_list = self.setup_table(child_table,
+#                                                 row_data[key],
+#                                                 txn, reflist)
+#         if child_table not in immutable_tables:
+#             row.__setattr__(key, child_reference_list)
 
         return (row, is_new)
 
-    def clean_subtree(self, table, entries, txn, parent = None):
+    def clean_subtree(self, table, entries, txn, parent=None):
 
         if parent is None:
             for row in entries:
@@ -296,12 +352,14 @@ class RunConfigUtil():
                 self.remove_deleted_rows(table, {}, txn, parent)
             else:
                 parent_column = None
-                for key,value in self.restschema.ovs_tables[table].references.iteritems():
+                references_ = self.restschema.ovs_tables[table].references
+                for key, value in references_.iteritems():
                     if value.relation == 'parent':
                         parent_column = key
                         break
                 for row in self.idl.tables[table].rows.itervalues():
-                    if parent_column is not None and row.__getattr__(parent_column) == parent:
+                    if parent_column is not None and \
+                       row.__getattr__(parent_column) == parent:
                         self.clean_row(table, row, txn)
 
     def clean_row(self, table, row, txn):
@@ -325,23 +383,23 @@ class RunConfigUtil():
         for key in config_rows.keys():
             if not config_rows[key].mutable:
                 continue
-            row.__setattr__(key, utils.get_empty_by_basic_type(row.__getattr__(key)))
+            empty_val = utils.get_empty_by_basic_type(row.__getattr__(key))
+            row.__setattr__(key, empty_val)
 
         # clean references
-        for key,val in references.iteritems():
+        for key, val in references.iteritems():
             if val.relation == 'reference' and val.mutable:
-                row.__setattr__(key,[])
+                row.__setattr__(key, [])
 
-
-
-    def setup_table(self, table, table_data, txn, reflist, parent = None):
+    def setup_table(self, table, table_data, txn, reflist, parent=None):
 
         config_keys = self.restschema.ovs_tables[table].config.keys()
         reference_keys = self.restschema.ovs_tables[table].references.keys()
 
         parent_column = None
         if parent is not None:
-            for key,value in self.restschema.ovs_tables[table].references.iteritems():
+            references = self.restschema.ovs_tables[table].references
+            for key, value in references.iteritems():
                 if value.relation == 'parent':
                     parent_column = key
                     break
@@ -350,7 +408,11 @@ class RunConfigUtil():
         rows = []
         for index, row_data in table_data.iteritems():
             index_values = utils.escaped_split(index)
-            (row, isNew) = self.setup_row(index_values, table, row_data, txn, reflist)
+            (row, isNew) = self.setup_row(index_values,
+                                          table,
+                                          row_data,
+                                          txn,
+                                          reflist)
             if row is None:
                 continue
 
@@ -378,7 +440,7 @@ class RunConfigUtil():
             else:
                 continue
 
-            for key,value in references.iteritems():
+            for key, value in references.iteritems():
                 if value.relation == 'reference':
                     if not value.mutable and not isNew:
                         continue
@@ -386,7 +448,8 @@ class RunConfigUtil():
                     if key in row_data:
                         ref_table = value.ref_table
                         for item in row_data[key]:
-                            # TODO: missing item/references will throw an exception
+                            # TODO: missing item/references will throw
+                            #an exception
                             if (ref_table, item) not in reflist:
                                 continue
                             (ref_row, isNew) = reflist[(ref_table, item)]
@@ -401,13 +464,17 @@ class RunConfigUtil():
                         child_table = references[key].ref_table
                     else:
                         child_table = key
-                    self.setup_references(child_table, row_data[key], txn, reflist)
+                    self.setup_references(child_table,
+                                          row_data[key],
+                                          txn,
+                                          reflist)
 
-    def remove_deleted_rows(self, table, table_data, txn, parent = None):
+    def remove_deleted_rows(self, table, table_data, txn, parent=None):
 
         parent_column = None
         if parent is not None:
-            for key,value in self.restschema.ovs_tables[table].references.iteritems():
+            references = self.restschema.ovs_tables[table].references
+            for key, value in references.iteritems():
                 if value.relation == 'parent':
                     parent_column = key
                     break
@@ -417,7 +484,8 @@ class RunConfigUtil():
         for row in self.idl.tables[table].rows.itervalues():
             index = utils.row_to_index(self.restschema.ovs_tables[table], row)
 
-            if parent_column is not None and row.__getattr__(parent_column) != parent:
+            if parent_column is not None and \
+               row.__getattr__(parent_column) != parent:
                 continue
 
             # Routes are special case - only static routes can be deleted
@@ -438,7 +506,7 @@ class RunConfigUtil():
 
             parent_column = None
             references = table_schema.references
-            for key,value in references.iteritems():
+            for key, value in references.iteritems():
                 if value.relation == 'parent':
                     parent_column = key
                     break
@@ -455,7 +523,6 @@ class RunConfigUtil():
             for i in delete_rows:
                 i.delete()
 
-
     def write_config_to_db(self, data):
 
         # create a transaction
@@ -470,7 +537,8 @@ class RunConfigUtil():
         # reconstruct System record with correct UUID from the DB
         system_uuid = str(self.idl.tables[table_name].rows.keys()[0])
 
-        self.setup_table(table_name, {system_uuid:data[table_name]}, txn, reflist)
+        self.setup_table(table_name, {system_uuid: data[table_name]},
+                         txn, reflist)
 
         # All other top level tables, according to schema
         for table_name, table_data in self.restschema.ovs_tables.iteritems():
@@ -491,15 +559,16 @@ class RunConfigUtil():
             self.setup_table(table_name, new_data, txn, reflist)
 
         # the tables are all set up, now connect the references together
-        for table_name,value in data.iteritems():
+        for table_name, value in data.iteritems():
             if table_name == 'System':
-                new_data = {system_uuid:data[table_name]}
+                new_data = {system_uuid: data[table_name]}
             else:
                 new_data = data[table_name]
             self.setup_references(table_name, new_data, txn, reflist)
 
         # remove orphaned rows
-        # TODO: FIX THIS and turn on - not critical right away since VRF entry can't be removed
+        # TODO: FIX THIS and turn on - not critical right away since VRF
+        # entry can't be removed
         # self.remove_orphaned_rows(txn)
 
         # verify txn
@@ -509,6 +578,7 @@ class RunConfigUtil():
 
         return (result, error)
 
+
 def test_write():
     # read the config file
     filename = 'config.db'
@@ -517,7 +587,8 @@ def test_write():
         json_data.close()
 
     # set up IDL
-    manager = OvsdbConnectionManager(settings.get('ovs_remote'), settings.get('ovs_schema'))
+    manager = OvsdbConnectionManager(settings.get('ovs_remote'),
+                                     settings.get('ovs_schema'))
     manager.start()
     manager.idl.run()
 
@@ -532,13 +603,19 @@ def test_write():
     run_config_util = RunConfigUtil(manager.idl, schema)
     run_config_util.write_config_to_db(data)
 
+
 def main():
     run_config_util = RunConfigUtil(settings)
     config = run_config_util.get_running_config()
-    print("Running Config: %s " % json.dumps(config, sort_keys=True, indent=4, separators=(',', ': ')))
+    print("Running Config: %s " % json.dumps(config,
+                                             sort_keys=True,
+                                             indent=4,
+                                             separators=(',', ': ')))
+
 
 def test_read():
-    manager = OvsdbConnectionManager(settings.get('ovs_remote'), settings.get('ovs_schema'))
+    manager = OvsdbConnectionManager(settings.get('ovs_remote'),
+                                     settings.get('ovs_schema'))
     manager.start()
     idl = manager.idl
 
@@ -557,7 +634,7 @@ def test_read():
     config = run_config_util.get_running_config()
     filename = 'config.db'
     with open(filename, 'w') as fp:
-        json.dump(config, fp, sort_keys = True, indent=4, separators=(',', ': '))
+        json.dump(config, fp, sort_keys=True, indent=4, separators=(',', ': '))
         fp.write('\n')
     print(json.dumps(config, sort_keys=True, indent=4, separators=(',', ': ')))
 

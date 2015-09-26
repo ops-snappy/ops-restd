@@ -1,3 +1,17 @@
+# Copyright (C) 2015 Hewlett Packard Enterprise Development LP
+#
+#  Licensed under the Apache License, Version 2.0 (the "License"); you may
+#  not use this file except in compliance with the License. You may obtain
+#  a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#  License for the specific language governing permissions and limitations
+#  under the License.
+
 from opsrest.constants import *
 from opsrest.utils import utils
 from opsrest.verify import *
@@ -7,9 +21,13 @@ from tornado.log import app_log
 '''
 /system/bridges: POST allowed as we are adding a new Bridge to a child table
 /system/ports: POST allowed as we are adding a new Port to top level table
-/system/vrfs/vrf_default/bgp_routers: POST allowed as we are adding a back referenced resource
-/system/bridges/bridge_normal/ports: POST NOT allowed as we are attemtping to add a Port as a reference on bridge
+/system/vrfs/vrf_default/bgp_routers: POST allowed as we are adding a back
+ referenced resource
+/system/bridges/bridge_normal/ports: POST NOT allowed as we are attemtping
+ to add a Port as a reference on bridge
 '''
+
+
 def post_resource(data, resource, schema, txn, idl):
 
     # POST not allowed on System table
@@ -33,21 +51,28 @@ def post_resource(data, resource, schema, txn, idl):
 
     app_log.debug("adding new resource to " + resource.next.table + " table")
     if resource.relation == OVSDB_SCHEMA_CHILD:
-        # create new row, populate it with data, add it as a reference to the parent resource
-        new_row = utils.setup_new_row(resource.next, verified_data, schema, txn, idl)
+        # create new row, populate it with data
+        # add it as a reference to the parent resource
+        new_row = utils.setup_new_row(resource.next, verified_data,
+                                      schema, txn, idl)
 
-        if schema.ovs_tables[resource.table].references[resource.column].kv_type:
-            keyname = schema.ovs_tables[resource.table].references[resource.column].column.keyname
-            utils.add_kv_reference(verified_data[keyname], new_row, resource, idl)
+        ref = schema.ovs_tables[resource.table].references[resource.column]
+        if ref.kv_type:
+            keyname = ref.column.keyname
+            utils.add_kv_reference(verified_data[keyname],
+                                   new_row, resource, idl)
         else:
             utils.add_reference(new_row, resource, None, idl)
 
     elif resource.relation == OVSDB_SCHEMA_BACK_REFERENCE:
-        # row for a back referenced item contains the parent's reference in the verified data
-        new_row = utils.setup_new_row(resource.next, verified_data, schema, txn, idl)
+        # row for a back referenced item contains the parent's reference
+        #in the verified data
+        new_row = utils.setup_new_row(resource.next, verified_data,
+                                      schema, txn, idl)
 
     elif resource.relation == OVSDB_SCHEMA_TOP_LEVEL:
-        new_row = utils.setup_new_row(resource.next, verified_data, schema, txn, idl)
+        new_row = utils.setup_new_row(resource.next, verified_data,
+                                      schema, txn, idl)
 
         # a non-root table entry MUST be referenced elsewhere
         if OVSDB_SCHEMA_REFERENCED_BY in verified_data:
