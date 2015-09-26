@@ -246,6 +246,7 @@ class OVSTable(object):
         for column_name, column_json in columns_json.iteritems():
             parser = ovs.db.parser.Parser(column_json, "column %s" % name)
             category = parser.get_optional("category", [str, unicode])
+            relationship = parser.get_optional("relationship", [str, unicode])
             mutable = parser.get_optional("mutable", [bool], True)
             ephemeral = parser.get_optional("ephemeral", [bool], False)
             type_ = types.Type.from_json(parser.get("type", [dict, str, unicode]))
@@ -257,12 +258,24 @@ class OVSTable(object):
                     is_optional = True
 
             table.columns.append(column_name)
-            if category == "configuration":
+            # An attribute will be able to get marked with relationship
+            # and category tags simultaneously. We are utilizing the
+            # new form of tagging as a second step.
+            # For now, we are using only one tag.
+            if relationship == "1:m":
+                table.references[column_name] = OVSReference(type_, "child")
+            elif relationship == "m:1":
+                table.references[column_name] = OVSReference(type_, "parent")
+            elif relationship == "reference":
+                table.references[column_name] = OVSReference(type_, "reference")
+            elif category == "configuration":
                 table.config[column_name] = OVSColumn(table, column_name, type_, is_optional, mutable)
             elif category == "status":
                 table.status[column_name] = OVSColumn(table, column_name, type_, is_optional)
             elif category == "statistics":
                 table.stats[column_name] = OVSColumn(table, column_name, type_, is_optional)
+            # the following code can be removed after schema change
+            # switchover
             elif category == "child":
                 table.references[column_name] = OVSReference(type_, category)
                 table.references[column_name].column = OVSColumn(table, column_name, type_)
