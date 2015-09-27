@@ -61,13 +61,14 @@ class configTest(OpsVsiTest):
     def verify_startup_config(self):
         info('''"\n########## Verify startup config writes and reads the
              config to startup config db ##########\n"''')
+        src_path = os.path.dirname(os.path.realpath(__file__))
+        src_file = os.path.join(src_path, 'json.data')
         s1 = self.net.switches[0]
         ip_addr = s1.cmd("python -c \"import socket; print\
                          socket.gethostbyname(socket.gethostname())\"")
 
         path = '/rest/v1/system' + '/full-configuration?type=startup'
-
-        with open('json.data') as data_file:
+        with open(src_file) as data_file:
                 _data = json.loads(data_file.read())
 
         _headers = {"Content-type": "multipart/form-data",
