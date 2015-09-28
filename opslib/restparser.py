@@ -163,6 +163,7 @@ class OVSReference(object):
         if base_type.type != types.UuidType:
             # referenced table name must be in value part of KV pair
             self.kv_type = True
+            self.kv_key_type = base_type.type
             base_type = type_.value
         self.ref_table = base_type.ref_table_name
 
