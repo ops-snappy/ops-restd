@@ -67,15 +67,18 @@ class configTest (OpsVsiTest):
         script_shared_test_file3 = '/tmp/openswitch-test/' + testid + '/' + \
                                    switch.name + '/shared' + '/empty_config.db'
 
-        shutil.copy2(os.path.join(src_path, "runconfig_test_in_docker.py"), script_shared_local)
-        shutil.copy2(os.path.join(src_path, "config_test1.db"), script_shared_test_file1)
-        #shutil.copy2(os.path.join(src_path, "config_test2.db"), script_shared_test_file2)
-        shutil.copy2(os.path.join(src_path, "config_test3.db"), script_shared_test_file2)
-        shutil.copy2(os.path.join(src_path, "empty_config.db"), script_shared_test_file3)
+        shutil.copy2(os.path.join(src_path, "runconfig_test_in_docker.py"),
+                     script_shared_local)
+        shutil.copy2(os.path.join(src_path, "config_test1.db"),
+                     script_shared_test_file1)
+        shutil.copy2(os.path.join(src_path, "config_test3.db"),
+                     script_shared_test_file2)
+        shutil.copy2(os.path.join(src_path, "empty_config.db"),
+                     script_shared_test_file3)
 
     def verify_runconfig(self):
-        info("\n########## Verify config writes for empty config and \
-        full config ##########\n")
+        info('''"\n########## Verify config writes for empty config and
+        full config ##########\n"''')
         switch = self.net.switches[0]
         script_shared_docker = '/shared/runconfig_test_in_docker.py'
         out = switch.cmd('python ' + script_shared_docker)

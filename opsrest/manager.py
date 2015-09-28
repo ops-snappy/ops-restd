@@ -1,4 +1,20 @@
-import time, re, json
+# Copyright (C) 2015 Hewlett Packard Enterprise Development LP
+#
+#  Licensed under the Apache License, Version 2.0 (the "License"); you may
+#  not use this file except in compliance with the License. You may obtain
+#  a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#  License for the specific language governing permissions and limitations
+#  under the License.
+
+import time
+import re
+import json
 from tornado.ioloop import IOLoop
 from tornado.log import app_log
 
@@ -7,6 +23,7 @@ from ovs.poller import Poller
 
 from opsrest.transaction import OvsdbTransactionList, OvsdbTransaction
 from opsrest.constants import *
+
 
 class OvsdbConnectionManager:
     def __init__(self, remote, schema, *args, **kwargs):
@@ -43,7 +60,8 @@ class OvsdbConnectionManager:
             # TODO: log this exception
             # attempt again in the next IOLoop iteration
             app_log.info("Connection Manager failed! Reason: %s" % e)
-            IOLoop.current().add_timeout(time.time() + self.timeout, self.start)
+            IOLoop.current().add_timeout(time.time() + self.timeout,
+                                         self.start)
 
     def monitor_connection(self):
         try:
@@ -53,7 +71,8 @@ class OvsdbConnectionManager:
             self.add_fd_callbacks()
         except:
             self.idl_run()
-            IOLoop.current().add_timeout(time.time() + self.timeout, self.monitor_connection)
+            IOLoop.current().add_timeout(time.time() + self.timeout,
+                                         self.monitor_connection)
 
     def add_fd_callbacks(self):
         # add handlers to file descriptors from poll
@@ -65,9 +84,11 @@ class OvsdbConnectionManager:
 
         for fd in self.poller.poll.rlist:
             if fd not in self.rlist:
-                IOLoop.current().add_handler(fd, self.read_handler, IOLoop.READ | IOLoop.ERROR)
+                IOLoop.current().add_handler(fd, self.read_handler,
+                                             IOLoop.READ | IOLoop.ERROR)
                 self.rlist.append(fd)
-                IOLoop.current().add_timeout(time.time() + self.timeout, self.read_handler)
+                IOLoop.current().add_timeout(time.time() + self.timeout,
+                                             self.read_handler)
 
     def read_handler(self, fd=None, events=None):
         if fd is not None:
@@ -117,7 +138,7 @@ class OvsdbConnectionManager:
             for row in self.idl.tables[name].rows.itervalues():
                 row_uuid = row.uuid
                 row_data = {}
-                for k,v in zip(column_keys, row._data.itervalues()):
+                for k, v in zip(column_keys, row._data.itervalues()):
                     row_data[k] = v.to_string()
                 row_dict[row_uuid] = row_data
             tables_dict[name] = row_dict

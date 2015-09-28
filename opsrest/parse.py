@@ -1,3 +1,17 @@
+# Copyright (C) 2015 Hewlett Packard Enterprise Development LP
+#
+#  Licensed under the Apache License, Version 2.0 (the "License"); you may
+#  not use this file except in compliance with the License. You may obtain
+#  a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#  License for the specific language governing permissions and limitations
+#  under the License.
+
 from opsrest.resource import Resource
 from opsrest.utils import utils
 from opsrest.constants import *
@@ -9,10 +23,12 @@ import urllib
 
 from tornado.log import app_log
 
+
 def split_path(path):
     path = path.split('/')
-    path = [urllib.unquote(i) for i in path if i!= '']
+    path = [urllib.unquote(i) for i in path if i != '']
     return path
+
 
 def parse_url_path(path, schema, idl, http_method):
 
@@ -70,13 +86,16 @@ def parse(path, resource, schema, idl, http_method):
     _fail = False
 
     # CHILD/REFERENCE check
-    if path[0] in ovs_tables[resource.table].columns and path[0] in ovs_tables[resource.table].references:
+    if (path[0] in ovs_tables[resource.table].columns and
+            path[0] in ovs_tables[resource.table].references):
         app_log.debug('child or reference check')
         resource.column = path[0]
-        resource.relation = ovs_tables[resource.table].references[resource.column].relation
+        temp_ = ovs_tables[resource.table].references[resource.column].relation
+        resource.relation = temp_
 
         if resource.relation == OVSDB_SCHEMA_PARENT:
-            app_log.debug('accessing a parent resource from a child resource is not allowed')
+            app_log.debug('accessing a parent resource from a child \
+                            resource is not allowed')
             raise Exception
         path[0] = reference_map[path[0]]
 
@@ -94,7 +113,8 @@ def parse(path, resource, schema, idl, http_method):
         elif ovs_tables[path[0]].parent == resource.table:
             resource.relation = OVSDB_SCHEMA_BACK_REFERENCE
         else:
-            app_log.debug('resource is neither a forward not a backward reference')
+            app_log.debug('resource is neither a forward not a backward \
+                            reference')
             raise Exception
 
     else:
@@ -105,14 +125,17 @@ def parse(path, resource, schema, idl, http_method):
     resource.next = new_resource
     path = path[1:]
 
-    app_log.debug('resource: ' + resource.table + ' ' + str(resource.row) + ' ' + str(resource.column) + ' ' + str(resource.relation))
+    app_log.debug('resource: ' + resource.table + ' ' + str(resource.row)
+                  + ' ' + str(resource.column) + ' '
+                  + str(resource.relation))
 
     # this should be the start of the index
     index_list = None
     if path:
         table_indices = schema.ovs_tables[new_resource.table].indexes
 
-        # len(path) must at least be equal to len(table_indices) to uniquely identify a resource
+        # len(path) must at least be equal to len(table_indices)
+        #to uniquely identify a resource
         if len(path) < len(table_indices):
             return None
 
@@ -123,7 +146,8 @@ def parse(path, resource, schema, idl, http_method):
         if http_method == 'POST' and index_list is None:
             return
 
-        if not verify_back_reference(resource, new_resource, schema, idl, index_list):
+        if not verify_back_reference(resource, new_resource, schema,
+                                     idl, index_list):
             app_log.debug('back reference not found')
             raise Exception
 
@@ -134,7 +158,8 @@ def parse(path, resource, schema, idl, http_method):
     # restrictions for chained references.
     if http_method == 'GET' or http_method == 'POST':
         if resource.relation == OVSDB_SCHEMA_REFERENCE:
-            app_log.debug('accessing a resource reference from another resource references is not allowed')
+            app_log.debug('accessing a resource reference from another \
+                            resource references is not allowed')
             raise Exception
 
     # verify non-backreference resource existence
@@ -147,17 +172,21 @@ def parse(path, resource, schema, idl, http_method):
 
     # we now have a complete new_resource
     # continue processing the path further
-    path=path[1:]
+    path = path[1:]
     parse(path, new_resource, schema, idl, http_method)
 
 '''
-    Some resources have the same parent. BGP_Routers can share the same VRF and hence
-    will have the same reference pointer under the 'vrf' column. If bgp_routers for a
-    a particular VRF is desired, we search in the entire BGP_Router table to find those
-    BGP Routers that have the same VRF under the 'vrf' column and return a list of UUIDs
+    Some resources have the same parent. BGP_Routers can share the same
+    VRF and hence will have the same reference pointer under the 'vrf'
+    column. If bgp_routers for a a particular VRF is desired, we search
+    in the entire BGP_Router table to find those BGP Routers that have
+    the same VRF under the 'vrf' column and return a list of UUIDs
     of those BGP_Router entries.
 '''
-def verify_back_reference(resource, new_resource, schema, idl, index_list=None):
+
+
+def verify_back_reference(resource, new_resource, schema,
+                          idl, index_list=None):
 
     if new_resource.table not in idl.tables:
         return False
@@ -165,8 +194,9 @@ def verify_back_reference(resource, new_resource, schema, idl, index_list=None):
     reference_keys = schema.ovs_tables[new_resource.table].references
 
     _refCol = None
-    for key,value in reference_keys.iteritems():
-        if value.relation == OVSDB_SCHEMA_PARENT and value.ref_table == resource.table:
+    for key, value in reference_keys.iteritems():
+        if (value.relation == OVSDB_SCHEMA_PARENT and
+                value.ref_table == resource.table):
             _refCol = key
             break
 
@@ -200,6 +230,8 @@ def verify_back_reference(resource, new_resource, schema, idl, index_list=None):
 '''
     Verify if a resource exists in the DB Table using the index.
 '''
+
+
 def verify_index(resource, parent, index_values, schema, idl):
 
     if resource.table not in idl.tables:

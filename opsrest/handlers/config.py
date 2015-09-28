@@ -1,3 +1,17 @@
+# Copyright (C) 2015 Hewlett Packard Enterprise Development LP
+#
+#  Licensed under the Apache License, Version 2.0 (the "License"); you may
+#  not use this file except in compliance with the License. You may obtain
+#  a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#  License for the specific language governing permissions and limitations
+#  under the License.
+
 from tornado.ioloop import IOLoop
 from tornado import web, gen, locks
 from tornado.web import asynchronous
@@ -18,6 +32,7 @@ from opsrest import get, post, delete, put
 
 from tornado.log import app_log
 
+
 class ConfigHandler(web.RequestHandler):
 
     # pass the application reference to the handlers
@@ -29,7 +44,8 @@ class ConfigHandler(web.RequestHandler):
 
         # CORS
         allow_origin = self.request.protocol + "://"
-        allow_origin += self.request.host.split(":")[0] # removing port if present
+        # removing port if present
+        allow_origin += self.request.host.split(":")[0]
         self.set_header("Access-Control-Allow-Origin", allow_origin)
         self.set_header("Access-Control-Expose-Headers", "Date")
 
@@ -52,7 +68,8 @@ class ConfigHandler(web.RequestHandler):
     def get(self):
 
         result, error = yield self._get_config()
-        app_log.debug('Transaction result: %s, Transaction error: %s', result, error)
+        app_log.debug('Transaction result: %s, Transaction error: %s',
+                      result, error)
 
         if result is None:
             if self.request_type == 'running':
@@ -79,7 +96,8 @@ class ConfigHandler(web.RequestHandler):
             # get the config
             config_data = json.loads(self.request.body)
             result, error = yield self._write_config(config_data)
-            app_log.debug('Transaction result: %s, Transaction error: %s', result, error)
+            app_log.debug('Transaction result: %s, Transaction error: %s',
+                          result, error)
 
             if result.lower() != 'success' and result.lower() != 'unchanged':
                 self.set_status(httplib.BAD_REQUEST)

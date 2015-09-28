@@ -55,7 +55,8 @@ class systemTest(OpsVsiTest):
 
     def setup_switch_ip(self):
         s1 = self.net.switches[0]
-        self.SWITCH_IP = s1.cmd("python -c \"import socket; print socket.gethostbyname(socket.gethostname())\"")
+        self.SWITCH_IP = s1.cmd("python -c \"import socket; print \
+            socket.gethostbyname(socket.gethostname())\"")
 
     def execute_request(self, http_method, request_data=""):
         headers = {"Content-type": "application/json", "Accept": "text/plain"}

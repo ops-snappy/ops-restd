@@ -370,11 +370,88 @@ def genDefinition(table_name, col, definitions):
         return genBaseType(col.type, col.rangeMin, col.rangeMax, col.desc)
 
 
-def getDefinition(table, definitions):
+def getDefinition(schema, table, definitions):
     properties = {}
     for colName, col in table.config.iteritems():
         properties[colName] = genDefinition(table.name, col, definitions)
+    # references are included in configuration as well
+    for col_name in table.references:
+        if table.references[col_name].relation == "reference":
+            child_name = table.references[col_name].ref_table
+            child_table = schema.ovs_tables[child_name]
+
+            sub = {}
+            if table.references[col_name].is_plural:
+                sub["type"] = "array"
+                sub["description"] = "A list of " + child_table.name \
+                                     + " references"
+                item = {}
+                item["$ref"] = "#/definitions/Resource"
+                sub["items"] = item
+            else:
+                sub["$ref"] = "#/definitions/Resource"
+                sub["description"] = "Referece of " + child_table.name
+            properties[col_name] = sub
+
     definitions[table.name + "Config"] = {"properties": properties}
+
+    # Construct full configuration definition to include subresources
+    for col_name in table.children:
+        if col_name in table.references:
+            # regular references
+            subtable_name = table.references[col_name].ref_table
+        else:
+            # child added by parent relationship
+            subtable_name = col_name
+        sub = {}
+        sub["$ref"] = "#/definitions/" + subtable_name + "ConfigData"
+        sub["description"] = "Referenced resurce of " + subtable_name + " instances"
+        properties[col_name] = sub
+
+    # Special treat /system resource
+    # Include referenced resources at the top level as children
+    if table.name is "System":
+        for subtable_name, subtable in schema.ovs_tables.iteritems():
+            # Skipping those that are not top-level resources
+            if subtable.parent is not None:
+                continue
+            # Skipping those that are not referenced
+            if subtable_name not in schema.reference_map.values():
+                continue
+
+            sub = {}
+            sub["$ref"] = "#/definitions/" + subtable.name + "ConfigData"
+            sub["description"] = "Referenced resurce of " + subtable.name + " instances"
+            properties[subtable_name] = sub
+
+    definitions[table.name + "ConfigFull"] = {"properties": properties}
+
+    properties = {}
+    definition = {}
+    definition["type"] = "string"
+    definition["description"] = table.name + " id"
+    properties["id"] = definition
+    definition = {}
+    definition["$ref"] = "#/definitions/" + table.name + "ConfigFull"
+    definition["description"] = "Configuration of " + table.name + " instance"
+    properties["configuration"] = definition
+
+    definitions[table.name + "ConfigInstance"] = {"properties": properties}
+
+    properties = {}
+    sub = {}
+    if table.is_many:
+        sub["type"] = "array"
+        sub["description"] = "A list of " + table.name + " instances"
+        item = {}
+        item["$ref"] = "#/definitions/" + table.name + "ConfigInstance"
+        sub["items"] = item
+    else:
+        sub["$ref"] = "#/definitions/" + table.name + "ConfigFull"
+        sub["description"] = "Configuration of " + table.name
+    properties[table.name] = sub
+
+    definitions[table.name + "ConfigData"] = {"properties": properties}
 
     properties = {}
     for colName, col in table.status.iteritems():
@@ -485,7 +562,7 @@ def genAPI(paths, definitions, schema, table, resource_name, parent,
             ops["delete"] = op
         paths[path] = ops
 
-    getDefinition(table, definitions)
+    getDefinition(schema, table, definitions)
 
     # Stop for system resource
     if resource_name is None:
@@ -526,6 +603,121 @@ def genAPI(paths, definitions, schema, table, resource_name, parent,
         parent_plurality.pop()
 
 
+def getFullConfigDef(schema, definitions):
+    properties = {}
+
+
+    definitions["FullConfig"] = {"properties": properties}
+
+
+def genFullConfigAPI(paths):
+    path = "/system/full-configuration"
+
+    ops = {}
+    op = {}
+    op["summary"] = "Get full configuration"
+    op["description"] = "Fetch full declarative configuration"
+    op["tags"] = ["FullConfiguration"]
+
+    params = []
+    param = {}
+    param["name"] = "type"
+    param["in"] = "query"
+    param["description"] = "select from running or startup, \
+                            default to running"
+    param["required"] = False
+    param["type"] = "string"
+    params.append(param)
+    op["parameters"] = params
+
+    responses = {}
+    response = {}
+    response["description"] = "OK"
+    response["schema"] = {'$ref': "#/definitions/SystemConfigFull"}
+    responses["200"] = response
+
+    addGetResponse(responses)
+    op["responses"] = responses
+
+    ops["get"] = op
+
+    op = {}
+    op["summary"] = "Update full configuration"
+    op["description"] = "Update full declarative configuration"
+    op["tags"] = ["FullConfiguration"]
+
+    params = []
+    param = {}
+    param["name"] = "type"
+    param["in"] = "query"
+    param["description"] = "select from running or startup, \
+                            default to running"
+    param["required"] = False
+    param["type"] = "string"
+    params.append(param)
+    param = {}
+    param["name"] = "data"
+    param["in"] = "body"
+    param["description"] = "declarative configuration"
+    param["required"] = True
+    param["schema"] = {'$ref': "#/definitions/SystemConfigFull"}
+    params.append(param)
+
+    op["parameters"] = params
+
+    responses = {}
+    addPutResponse(responses)
+    op["responses"] = responses
+
+    ops["put"] = op
+
+    paths[path] = ops
+
+
+def genUserLogin(paths):
+    path = "/login"
+
+    ops = {}
+    op = {}
+    op["summary"] = "User login"
+    op["description"] = "Use username and password to log user in"
+    op["tags"] = ["User"]
+
+    params = []
+    param = {}
+    param["name"] = "username"
+    param["in"] = "query"
+    param["description"] = "User name"
+    param["required"] = True
+    param["type"] = "string"
+    params.append(param)
+    param = {}
+    param["name"] = "password"
+    param["in"] = "body"
+    param["description"] = "Password"
+    param["required"] = True
+    param["type"] = "string"
+    params.append(param)
+
+    op["parameters"] = params
+
+    responses = {}
+    response = {}
+    response["description"] = "User logged in, cookie set"
+    responses["201"] = response
+
+    response = {}
+    response["description"] = "Bad request"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["400"] = response
+
+    op["responses"] = responses
+
+    ops["post"] = op
+
+    paths[path] = ops
+
+
 def getFullAPI(schema):
     api = {}
     api["swagger"] = "2.0"
@@ -536,6 +728,8 @@ def getFullAPI(schema):
     info["version"] = "1.0.0"
     api["info"] = info
 
+    # by default, the REST implementation runs on the same host
+    # at the same port as the Swagger UI
     api["host"] = ""
     # Should be changed to use https instead
     api["schemes"] = ["http"]
@@ -581,6 +775,12 @@ def getFullAPI(schema):
         # Use plural form of the resource name in the URI
         genAPI(paths, definitions, schema, table, table.plural_name,
                None, parents, parent_plurality)
+
+    # Creating the access URL for declarative configuration manipulation
+    genFullConfigAPI(paths)
+
+    # Creating the login URL
+    genUserLogin(paths)
 
     api["paths"] = paths
 

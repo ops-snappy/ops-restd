@@ -1,3 +1,17 @@
+# Copyright (C) 2015 Hewlett Packard Enterprise Development LP
+#
+#  Licensed under the Apache License, Version 2.0 (the "License"); you may
+#  not use this file except in compliance with the License. You may obtain
+#  a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#  License for the specific language governing permissions and limitations
+#  under the License.
+
 import json
 import ovs.db.idl
 import ovs
@@ -23,7 +37,7 @@ def get_row(resource, idl=None):
             return None
 
         else:
-            # resource.row can be a single UUID object or a list of UUID objects
+        # resource.row can be a single UUID object or a list of UUID objects
             rows = resource.row
             if type(rows) is not types.ListType:
                 return idl.tables[resource.table].rows[resource.row]
@@ -34,6 +48,7 @@ def get_row(resource, idl=None):
                 return rowlist
 
     return None
+
 
 # get column items from a row or resource
 def get_column(resource, column=None, idl=None):
@@ -55,7 +70,8 @@ def get_column(resource, column=None, idl=None):
 
     # if resource is a Resource object
     if isinstance(resource, Resource):
-        if resource.table is None or resource.row is None or resource.column is None or idl is None:
+        if (resource.table is None or resource.row is None or
+                resource.column is None or idl is None):
             return None
 
         row = idl.tables[resource.table].rows[resource.row]
@@ -72,6 +88,7 @@ def get_column(resource, column=None, idl=None):
 
     return None
 
+
 # returns ovs.db.idl.Row object
 def check_reference(reference, idl=None):
 
@@ -87,11 +104,13 @@ def check_reference(reference, idl=None):
 
     return None
 
+
 # returns a tuple of consisting of (ovs.db.idl.Row, column)
 def check_resource(resource, column=None, idl=None):
 
     if isinstance(resource, Resource):
-        if resource.table is None or resource.row is None or resource.column is None: # or idl is None:
+        if (resource.table is None or resource.row is None or
+                resource.column is None):  # or idl is None:
             return None
         else:
             return (get_row(resource, idl), resource.column)
@@ -104,6 +123,7 @@ def check_resource(resource, column=None, idl=None):
 
     return None
 
+
 # add a Row reference that is of type {key:reference}
 def add_kv_reference(key, reference, resource, idl):
 
@@ -111,7 +131,7 @@ def add_kv_reference(key, reference, resource, idl):
     kv_references = get_column(row, resource.column)
 
     updated_kv_references = {}
-    for k,v in kv_references.iteritems():
+    for k, v in kv_references.iteritems():
         updated_kv_references[k] = v
 
     updated_kv_references[key] = reference
@@ -119,6 +139,8 @@ def add_kv_reference(key, reference, resource, idl):
     return True
 
 # add a Row reference
+
+
 def add_reference(reference, resource, column=None, idl=None):
 
     ref = check_reference(reference, idl)
@@ -152,6 +174,7 @@ def add_reference(reference, resource, column=None, idl=None):
 
     return False
 
+
 # delete a Row reference from a Resource
 def delete_reference(resource, parent, schema, idl):
 
@@ -163,7 +186,7 @@ def delete_reference(resource, parent, schema, idl):
         parent_row = idl.tables[parent.table].rows[parent.row]
         kv_references = get_column(parent_row, parent.column)
         updated_kv_references = {}
-        for k,v in kv_references.iteritems():
+        for k, v in kv_references.iteritems():
             if str(k) == key:
                 ref = v
             else:
@@ -190,6 +213,7 @@ def delete_reference(resource, parent, schema, idl):
 
     return ref
 
+
 def delete_all_references(resource, schema, idl):
     row = get_row(resource, idl)
     #We get the tables that reference the row to delete table
@@ -208,12 +232,14 @@ def delete_all_references(resource, schema, idl):
                     #delete the reference on that row and column
                     delete_row_reference(reflist, row, row_ref, column_name)
 
+
 def delete_row_reference(reflist, row, row_ref, column):
     updated_list = []
     for item in reflist:
         if item.uuid != row.uuid:
             updated_list.append(item)
     row_ref.__setattr__(column, updated_list)
+
 
 # create a new row, populate it with data
 def setup_new_row(resource, data, schema, txn, idl):
@@ -233,6 +259,7 @@ def setup_new_row(resource, data, schema, txn, idl):
 
     return row
 
+
 #Update columns from a row
 def update_row(resource, data, schema, txn, idl):
     #Verify if is a Resource instance
@@ -243,7 +270,7 @@ def update_row(resource, data, schema, txn, idl):
         return None
 
     #get the row that will be modified
-    row = get_row(resource, idl);
+    row = get_row(resource, idl)
 
     #Update config items
     set_config_fields(resource, row, data, schema)
@@ -253,12 +280,14 @@ def update_row(resource, data, schema, txn, idl):
 
     return row
 
+
 # set each config data on each column
 def set_config_fields(resource, row, data, schema):
     config_keys = schema.ovs_tables[resource.table].config
     for key in config_keys:
         if key in data:
             row.__setattr__(key, data[key])
+
 
 # set the reference items in the row
 def set_reference_items(resource, row, data, schema, idl):
@@ -277,6 +306,7 @@ def set_reference_items(resource, row, data, schema, idl):
                     reflist.append(row_ref)
                 #Set data on the column
                 row.__setattr__(key, reflist)
+
 
 def row_to_json(row, column_keys):
 
@@ -301,6 +331,7 @@ def row_to_json(row, column_keys):
         data_json[key] = to_json(attribute, value_type)
 
     return data_json
+
 
 def get_empty_by_basic_type(data):
     type_ = type(data)
@@ -333,6 +364,7 @@ def get_empty_by_basic_type(data):
     else:
         return ''
 
+
 def to_json(data, value_type=None):
     type_ = type(data)
 
@@ -364,6 +396,7 @@ def to_json(data, value_type=None):
     else:
         return str(data)
 
+
 def has_column_changed(json_data, data):
     json_type_ = type(json_data)
     type_ = type(data)
@@ -382,17 +415,19 @@ def has_column_changed(json_data, data):
     else:
         return json_data == str(data)
 
+
 def to_json_error(message, code=None, fields=None):
     dictionary = {"code": code, "fields": fields, "message": message}
 
     return dict_to_json(dictionary)
+
 
 def dict_to_json(data, value_type=None):
     if not data:
         return data
 
     data_json = {}
-    for key,value in data.iteritems():
+    for key, value in data.iteritems():
         type_ = type(value)
 
         if isinstance(value, ovs.db.idl.Row):
@@ -409,6 +444,7 @@ def dict_to_json(data, value_type=None):
             data_json[key] = str(value)
 
     return data_json
+
 
 def list_to_json(data, value_type=None):
     if not data:
@@ -439,6 +475,7 @@ index_values is a list which contains the combination indices
 that are used to identify a resource.
 '''
 
+
 def index_to_row(index_values, table_schema, dbtable):
 
     indexes = table_schema.indexes
@@ -455,7 +492,7 @@ def index_to_row(index_values, table_schema, dbtable):
                 break
 
             # matched index
-            i+=1
+            i += 1
 
         if i == len(indexes):
             return row
@@ -468,6 +505,8 @@ Current feature uses a single index and not a combination of multiple
 indices. This is used for the new key/uuid type forward references introduced
 for BGP
 '''
+
+
 def kv_index_to_row(index_values, parent, idl):
 
     index = index_values[0]
@@ -481,7 +520,8 @@ def kv_index_to_row(index_values, parent, idl):
 
     return None
 
-def row_to_index(table_schema, row, uuid_sequencer = None):
+
+def row_to_index(table_schema, row, uuid_sequencer=None):
 
     tmp = []
     for index in table_schema.indexes:
@@ -489,38 +529,44 @@ def row_to_index(table_schema, row, uuid_sequencer = None):
             if uuid_sequencer is None:
                 return str(row.uuid)
 
-            # Generate dummy index for all entries in tables that don't have anything besides UUID
-            if (table_schema.name,str(row.uuid)) not in uuid_sequencer:
+            # Generate dummy index for all entries in tables that
+            #don't have anything besides UUID
+            if (table_schema.name, str(row.uuid)) not in uuid_sequencer:
 
-                if (table_schema.name,'last_sequence') not in uuid_sequencer:
-                    uuid_sequencer[(table_schema.name,'last_sequence')] = 0
+                if (table_schema.name, 'last_sequence') not in uuid_sequencer:
+                    uuid_sequencer[(table_schema.name, 'last_sequence')] = 0
 
-                next_sequence = uuid_sequencer[(table_schema.name,'last_sequence')] + 1
-                uuid_sequencer[(table_schema.name,'last_sequence')] = next_sequence
-                uuid_sequencer[(table_schema.name,str(row.uuid))] = table_schema.name + str(next_sequence)
+                next_sequence = uuid_sequencer[(table_schema.name,
+                                                'last_sequence')] + 1
+                uuid_sequencer[(table_schema.name, 'last_sequence')] = \
+                    next_sequence
+                uuid_sequencer[(table_schema.name, str(row.uuid))] = \
+                    table_schema.name + str(next_sequence)
 
-            return uuid_sequencer[(table_schema.name,str(row.uuid))]
+            return uuid_sequencer[(table_schema.name, str(row.uuid))]
         else:
             val = str(row.__getattr__(index))
-            tmp.append(str(val.replace('/','\/')))
+            tmp.append(str(val.replace('/', '\/')))
 
     return '/'.join(tmp)
+
 
 def escaped_split(s_in):
     strings = re.split(r'(?<!\\)/', s_in)
     res_strings = []
 
     for s in strings:
-        s = s.replace('\\/','/')
+        s = s.replace('\\/', '/')
         res_strings.append(s)
 
     return res_strings
+
 
 def get_reference_parent_uri(table_name, row, schema, idl):
     uri = ''
     path = get_parent_trace(table_name, row, schema, idl)
     #Don't include Open_vSwitch table
-    for table_name,indexes in path[1:]:
+    for table_name, indexes in path[1:]:
         plural_name = schema.ovs_tables[table_name].plural_name
         uri += str(plural_name) + '/' + "/".join(indexes) + '/'
     app_log.debug("Reference uri %s" % uri)
@@ -530,6 +576,8 @@ def get_reference_parent_uri(table_name, row, schema, idl):
 Get the parent trace to one row
 Returns (table, index) list
 '''
+
+
 def get_parent_trace(table_name, row, schema, idl):
     table = schema.ovs_tables[table_name]
     path = []
@@ -547,9 +595,11 @@ def get_parent_trace(table_name, row, schema, idl):
 Get column name where the child table is being referenced
 Returns column name
 '''
+
+
 def get_parent_column_ref(table_name, table_ref, schema):
     table = schema.ovs_tables[table_name]
-    for column_name,reference in table.references.iteritems():
+    for column_name, reference in table.references.iteritems():
         if reference.ref_table == table_ref and reference.relation == 'child':
             return column_name
 
@@ -557,6 +607,8 @@ def get_parent_column_ref(table_name, table_ref, schema):
 Get the row where the item is being referenced
 Returns idl.Row object
 '''
+
+
 def get_parent_row(table_name, row, column, schema, idl):
     table = schema.ovs_tables[table_name]
     for uuid, row_ref in idl.tables[table_name].rows.iteritems():
@@ -569,6 +621,8 @@ def get_parent_row(table_name, row, column, schema, idl):
 Get the row index
 Return the row index
 '''
+
+
 def get_table_key(row, table_name, schema):
     table = schema.ovs_tables[table_name]
     indexes = table.indexes
