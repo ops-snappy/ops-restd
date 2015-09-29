@@ -714,5 +714,5 @@ def test_read():
     print(json.dumps(config, sort_keys=True, indent=4, separators=(',', ': ')))
 
 if __name__ == "__main__":
-    # test_read()
+    test_read()
     # test_write()
