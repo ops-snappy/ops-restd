@@ -71,7 +71,11 @@ class RunConfigUtil():
             return
 
         for column_name, column in table.config.iteritems():
-            rowobj[column_name] = row.__getattr__(column_name)
+            _data = row.__getattr__(column_name)
+            if _data is None or _data == {} or _data == []:
+                continue
+            rowobj[column_name] = _data
+
         for child_name in table.children:
             table_schema = self.restschema.ovs_tables[table.name]
 
