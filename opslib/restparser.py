@@ -118,15 +118,29 @@ class OVSColumn(object):
 
                     # When an attribute is of type string in schema file,
                     # it may have detailed structure information in its
-                    # companion XML description.
+                    # companion XML description, otherwise the parent
+                    # column's type is assumed.
                     kvs[column.attrib['key']] = {}
                     if ('type' in column.attrib):
                         typeData = json.loads(column.attrib['type'])
-                        base = types.BaseType.from_json(typeData)
-                        type, min, max = self.process_type(base)
-                        kvs[column.attrib['key']]['type'] = type
-                        kvs[column.attrib['key']]['rangeMin'] = min
-                        kvs[column.attrib['key']]['rangeMax'] = max
+                        base_type = types.BaseType.from_json(typeData)
+                        type_, min_, max_ = self.process_type(base_type)
+                        enum = base_type.enum
+                    else:
+                        type_ = self.value_type
+                        min_ = self.valueRangeMin
+                        max_ = self.valueRangeMax
+                        enum = None
+
+                    kvs[column.attrib['key']]['type'] = type_
+                    kvs[column.attrib['key']]['rangeMin'] = min_
+                    kvs[column.attrib['key']]['rangeMax'] = max_
+                    kvs[column.attrib['key']]['enum'] = enum
+                    # Since there's no indication of optional in the XML schema,
+                    # it inherits its column's. Setting this so that eventually
+                    # it can be filled from info in the XML schema
+                    kvs[column.attrib['key']]['is_optional'] = self.is_optional
+
                     key_desc = ET.tostring(column, encoding='utf8',
                                            method='html')
                     kvs[column.attrib['key']]['desc'] = extractColDesc(key_desc)
@@ -140,14 +154,32 @@ class OVSColumn(object):
         rangeMax = None
 
         if type == types.StringType:
-            rangeMin = base.min_length
-            rangeMax = base.max_length
+
+            if base.min_length is None:
+                rangeMin = 0
+            else:
+                rangeMin = base.min_length
+
+            if base.max_length is None:
+                rangeMax = sys.maxint
+            else:
+                rangeMax = base.max_length
+
         elif type == types.UuidType:
             rangeMin = None
             rangeMax = None
+
         elif type != types.BooleanType:
-            rangeMin = base.min
-            rangeMax = base.max
+
+            if base.min is None:
+                rangeMin = 0
+            else:
+                rangeMin = base.min
+
+            if base.max is None:
+                rangeMax = sys.maxint
+            else:
+                rangeMax = base.max
 
         return (type, rangeMin, rangeMax)
 

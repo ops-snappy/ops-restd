@@ -360,6 +360,8 @@ def get_empty_by_basic_type(data):
     # If data is already a type, just use it
     if type_ is type:
         type_ = data
+    elif type_ is ovs_types.AtomicType:
+        type_ = data
 
     if type_ is types.DictType:
         return {}
@@ -367,16 +369,20 @@ def get_empty_by_basic_type(data):
     elif type_ is types.ListType:
         return []
 
-    elif type_ in ovs_types.StringType.python_types:
+    elif type_ in ovs_types.StringType.python_types or \
+            type_ is ovs_types.StringType:
         return ''
 
-    elif type_ in ovs_types.IntegerType.python_types:
+    elif type_ in ovs_types.IntegerType.python_types or \
+            type_ is ovs_types.IntegerType:
         return 0
 
-    elif type_ in ovs_types.RealType.python_types:
+    elif type_ in ovs_types.RealType.python_types or \
+    type_ is ovs_types.RealType:
         return 0.0
 
-    elif type_ is types.BooleanType:
+    elif type_ is types.BooleanType or \
+            type_ is ovs_types.BooleanType:
         return False
 
     elif type_ is types.NoneType:

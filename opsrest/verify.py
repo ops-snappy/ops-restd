@@ -51,8 +51,8 @@ def verify_post_data(data, resource, schema, idl):
         if reference.kv_type:
             keyname = reference.column.keyname
             if keyname not in _data:
-                error_json = to_json_error('Missing keyname attribute to \
-                    reference the new resource from the parent')
+                error_json = to_json_error('Missing keyname attribute to ' +\
+                    'reference the new resource from the parent')
                 return {ERROR: error_json}
             else:
                 verified_data[keyname] = _data[keyname]
@@ -181,6 +181,8 @@ def verify_config_data(data, resource, schema, http_method):
     # Check for all required/valid attributes to be present
     for column_name in config_keys:
 
+        is_optional = config_keys[column_name].is_optional
+
         if column_name in data:
 
             check_type_result = verify_attribute_type(column_name,
@@ -206,15 +208,17 @@ def verify_config_data(data, resource, schema, http_method):
         # PUT ignores non mutable attributes, otherwise they are required
         elif http_method == 'PUT':
             if column_name not in non_mutable_attributes:
-                error_json = to_json_error("Attribute is missing from request",
-                                           None, column_name)
-                return {ERROR: error_json}
+                if not is_optional:
+                    error_json = to_json_error("Attribute is missing from request",
+                                               None, column_name)
+                    return {ERROR: error_json}
 
         # Anything else (POST) requires all attributes
         else:
-            error_json = to_json_error("Attribute is missing from request",
-                                       None, column_name)
-            return {ERROR: error_json}
+            if not is_optional:
+                error_json = to_json_error("Attribute is missing from request",
+                                           None, column_name)
+                return {ERROR: error_json}
 
     return verified_config_data
 
@@ -242,9 +246,17 @@ def verify_attribute_type(column_name, column_data, request_data):
             data_type = type(data)
 
     if data_type in valid_types:
-        if not verify_valid_attribute_values(data, column_data):
-            error_json = to_json_error("Attribute value is invalid",
-                                       None, column_name)
+
+        # Check each value's type for elements in lists and dictionaries
+        if column_data.n_max > 1:
+            error_json = verify_container_values_type(column_name, column_data,
+                                                      request_data)
+
+        # Now check for invalid values
+        if not error_json:
+            error_json = verify_valid_attribute_values(data, column_data,
+                                                       column_name)
+
     else:
         error_json = to_json_error("Attribute type mismatch",
                                    None, column_name)
@@ -255,22 +267,151 @@ def verify_attribute_type(column_name, column_data, request_data):
     return result
 
 
-def verify_valid_attribute_values(request_data, column_data):
+def verify_container_values_type(column_name, column_data, request_data):
+
+    error_json = {}
+
+    if column_data.is_list:
+        for value in request_data:
+            if type(value) not in column_data.type.python_types:
+                error_json = to_json_error("Value type mismatch in list",
+                                           None, column_name)
+                break
+
+    elif column_data.is_dict:
+        for key, value in request_data.iteritems():
+
+            value_type = type(value)
+
+            # Values in dict must match JSON schema
+            if value_type in column_data.value_type.python_types:
+
+                # If they match, they might be strings that represent other
+                # types, so each value must be checked if kvs type exists
+
+                if value_type in ovs_types.StringType.python_types \
+                        and column_data.kvs:
+
+                    kvs_value_type = column_data.kvs[key]['type']
+                    converted_value = \
+                        convert_string_to_value_by_type(value, kvs_value_type)
+
+                    if converted_value is None:
+                        error_json = \
+                            to_json_error("Value type mismatch for key" + \
+                                          " '%s'" % key,
+                                          None, column_name)
+                        break
+            else:
+                error_json = \
+                    to_json_error("Value type mismatch for key '%s'" % key,
+                                  None, column_name)
+                break
+
+    return error_json
+
+def convert_string_to_value_by_type(value, type_):
+
+    converted_value = value
+
+    if type_ == ovs_types.IntegerType:
+        try:
+            converted_value = int(value)
+        except ValueError, e:
+            converted_value = None
+    elif type_ == ovs_types.RealType:
+        try:
+            converted_value = float(value)
+        except ValueError, e:
+            converted_value = None
+    elif type_ == ovs_types.BooleanType:
+        if not (value == 'true' or value == 'false'):
+            converted_value = None
+
+    return converted_value
+
+def verify_valid_attribute_values(request_data, column_data, column_name):
     valid = True
+    error_json = {}
+    error_details = ""
+    error_message = "Attribute value is invalid"
 
     # If data has an enum defined, check for a valid value
     if column_data.enum:
 
         enum = set(column_data.enum.as_list())
+        valid = is_value_in_enum(request_data, enum)
 
-        # Check if request's list contains values not valid
-        if type(request_data) is list:
-            if set(request_data).difference(enum):
-                valid = False
+    # If data has key-values dict defined, check for missing/invalid keys
+    # It's assumed type is validated, meaning kvs is defined for dicts only
+    elif column_data.kvs:
 
-        # Check if single request value is valid
-        elif request_data not in enum:
+        valid_keys = set(column_data.kvs.keys())
+        data_keys = set(request_data.keys())
+
+        unknown_keys = data_keys.difference(valid_keys)
+        missing_keys = valid_keys.difference(data_keys)
+
+        if unknown_keys:
+            error_details += "Unknown keys: '%s'. " % list(unknown_keys)
+
+        if missing_keys:
+            true_missing_keys = []
+
+            for key in missing_keys:
+                if not column_data.kvs[key]["is_optional"]:
+                    true_missing_keys.append(key)
+
+            if true_missing_keys:
+                missing_keys = true_missing_keys
+                error_details += "Missing keys: '%s'. " % list(missing_keys)
+            else:
+                missing_keys = []
+
+        if unknown_keys or missing_keys:
             valid = False
+
+        if valid:
+            # Now that keys have been checked,
+            # verify their values are valid
+            for key, value in column_data.kvs.iteritems():
+                if key in request_data and value['enum']:
+                    enum = set(value['enum'].as_list())
+
+                    data_value = request_data[key]
+
+                    if type(data_value) \
+                            in ovs_types.StringType.python_types:
+                        data_value = \
+                            convert_string_to_value_by_type(data_value,
+                                                            value['type'])
+
+                    if not is_value_in_enum(data_value, enum):
+                        valid = False
+                        error_details += "Invalid value for key '%s'. " % key
+                        break
+
+    if not valid:
+        if error_details:
+            error_message += ": " + error_details
+        error_json = to_json_error(error_message,
+                                   None, column_name)
+
+    return error_json
+
+
+def is_value_in_enum(value, enum):
+
+    valid = True
+
+    # Check if request's list contains values not valid
+    if type(value) is list:
+        if set(value).difference(enum):
+            valid = False
+
+    # Check if single request value is valid
+    elif value not in enum:
+        valid = False
 
     return valid
 
@@ -298,8 +439,8 @@ def verify_attribute_range(column_name, column_data, request_data):
 
         request_len = len(request_list)
         if request_len < column_data.n_min or request_len > column_data.n_max:
-            error_json = to_json_error("List's number of elements is \
-                                       out of range", None, column_name)
+            error_json = to_json_error("List's number of elements is " +\
+                                       "out of range", None, column_name)
         else:
             for element in request_list:
                 # We usually check the value itself
@@ -310,8 +451,8 @@ def verify_attribute_range(column_name, column_data, request_data):
 
                 if (value < column_data.rangeMin or
                         value > column_data.rangeMax):
-                    error_json = to_json_error("List element '%s' is \
-                                               out of range" % element,
+                    error_json = to_json_error("List element '%s'" % element +\
+                                               " is out of range",
                                                None, column_name)
                     break
 
@@ -319,10 +460,13 @@ def verify_attribute_range(column_name, column_data, request_data):
     elif column_data.is_dict:
         request_len = len(request_data)
         if request_len < column_data.n_min or request_len > column_data.n_max:
-            error_json = to_json_error("Dictionary's number of elements\
-                                       is out of range", None, column_name)
+            error_json = to_json_error("Dictionary's number of elements " +\
+                                       "is out of range", None, column_name)
         else:
             for key, data in request_data.iteritems():
+
+                # First check the key
+                # TODO is this necessary? Valid keys are verified prior to this
 
                 value = key
                 if type(key) in ovs_types.StringType.python_types:
@@ -330,19 +474,48 @@ def verify_attribute_range(column_name, column_data, request_data):
 
                 if (value < column_data.rangeMin or
                         value > column_data.rangeMax):
-                    error_json = to_json_error("Dictionary key '%s' is \
-                                               out of range" % key,
+                    error_json = to_json_error("Dictionary key '%s'" % key + \
+                                               " is out of range",
                                                None, column_name)
                     break
 
-                value = data
-                if type(data) in ovs_types.StringType.python_types:
-                    value = len(data)
+                # Now check ranges for values in dictionary
 
-                if (value < column_data.valueRangeMin or
-                        value > column_data.valueRangeMax):
-                    error_json = to_json_error("Dictionary value '%s' \
-                                               is out of range" % data,
+                # Skip range check for bools
+                if type(data) is bool:
+                    continue
+
+                value = data
+
+                min_ = column_data.valueRangeMin
+                max_ = column_data.valueRangeMax
+
+                # If kvs is defined, ranges shouldbe taken from it
+                if column_data.kvs:
+                    # Skip range check for booleans
+                    if column_data.kvs[key]['type'] == ovs_types.BooleanType:
+                        continue
+                    else:
+                        min_ = column_data.kvs[key]['rangeMin']
+                        max_ = column_data.kvs[key]['rangeMax']
+
+                    # If value is a string, it might represent values of other
+                    # types and therefore it needs to be converted
+                    if type(value) in ovs_types.StringType.python_types:
+                        value = \
+                            convert_string_to_value_by_type(value,
+                                                column_data.kvs[key]['type'])
+
+                # If it was a string all along or if after convertion it's
+                # still a string, its length range is checked instead
+                if type(value) in ovs_types.StringType.python_types:
+                    value = len(value)
+
+                if (value < min_ or
+                        value > max_):
+                    error_json = to_json_error("Dictionary value '%s'" % data \
+                                               + " is out of range for key " \
+                                               + "'%s'" % key,
                                                None, column_name)
                     break
 
