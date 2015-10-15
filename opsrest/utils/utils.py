@@ -26,109 +26,109 @@ from opsrest.constants import *
 from tornado.log import app_log
 
 
-# get a row from a resource
-def get_row(resource, idl=None):
+def get_row_from_resource(resource, idl):
+    """
+    using instance of Resource find the corresponding
+    ovs.db.idl.Row instance(s)
 
-    if isinstance(resource, ovs.db.idl.Row):
-        return resource
+    returns an instance of ovs.db.idl.Row or a list of
+    ovs.db.idl.Row instances
 
-    elif isinstance(resource, Resource):
-        if resource.table is None or resource.row is None or idl is None:
-            return None
+    Parameters:
+        resource - opsrest.resource.Resource instance
+        idl - ovs.db.idl.Idl instance
+    """
 
-        else:
+    if not isinstance(resource, Resource):
+        return None
+
+    elif resource.table is None or resource.row is None or idl is None:
+        return None
+    else:
         # resource.row can be a single UUID object or a list of UUID objects
-            rows = resource.row
-            if type(rows) is not types.ListType:
-                return idl.tables[resource.table].rows[resource.row]
-            else:
-                rowlist = []
-                for row in rows:
-                    rowlist.append(idl.tables[resource.table].rows[row])
-                return rowlist
-
-    return None
-
-
-# get column items from a row or resource
-def get_column(resource, column=None, idl=None):
-
-    # if resource is a Row object
-    if isinstance(resource, ovs.db.idl.Row):
-        if column is None:
-            return None
-
-        if type(str(column)) is types.StringType:
-            return resource.__getattr__(column)
-        elif type(column) is types.ListType:
-            columns = []
-            for item in column:
-                columns.append(resource.__getattr__(item))
-            return columns
+        rows = resource.row
+        if type(rows) is not types.ListType:
+            return idl.tables[resource.table].rows[resource.row]
         else:
-            return None
+            rowlist = []
+            for row in rows:
+                rowlist.append(idl.tables[resource.table].rows[row])
+            return rowlist
 
-    # if resource is a Resource object
-    if isinstance(resource, Resource):
-        if (resource.table is None or resource.row is None or
-                resource.column is None or idl is None):
-            return None
-
-        row = idl.tables[resource.table].rows[resource.row]
-
-        if type(resource.column) is types.StringType:
-            return row.__getattr__(resource.column)
-        elif type(resource.column) is types.ListType:
-            columns = []
-            for item in resource.column:
-                columns.append(row.__getattr__(item))
-            return columns
-        else:
-            return None
-
-    return None
-
-
-# returns ovs.db.idl.Row object
-def check_reference(reference, idl=None):
-
-    if isinstance(reference, Resource):
-        if reference.table is None or reference.row is None or idl is None:
-            return None
-        else:
-            ref = get_row(reference, idl)
-            return ref
-
-    elif isinstance(reference, ovs.db.idl.Row):
-        return reference
-
-    return None
-
-
-# returns a tuple of consisting of (ovs.db.idl.Row, column)
-def check_resource(resource, column=None, idl=None):
-
-    if isinstance(resource, Resource):
-        if (resource.table is None or resource.row is None or
-                resource.column is None):  # or idl is None:
-            return None
-        else:
-            return (get_row(resource, idl), resource.column)
-
-    elif isinstance(resource, ovs.db.idl.Row):
-        if column is None:
-            return False
-        else:
-            return (resource, column)
-
-    return None
-
-
-# add a Row reference that is of type {key:reference}
-def add_kv_reference(key, reference, resource, idl):
+def get_column_data_from_resource(resource, idl):
+    """
+    return column data
+    Parameters:
+        resource - opsrest.resource.Resource instance
+        idl - ovs.db.idl.Idl instance
+    """
+    if (resource.table is None or resource.row is None or
+            resource.column is None or idl is None):
+        return None
 
     row = idl.tables[resource.table].rows[resource.row]
-    kv_references = get_column(row, resource.column)
+
+    if type(resource.column) is types.StringType:
+        return row.__getattr__(resource.column)
+    elif type(resource.column) is types.ListType:
+        columns = []
+        for item in resource.column:
+            columns.append(row.__getattr__(item))
+        return columns
+    else:
+        return None
+
+
+def get_column_data_from_row(row, column):
+    """
+    return column data from row
+    Parameters:
+        row - ovs.db.idl.Row instance
+        column - column name
+    """
+    if type(str(column)) is types.StringType:
+        return row.__getattr__(column)
+    elif type(column) is types.ListType:
+        columns = []
+        for item in column:
+            columns.append(row.__getattr__(item))
+        return columns
+    else:
+        return None
+
+
+def check_resource(resource, idl):
+    """
+    using Resource and Idl instance return a tuple
+    containing the corresponding ovs.db.idl.Row
+    and column name
+
+    Parameters:
+        resource - opsrest.resource.Resource instance
+        idl - ovs.db.idl.Idl instance
+    """
+
+    if not isinstance(resource, Resource):
+        return None
+    elif (resource.table is None or resource.row is None or
+            resource.column is None):
+        return None
+    else:
+        return (get_row_from_resource(resource, idl), resource.column)
+
+
+def add_kv_reference(key, reference, resource, idl):
+    """
+    Adds a KV type Row reference to a column entry in the DB
+    Parameters:
+        key - a unique key identifier
+        reference - Row reference to be added
+        resource - opsrest.resource.Resource instance
+                   to which (key:reference) is added
+        idl - ovs.db.idl.Idl instance
+    """
+    row = idl.tables[resource.table].rows[resource.row]
+    kv_references = get_column_data_from_row(row, resource.column)
 
     updated_kv_references = {}
     for k, v in kv_references.iteritems():
@@ -138,27 +138,29 @@ def add_kv_reference(key, reference, resource, idl):
     row.__setattr__(resource.column, updated_kv_references)
     return True
 
-# add a Row reference
 
+def add_reference(reference, resource, idl):
+    """
+    Adds a Row reference to a column entry in the DB
+    Parameters:
+        reference - ovs.db.idl.Row instance
+        resource - opsrest.resource.Resource instance
+                   that corresponds to an entry in DB
+        idl - ovs.db.idl.Idl instance
+    """
 
-def add_reference(reference, resource, column=None, idl=None):
-
-    ref = check_reference(reference, idl)
-    if ref is None:
-        return False
-
-    (row, column) = check_resource(resource, column, idl)
+    (row, column) = check_resource(resource, idl)
     if row is None or column is None:
         return False
 
-    reflist = get_column(row, column)
+    reflist = get_column_data_from_row(row, column)
 
     # a list of Row elements
     if len(reflist) == 0 or isinstance(reflist[0], ovs.db.idl.Row):
         updated_list = []
         for item in reflist:
             updated_list.append(item)
-        updated_list.append(ref)
+        updated_list.append(reference)
         row.__setattr__(column, updated_list)
         return True
 
@@ -168,23 +170,30 @@ def add_reference(reference, resource, column=None, idl=None):
             updated_list = []
             for item in _reflist:
                 updated_list.append(item)
-            updated_list.append(ref)
+            updated_list.append(reference)
             row.__setattr__(column, updated_list)
         return True
 
     return False
 
 
-# delete a Row reference from a Resource
 def delete_reference(resource, parent, schema, idl):
-
+    """
+    Delete a referenced resource from another
+    Parameters:
+        resource - Resource instance to be deleted
+        parent - Resource instance from which resource
+                 is deleted
+        schema - ovsdb schema object
+        idl - ovs.db.idl.Idl instance
+    """
     # kv type reference
     ref = None
     if schema.ovs_tables[parent.table].references[parent.column].kv_type:
         app_log.debug('Deleting KV type reference')
         key = resource.index[0]
         parent_row = idl.tables[parent.table].rows[parent.row]
-        kv_references = get_column(parent_row, parent.column)
+        kv_references = get_column_data_from_row(parent_row, parent.column)
         updated_kv_references = {}
         for k, v in kv_references.iteritems():
             if str(k) == key:
@@ -196,9 +205,9 @@ def delete_reference(resource, parent, schema, idl):
     else:
         # normal reference
         app_log.debug('Deleting normal reference')
-        ref = get_row(resource, idl)
-        parent_row = get_row(parent, idl)
-        reflist = get_column(parent_row, parent.column, idl)
+        ref = get_row_from_resource(resource, idl)
+        parent_row = get_row_from_resource(parent, idl)
+        reflist = get_column_data_from_row(parent_row, parent.column)
 
         if reflist is None:
             app_log.debug('reference list is empty')
@@ -215,7 +224,15 @@ def delete_reference(resource, parent, schema, idl):
 
 
 def delete_all_references(resource, schema, idl):
-    row = get_row(resource, idl)
+    """
+    Delete all occurrences of reference for resource
+    Parameters:
+        resource - resource whose references are to be
+                   deleted from the entire DB
+        schema - ovsdb schema object
+        idl = ovs.db.idl.Idl instance
+    """
+    row = get_row_from_resource(resource, idl)
     #We get the tables that reference the row to delete table
     tables_reference = schema.references_table_map[resource.table]
     #Get the table name and column list we is referenced
@@ -227,7 +244,7 @@ def delete_all_references(resource, schema, idl):
             #Iterate over each reference column and check if has the reference
             for column_name in columns_list:
                 #get the referenced values
-                reflist = get_column(row_ref, column_name, idl)
+                reflist = get_column_data_from_row(row_ref, column_name)
                 if reflist is not None:
                     #delete the reference on that row and column
                     delete_row_reference(reflist, row, row_ref, column_name)
@@ -252,10 +269,12 @@ def setup_new_row(resource, data, schema, txn, idl):
     row = txn.insert(idl.tables[resource.table])
 
     # add config items
-    set_config_fields(resource, row, data, schema)
+    config_keys = schema.ovs_tables[resource.table].config
+    set_config_fields(row, data, config_keys)
 
-    # add reference items
-    set_reference_items(resource, row, data, schema, idl)
+    # add reference iitems
+    reference_keys = schema.ovs_tables[resource.table].references.keys()
+    set_reference_items(row, data, reference_keys)
 
     return row
 
@@ -270,41 +289,43 @@ def update_row(resource, data, schema, txn, idl):
         return None
 
     #get the row that will be modified
-    row = get_row(resource, idl)
+    row = get_row_from_resource(resource, idl)
 
     #Update config items
-    set_config_fields(resource, row, data, schema)
+    config_keys = schema.ovs_tables[resource.table].config
+    set_config_fields(row, data, config_keys)
 
     # add or modify reference items (Overwrite references)
-    set_reference_items(resource, row, data, schema, idl)
+    reference_keys = schema.ovs_tables[resource.table].references.keys()
+    set_reference_items(row, data, reference_keys)
 
     return row
 
 
 # set each config data on each column
-def set_config_fields(resource, row, data, schema):
-    config_keys = schema.ovs_tables[resource.table].config
+def set_config_fields(row, data, config_keys):
     for key in config_keys:
         if key in data:
             row.__setattr__(key, data[key])
 
 
-# set the reference items in the row
-def set_reference_items(resource, row, data, schema, idl):
-    # set new reference items
-    reference_keys = schema.ovs_tables[resource.table].references.keys()
+def set_reference_items(row, data, reference_keys):
+    """
+    set reference/list of references as a column item
+    Parameters:
+        row - ovs.db.idl.Row object to which references are added
+        data - verified data
+        reference_keys - reference column names
+    """
     for key in reference_keys:
         if key in data:
             app_log.debug("Adding Reference, the key is %s" % key)
-            if isinstance(data[key], Resource):
-                row.__setattr__(key, get_row(data[key], idl))
+            if isinstance(data[key], ovs.db.idl.Row):
+                row.__setattr__(key, data[key])
             elif type(data[key]) is types.ListType:
                 reflist = []
                 for item in data[key]:
-                    row_ref = get_row(item, idl)
-                    # item is of type Resource
-                    reflist.append(row_ref)
-                #Set data on the column
+                    reflist.append(item)
                 row.__setattr__(key, reflist)
 
 
@@ -469,15 +490,13 @@ def list_to_json(data, value_type=None):
 
     return data_json
 
-'''
-This subroutine fetches the row reference using index_values.
-index_values is a list which contains the combination indices
-that are used to identify a resource.
-'''
-
 
 def index_to_row(index_values, table_schema, dbtable):
-
+    """
+    This subroutine fetches the row reference using index_values.
+    index_values is a list which contains the combination indices
+    that are used to identify a resource.
+    """
     indexes = table_schema.indexes
     if len(index_values) != len(indexes):
         return None
@@ -499,16 +518,14 @@ def index_to_row(index_values, table_schema, dbtable):
 
     return None
 
-'''
-This subroutine fetches the row reference using the index as key.
-Current feature uses a single index and not a combination of multiple
-indices. This is used for the new key/uuid type forward references introduced
-for BGP
-'''
-
 
 def kv_index_to_row(index_values, parent, idl):
-
+    """
+    This subroutine fetches the row reference using the index as key.
+    Current feature uses a single index and not a combination of multiple
+    indices. This is used for the new key/uuid type forward references introduced
+    for BGP
+    """
     index = index_values[0]
     column = parent.column
     row = idl.tables[parent.table].rows[parent.row]
@@ -572,13 +589,12 @@ def get_reference_parent_uri(table_name, row, schema, idl):
     app_log.debug("Reference uri %s" % uri)
     return uri
 
-'''
-Get the parent trace to one row
-Returns (table, index) list
-'''
-
 
 def get_parent_trace(table_name, row, schema, idl):
+    """
+    Get the parent trace to one row
+    Returns (table, index) list
+    """
     table = schema.ovs_tables[table_name]
     path = []
     while table.parent is not None and row is not None:
@@ -591,39 +607,36 @@ def get_parent_trace(table_name, row, schema, idl):
         table = parent_table
     return path
 
-'''
-Get column name where the child table is being referenced
-Returns column name
-'''
-
 
 def get_parent_column_ref(table_name, table_ref, schema):
+    """
+    Get column name where the child table is being referenced
+    Returns column name
+    """
     table = schema.ovs_tables[table_name]
     for column_name, reference in table.references.iteritems():
         if reference.ref_table == table_ref and reference.relation == 'child':
             return column_name
 
-'''
-Get the row where the item is being referenced
-Returns idl.Row object
-'''
-
 
 def get_parent_row(table_name, row, column, schema, idl):
+    """
+    Get the row where the item is being referenced
+    Returns idl.Row object
+    """
     table = schema.ovs_tables[table_name]
     for uuid, row_ref in idl.tables[table_name].rows.iteritems():
-        reflist = get_column(row_ref, column, idl)
+        reflist = get_column_data_from_row(row_ref, column)
         for item in reflist:
             if item.uuid == row.uuid:
                 return row_ref
 
-'''
-Get the row index
-Return the row index
-'''
-
 
 def get_table_key(row, table_name, schema):
+    """
+    Get the row index
+    Return the row index
+    """
     table = schema.ovs_tables[table_name]
     indexes = table.indexes
     index_list = []

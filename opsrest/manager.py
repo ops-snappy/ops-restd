@@ -124,22 +124,3 @@ class OvsdbConnectionManager:
 
     def monitor_transaction(self, txn):
         self.transactions.add_txn(txn)
-
-    # Maintain a JSON cache of IDL
-    def _update_cache(self):
-        table_names = self.idl.tables.keys()
-        tables_dict = {}
-
-        # iterate over each table and create a dictionary
-        for name in table_names:
-            column_keys = self.idl.tables[name].columns.keys()
-            # iterate over every row in a table
-            row_dict = {}
-            for row in self.idl.tables[name].rows.itervalues():
-                row_uuid = row.uuid
-                row_data = {}
-                for k, v in zip(column_keys, row._data.itervalues()):
-                    row_data[k] = v.to_string()
-                row_dict[row_uuid] = row_data
-            tables_dict[name] = row_dict
-        self.db_cache = tables_dict

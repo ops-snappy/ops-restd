@@ -24,6 +24,7 @@ def delete_resource(resource, schema, txn, idl):
     if resource.next is None:
         return None
 
+    # get the last resource pair
     while True:
         if resource.next.next is None:
             break
@@ -43,7 +44,7 @@ def delete_resource(resource, schema, txn, idl):
         utils.delete_reference(resource.next, resource, None, idl)
 
     elif resource.relation == OVSDB_SCHEMA_BACK_REFERENCE:
-        row = utils.get_row(resource.next, idl)
+        row = utils.get_row_from_resource(resource.next, idl)
         row.delete()
 
     elif resource.relation == OVSDB_SCHEMA_TOP_LEVEL:

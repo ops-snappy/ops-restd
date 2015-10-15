@@ -27,12 +27,14 @@ def get_resource(idl, resource, schema, uri=None, selector=None):
     if resource is None:
         return None
 
-    # GET System table
+    # GET on System table
     if resource.next is None:
         return get_row_json(resource.row, resource.table, schema,
                             idl, uri, selector)
 
-    # Other tables
+    # All other cases
+
+    # get the last resource pair
     while True:
         if resource.next.next is None:
             break
@@ -46,7 +48,7 @@ def get_resource_from_db(resource, schema, idl, uri=None, selector=None):
 
     if resource.relation is OVSDB_SCHEMA_TOP_LEVEL:
 
-        uri = get_uri(resource, schema, uri)
+        uri = _get_uri(resource, schema, uri)
         if resource.next.row is None:
             return get_table_json(resource.next.table, schema, idl, uri)
         else:
@@ -63,7 +65,7 @@ def get_resource_from_db(resource, schema, idl, uri=None, selector=None):
                                 schema, idl, uri, selector)
 
     elif resource.relation is OVSDB_SCHEMA_REFERENCE:
-        uri = get_uri(resource, schema, uri)
+        uri = _get_uri(resource, schema, uri)
         return get_column_json(resource.column, resource.row, resource.table,
                                schema, idl, uri)
 
@@ -135,7 +137,7 @@ def get_table_json(table, schema, idl, uri):
 
     for row in db_table.rows.itervalues():
         tmp = utils.get_table_key(row, table, schema)
-        _uri = create_uri(uri, tmp)
+        _uri = _create_uri(uri, tmp)
         uri_list.append(_uri)
 
     return uri_list
@@ -182,7 +184,7 @@ def get_column_json(column, row, table, schema, idl, uri):
                                                       schema, idl)
                 uri += column_table.plural_name
             tmp = utils.get_table_key(row, column_table.name, schema)
-            _uri = create_uri(uri, tmp)
+            _uri = _create_uri(uri, tmp)
             uri_list.append(_uri)
 
     return uri_list
@@ -208,14 +210,18 @@ def get_back_references_json(parent_row, parent_table, table,
         ref = row.__getattr__(_refCol)
         if ref.uuid == parent_row:
             tmp = utils.get_table_key(row, table, schema)
-            _uri = create_uri(uri, tmp)
+            _uri = _create_uri(uri, tmp)
             uri_list.append(_uri)
 
     return uri_list
 
+def _get_uri(resource, schema, uri=None):
 
-def get_uri(resource, schema, uri=None):
-
+    '''
+    returns the right URI based on the category of the
+    table.
+    e.g. top-level table such as port have /system/ports as URI
+    '''
     if resource.relation is OVSDB_SCHEMA_TOP_LEVEL:
         if resource.next.row is None:
             uri = OVSDB_BASE_URI + \
@@ -228,7 +234,7 @@ def get_uri(resource, schema, uri=None):
     return uri
 
 
-def create_uri(uri, paths):
+def _create_uri(uri, paths):
     '''
     uri.rstrip('/'): Removes trailing '/' characters,
     in order to not repeat it when joining it with
