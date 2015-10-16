@@ -30,12 +30,16 @@ import userauth
 from opsrest.settings import settings
 
 
-class LoginHandler(web.RequestHandler):
+class BaseHandler(web.RequestHandler):
 
     # pass the application reference to the handlers
     def initialize(self, ref_object):
         self.ref_object = ref_object
+        self.schema = self.ref_object.restschema
+        self.idl = self.ref_object.manager.idl
+        self.request.path = re.sub("/{2,}", "/", self.request.path)
 
+    def set_default_headers(self):
         # CORS
         allow_origin = self.request.protocol + "://"
         # removing port if present
@@ -49,6 +53,13 @@ class LoginHandler(web.RequestHandler):
         if HTTP_HEADER_ORIGIN in self.request.headers:
             self.set_header("Access-Control-Allow-Origin",
                             self.request.headers[HTTP_HEADER_ORIGIN])
+
+
+class LoginHandler(BaseHandler):
+
+    # pass the application reference to the handlers
+    def initialize(self, ref_object):
+        pass
 
     @gen.coroutine
     def get(self):
@@ -73,30 +84,6 @@ class LoginHandler(web.RequestHandler):
             self.set_status(httplib.OK)
 
         self.finish()
-
-
-class BaseHandler(web.RequestHandler):
-
-    # pass the application reference to the handlers
-    def initialize(self, ref_object):
-        self.ref_object = ref_object
-        self.schema = self.ref_object.restschema
-        self.idl = self.ref_object.manager.idl
-        self.request.path = re.sub("/{2,}", "/", self.request.path)
-
-        # CORS
-        allow_origin = self.request.protocol + "://"
-        # removing port if present
-        allow_origin += self.request.host.split(":")[0]
-        self.set_header("Cache-control", "no-cache")
-        self.set_header("Access-Control-Allow-Origin", allow_origin)
-        self.set_header("Access-Control-Allow-Credentials", "true")
-        self.set_header("Access-Control-Expose-Headers", "Date")
-
-        # TODO - remove next line before release - needed for testing
-        if HTTP_HEADER_ORIGIN in self.request.headers:
-            self.set_header("Access-Control-Allow-Origin",
-                            self.request.headers[HTTP_HEADER_ORIGIN])
 
 
 class AutoHandler(BaseHandler):
