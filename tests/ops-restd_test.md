@@ -4,11 +4,11 @@
 
 ## Contents
 
-- [REST Full Declarative configuration](#rest-full-declarative-configuration)
+- [REST full declarative configuration](#rest-full-declarative-configuration)
 
-## REST Full Declarative configuration
+## REST full declarative configuration
 ### Objective
-The objective of the test case is to verify if the user configuration was set in the OVSDB.
+The objective of the test case is to verify if the user configuration is set in the OVSDB.
 
 ### Requirements
 The requirements for this test case are:
@@ -17,7 +17,7 @@ The requirements for this test case are:
 - Ubuntu Workstation
 
 ### Setup
-#### Topology Diagram
+#### Topology diagram
 
 ```ditaa
     +-------------------+                           +--------------------+
@@ -29,16 +29,16 @@ The requirements for this test case are:
 ```
 
 ### Description
-This test case verifies if the configuration was set correctly by comparing user configuration (input) with the output of ovsdb read.
+This test case verifies if the configuration was set correctly by comparing user configuration (input) with the output of OVSDB read.
 
- 1. Connect the OpenSwitch to Ubuntu workstation as shown in the topology diagram.
+ 1. Connect OpenSwitch to the Ubuntu workstation as shown in the topology diagram.
  2. Configure the IPV4 address on the switch management interfaces.
  3. Configure the IPV4 address on the Ubuntu workstation.
  4. This script validates if the input configuration is updated correctly in the OVSDB by comparing output configuration (read from OVSDB after write) with user input configuration.
 
-### Test Result Criteria
-#### Test Pass Criteria
-The test case is pass if the input configuration matches the output configuration (read from OVSDB after write).
+### Test result criteria
+#### Test pass criteria
+The test case passes if the input configuration matches the output configuration (read from OVSDB after write).
 
-#### Test Fail Criteria
+#### Test fail criteria
 The test case is failing if the input configuration does not match the output configuration (read from OVSDB after write).
