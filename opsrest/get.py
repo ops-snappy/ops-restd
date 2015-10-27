@@ -241,10 +241,7 @@ def _create_uri(uri, paths):
     other path.
     Example /system/ports/ -> /system/ports
     '''
-    result_path = uri.rstrip('/')
-    if len(paths) > 1:
-        result_path += "/".join(paths)
-    else:
-        result_path += "/" + paths[0]
-
-    return result_path
+    if not uri.endswith('/'):
+        uri += '/'
+    uri += '/'.join(paths)
+    return uri

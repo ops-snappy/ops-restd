@@ -172,7 +172,7 @@ def parse(path, resource, schema, idl, http_method):
 
     # we now have a complete new_resource
     # continue processing the path further
-    path = path[1:]
+    path = path[len(index_list):]
     parse(path, new_resource, schema, idl, http_method)
 
 '''
