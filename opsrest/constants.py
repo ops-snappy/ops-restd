@@ -33,6 +33,11 @@ ERROR = Transaction.ERROR
 REST_VERSION_PATH = '/rest/v1/'
 REST_QUERY_PARAM_SELECTOR = 'selector'
 
+REST_QUERY_PARAM_SORTING = 'sort'
+REST_QUERY_PARAM_OFFSET = 'offset'
+REST_QUERY_PARAM_LIMIT = 'limit'
+
+
 # Ovsdb schema constants
 OVSDB_SCHEMA_SYSTEM_TABLE = 'System'
 OVSDB_SCHEMA_SYSTEM_URI = 'system'

@@ -135,7 +135,7 @@ def parse(path, resource, schema, idl, http_method):
         table_indices = schema.ovs_tables[new_resource.table].indexes
 
         # len(path) must at least be equal to len(table_indices)
-        #to uniquely identify a resource
+        # to uniquely identify a resource
         if len(path) < len(table_indices):
             return None
 

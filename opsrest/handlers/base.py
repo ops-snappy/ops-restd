@@ -144,9 +144,11 @@ class AutoHandler(BaseHandler):
 
         selector = self.get_query_argument(REST_QUERY_PARAM_SELECTOR, None)
 
+        app_log.debug("Query arguments %s" % self.request.query_arguments)
+
         result = get.get_resource(self.idl, self.resource_path,
                                   self.schema, self.request.path,
-                                  selector)
+                                  selector, self.request.query_arguments)
 
         if result is None:
             self.set_status(httplib.NOT_FOUND)
@@ -169,7 +171,7 @@ class AutoHandler(BaseHandler):
                 self.txn = self.ref_object.manager.get_new_transaction()
 
                 # post_resource performs data verficiation, prepares and
-                #commits the ovsdb transaction
+                # commits the ovsdb transaction
                 result = post.post_resource(post_data, self.resource_path,
                                             self.schema, self.txn,
                                             self.idl)
@@ -177,7 +179,7 @@ class AutoHandler(BaseHandler):
                 if result == INCOMPLETE:
                     self.ref_object.manager.monitor_transaction(self.txn)
                     # on 'incomplete' state we wait until the transaction
-                    #completes with either success or failure
+                    # completes with either success or failure
                     yield self.txn.event.wait()
                     result = self.txn.status
 
@@ -215,7 +217,7 @@ class AutoHandler(BaseHandler):
                 self.txn = self.ref_object.manager.get_new_transaction()
 
                 # put_resource performs data verficiation, prepares and
-                #commits the ovsdb transaction
+                # commits the ovsdb transaction
                 result = put.put_resource(update_data, self.resource_path,
                                           self.schema, self.txn, self.idl)
 
@@ -260,7 +262,7 @@ class AutoHandler(BaseHandler):
             if result == INCOMPLETE:
                 self.ref_object.manager.monitor_transaction(self.txn)
                 # on 'incomplete' state we wait until the transaction
-                #completes with either success or failure
+                # completes with either success or failure
                 yield self.txn.event.wait()
                 result = self.txn.status
 

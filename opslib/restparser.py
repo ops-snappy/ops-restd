@@ -221,6 +221,7 @@ class OVSReference(object):
         self.n_max = type_.n_max
         self.n_min = type_.n_min
 
+        self.type = base_type.type
 
 
 class OVSTable(object):
