@@ -30,7 +30,7 @@ def split_path(path):
     return path
 
 
-def parse_url_path(path, schema, idl, http_method):
+def parse_url_path(path, schema, idl, http_method='GET'):
 
     if not path.startswith(REST_VERSION_PATH):
         return None

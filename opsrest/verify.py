@@ -51,8 +51,9 @@ def verify_post_data(data, resource, schema, idl):
         if reference.kv_type:
             keyname = reference.column.keyname
             if keyname not in _data:
-                error_json = to_json_error('Missing keyname attribute to ' +\
-                    'reference the new resource from the parent')
+                error_json = to_json_error("Missing keyname attribute to" +
+                                           " reference the new resource" +
+                                           " from the parent")
                 return {ERROR: error_json}
             else:
                 verified_data[keyname] = _data[keyname]
@@ -545,37 +546,66 @@ def verify_attribute_range(column_name, column_data, request_data):
 
 
 def verify_forward_reference(data, resource, schema, idl):
+    """
+    converts the forward reference URIs to corresponding Row references
+    Parameters:
+        data - post/put data
+        resource - Resource object being accessed
+        schema = restparser schema object
+        idl - ovs.db.idl.Idl object
+    """
     reference_keys = schema.ovs_tables[resource.table].references
     verified_references = {}
 
+    # check for invalid keys
     for key in reference_keys:
-        if reference_keys[key].relation == 'parent':
-            continue
-        else:
-            ref_table = reference_keys[key].ref_table
-
         if key in data:
-            index_list = data[key]
+            category = reference_keys[key].category
+            relation = reference_keys[key].relation
 
-            # Check range of references
-            index_len = len(index_list)
-            reference_min = reference_keys[key].n_min
-            reference_max = reference_keys[key].n_max
-            if index_len < reference_min or index_len > reference_max:
-                error_json = to_json_error("Reference list out of range",
-                                           None, key)
+            if category != OVSDB_SCHEMA_CONFIG or \
+                    relation == 'parent':
+                    error_json = to_json_error("Invalid reference %s" \
+                            % key, None, key)
+                    return {ERROR: error_json}
+
+    for key in reference_keys:
+        if key in data:
+            # this is either a URI or list of URIs
+            _refdata = data[key]
+            notList = False
+            if type(_refdata) is not types.ListType:
+                notList = True
+                _refdata = [_refdata]
+
+            # check range
+            _min = reference_keys[key].n_min
+            _max = reference_keys[key].n_max
+            if len(_refdata) < _min or len(_refdata) > _max:
+                error_json = to_json_error("Reference list out of " +
+                                           "range", None, key)
                 return {ERROR: error_json}
 
-            reference_list = []
-            for index in index_list:
-                index_values = index.split('/')
-                row = utils.index_to_row(index_values[-1:],
-                                         schema.ovs_tables[ref_table],
-                                         idl.tables[ref_table])
-                reference_list.append(row)
-            verified_references[key] = reference_list
+            references = []
+            for uri in _refdata:
+                verified_resource = parse.parse_url_path(uri, schema, idl)
+                if verified_resource is None:
+                    error_json = to_json_error("Reference could not " +
+                                               "be identified", None, uri)
+                    return {ERROR: error_json}
+
+                # get the Row instance of the reference we are adding
+                while verified_resource.next is not None:
+                    verified_resource = verified_resource.next
+                row = utils.get_row_from_resource(verified_resource, idl)
+                references.append(row)
+
+            if notList:
+                references = references[0]
+            verified_references[key] = references
 
     return verified_references
+
 
 '''
 subroutine to validate referenced_by uris/attribute JSON

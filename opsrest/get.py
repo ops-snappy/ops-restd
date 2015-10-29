@@ -109,9 +109,15 @@ def get_row_json(row, table, schema, idl, uri, selector):
                                               row,
                                               table,
                                               schema, idl, uri)
-
-    # references are part of configuration
-    config_data.update(reference_data)
+        # depending upon the category of reference
+        # pair them with the right data set
+        category = references[key].category
+        if category == OVSDB_SCHEMA_CONFIG:
+            config_data.update({key:reference_data[key]})
+        elif category == OVSDB_SCHEMA_STATUS:
+            status_data.update({key:reference_data[key]})
+        elif category == OVSDB_SCHEMA_STATS:
+            stats_data.update({key:reference_data[key]})
 
     if selector == OVSDB_SCHEMA_CONFIG:
         data = {OVSDB_SCHEMA_CONFIG: config_data}
