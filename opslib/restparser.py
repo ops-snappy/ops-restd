@@ -309,6 +309,12 @@ class OVSTable(object):
             # For now, we are using only one tag.
             if relationship == "1:m":
                 table.references[column_name] = OVSReference(type_, "child", True, category)
+                table.references[column_name].column = OVSColumn(table,
+                                                                 column_name,
+                                                                 type_,
+                                                                 True,
+                                                                 True,
+                                                                 category)
             elif relationship == "m:1":
                 table.references[column_name] = OVSReference(type_, "parent", True, category)
             elif relationship == "reference":
