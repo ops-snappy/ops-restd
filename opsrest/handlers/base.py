@@ -37,7 +37,7 @@ class BaseHandler(web.RequestHandler):
         self.ref_object = ref_object
         self.schema = self.ref_object.restschema
         self.idl = self.ref_object.manager.idl
-        self.request.path = re.sub("/{2,}", "/", self.request.path)
+        self.request.path = re.sub("/{2,}", "/", self.request.path).rstrip('/')
 
     def set_default_headers(self):
         # CORS
