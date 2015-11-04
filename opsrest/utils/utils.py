@@ -409,7 +409,7 @@ def to_json(data, value_type=None):
         return data
 
     elif type_ is types.BooleanType:
-        return json.dumps(data)
+        return data
 
     elif type_ is types.NoneType:
         return get_empty_by_basic_type(value_type)
