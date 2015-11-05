@@ -31,7 +31,7 @@ def get_resource(idl, resource, schema, uri=None,
 
     depth = _get_depth_param(query_arguments)
 
-    if depth is dict and ERROR in depth:
+    if isinstance(depth, dict) and ERROR in depth:
         return depth
 
     if resource is None:
