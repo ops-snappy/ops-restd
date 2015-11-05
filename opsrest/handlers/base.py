@@ -152,7 +152,7 @@ class AutoHandler(BaseHandler):
 
         if result is None:
             self.set_status(httplib.NOT_FOUND)
-        else:
+        elif self.successful_query(result):
             self.set_status(httplib.OK)
             self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
             self.write(json.dumps(result))
@@ -304,3 +304,13 @@ class AutoHandler(BaseHandler):
             self.set_status(httplib.INTERNAL_SERVER_ERROR)
 
         return False
+
+    def successful_query(self, result):
+
+        if isinstance(result, dict) and ERROR in result:
+            self.set_status(httplib.BAD_REQUEST)
+            self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
+            self.write(to_json(result))
+            return False
+        else:
+            return True

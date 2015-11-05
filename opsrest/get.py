@@ -532,13 +532,13 @@ def paginate_get_results(get_data, offset=None, limit=None):
         error_json = utils.to_json_error("Pagination index out of range",
                                          None, 'offset')
 
-    elif limit < 0 or limit > data_length:
+    elif limit < 0:
         error_json = utils.to_json_error("Pagination index out of range",
                                          None, 'limit')
 
     elif offset >= limit:
-        error_json = utils.to_json_error("Pagination offset can't be " +
-                                         "equal or greater than limit")
+        error_json = utils.to_json_error("Pagination offset can't be equal " +
+                                         "or greater than offset + limit")
 
     if error_json:
         return {ERROR: error_json}
