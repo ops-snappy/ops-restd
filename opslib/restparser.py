@@ -39,12 +39,17 @@ inflect_engine = inflect.engine()
 xml_tree = None
 
 
-# Convert name into all lower case and into plural format
-def normalizeName(name):
+# Convert name into all lower case and into plural (default) or singular format
+def normalizeName(name, to_plural=True):
     lower_case = name.lower()
     # Assuming table names use underscore to link words
     words = string.split(lower_case, '_')
-    words[-1] = inflect_engine.plural_noun(words[-1])
+
+    if to_plural:
+        words[-1] = inflect_engine.plural_noun(words[-1])
+    else:
+        words[-1] = inflect_engine.singular_noun(words[-1])
+
     return(string.join(words, '_'))
 
 

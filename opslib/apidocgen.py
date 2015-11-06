@@ -139,8 +139,10 @@ def addDeleteResponse(responses):
 #
 # Pass in chain of parent resources on URI path
 #
-def genCoreParams(table, parent_plurality, is_plural=True):
+def genCoreParams(table, parent_plurality, parents, resource_name,
+                  is_plural=True):
     depth = len(parent_plurality)
+    plural = False
 
     params = []
     for level in range(depth):
@@ -148,7 +150,7 @@ def genCoreParams(table, parent_plurality, is_plural=True):
             param = {}
             param["name"] = "p"*(depth-level) + "id"
             param["in"] = "path"
-            param["description"] = "parent resource id"
+            param["description"] = normalizeName(parents[level], plural) + " id"
             param["required"] = True
             param["type"] = "string"
             params.append(param)
@@ -157,7 +159,7 @@ def genCoreParams(table, parent_plurality, is_plural=True):
         param = {}
         param["name"] = "id"
         param["in"] = "path"
-        param["description"] = "resource id"
+        param["description"] = normalizeName(resource_name, plural) + " id"
         param["required"] = True
         param["type"] = "string"
         params.append(param)
@@ -165,13 +167,14 @@ def genCoreParams(table, parent_plurality, is_plural=True):
     return params
 
 
-def genGetResource(table, parent_plurality, is_plural):
+def genGetResource(table, parent_plurality, parents, resource_name, is_plural):
     op = {}
     op["summary"] = "Get operation"
     op["description"] = "Get a list of resources"
     op["tags"] = [table.name]
 
-    params = genCoreParams(table, parent_plurality, is_plural)
+    params = genCoreParams(table, parent_plurality, parents,
+                           resource_name, is_plural)
     if params:
         op["parameters"] = params
 
@@ -194,13 +197,14 @@ def genGetResource(table, parent_plurality, is_plural):
     return op
 
 
-def genPostResource(table, parent_plurality, is_plural):
+def genPostResource(table, parent_plurality, parents, resource_name, is_plural):
     op = {}
     op["summary"] = "Post operation"
     op["description"] = "Create a new resource instance"
     op["tags"] = [table.name]
 
-    params = genCoreParams(table, parent_plurality, is_plural)
+    params = genCoreParams(table, parent_plurality, parents,
+                           resource_name, is_plural)
     param = {}
     param["name"] = "data"
     param["in"] = "body"
@@ -224,14 +228,15 @@ def genPostResource(table, parent_plurality, is_plural):
     return op
 
 
-def genGetInstance(table, parent_plurality, is_plural):
+def genGetInstance(table, parent_plurality, parents, resource_name, is_plural):
     if table.config or table.status or table.stats:
         op = {}
         op["summary"] = "Get operation"
         op["description"] = "Get a set of attributes"
         op["tags"] = [table.name]
 
-        params = genCoreParams(table, parent_plurality, is_plural)
+        params = genCoreParams(table, parent_plurality, parents,
+                               resource_name, is_plural)
         param = {}
         param["name"] = "selector"
         param["in"] = "query"
@@ -254,14 +259,15 @@ def genGetInstance(table, parent_plurality, is_plural):
         return op
 
 
-def genPutInstance(table, parent_plurality, is_plural):
+def genPutInstance(table, parent_plurality, parents, resource_name, is_plural):
     if table.config:
         op = {}
         op["summary"] = "Put operation"
         op["description"] = "Update configuration"
         op["tags"] = [table.name]
 
-        params = genCoreParams(table, parent_plurality, is_plural)
+        params = genCoreParams(table, parent_plurality, parents,
+                               resource_name, is_plural)
         param = {}
         param["name"] = "data"
         param["in"] = "body"
@@ -278,13 +284,14 @@ def genPutInstance(table, parent_plurality, is_plural):
         return op
 
 
-def genDelInstance(table, parent_plurality, is_plural):
+def genDelInstance(table, parent_plurality, parents, resource_name, is_plural):
     op = {}
     op["summary"] = "Delete operation"
     op["description"] = "Delete a resource instance"
     op["tags"] = [table.name]
 
-    params = genCoreParams(table, parent_plurality, is_plural)
+    params = genCoreParams(table, parent_plurality, parents,
+                           resource_name, is_plural)
     if params:
         op["parameters"] = params
 
@@ -549,17 +556,21 @@ def genAPI(paths, definitions, schema, table, resource_name, parent,
 
     ops = {}
     if is_plural:
-        op = genGetResource(table, parent_plurality, False)
+        op = genGetResource(table, parent_plurality, parents,
+                            resource_name, False)
         if op is not None:
             ops["get"] = op
-        op = genPostResource(table, parent_plurality, False)
+        op = genPostResource(table, parent_plurality, parents,
+                             resource_name, False)
         if op is not None:
             ops["post"] = op
     else:
-        op = genGetInstance(table, parent_plurality, is_plural)
+        op = genGetInstance(table, parent_plurality, parents,
+                            resource_name, is_plural)
         if op is not None:
             ops["get"] = op
-        op = genPutInstance(table, parent_plurality, is_plural)
+        op = genPutInstance(table, parent_plurality, parents,
+                            resource_name, is_plural)
         if op is not None:
             ops["put"] = op
     paths[path] = ops
@@ -567,13 +578,16 @@ def genAPI(paths, definitions, schema, table, resource_name, parent,
     if is_plural:
         path = path + "/{id}"
         ops = {}
-        op = genGetInstance(table, parent_plurality, is_plural)
+        op = genGetInstance(table, parent_plurality, parents,
+                            resource_name, is_plural)
         if op is not None:
             ops["get"] = op
-        op = genPutInstance(table, parent_plurality, is_plural)
+        op = genPutInstance(table, parent_plurality, parents,
+                            resource_name, is_plural)
         if op is not None:
             ops["put"] = op
-        op = genDelInstance(table, parent_plurality, is_plural)
+        op = genDelInstance(table, parent_plurality, parents,
+                            resource_name, is_plural)
         if op is not None:
             ops["delete"] = op
         paths[path] = ops
