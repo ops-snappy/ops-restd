@@ -59,8 +59,10 @@ def get_resource_from_db(resource, schema, idl, uri=None,
                          selector=None, query_arguments=None,
                          depth=0):
 
-    sorting_args = get_sorting_args(query_arguments, resource.next, schema)
-    filter_args = get_filters_args(query_arguments, resource.next, schema)
+    sorting_args = get_sorting_args(query_arguments, resource.next,
+                                    schema, selector)
+    filter_args = get_filters_args(query_arguments, resource.next,
+                                   schema, selector)
     try:
         limit = get_query_arg(REST_QUERY_PARAM_LIMIT, query_arguments)
         offset = get_query_arg(REST_QUERY_PARAM_OFFSET, query_arguments)
@@ -136,7 +138,7 @@ def get_resource_from_db(resource, schema, idl, uri=None,
         # Apply filters, sorting, and pagination
         resource_result = post_process_get_data(resource_result, table, schema,
                                                 sorting_args, filter_args,
-                                                offset, limit)
+                                                offset, limit, selector)
 
     return resource_result
 
@@ -186,15 +188,8 @@ def get_row_json(row, table, schema, idl, uri, selector=None,
         elif category == OVSDB_SCHEMA_STATS:
             stats_data.update({key: reference_data[key]})
 
-    if selector == OVSDB_SCHEMA_CONFIG:
-        data = {OVSDB_SCHEMA_CONFIG: config_data}
-    elif selector == OVSDB_SCHEMA_STATS:
-        data = {OVSDB_SCHEMA_STATS: stats_data}
-    elif selector == OVSDB_SCHEMA_STATUS:
-        data = {OVSDB_SCHEMA_STATUS: status_data}
-    else:
-        data = {OVSDB_SCHEMA_CONFIG: config_data, OVSDB_SCHEMA_STATS:
-                stats_data, OVSDB_SCHEMA_STATUS: status_data}
+    data = _categorize_by_selector(config_data, stats_data,
+                                   status_data, selector)
 
     return data
 
@@ -350,7 +345,7 @@ def _create_uri(uri, paths):
     return uri
 
 
-def get_sorting_args(query_arguments, resource, schema):
+def get_sorting_args(query_arguments, resource, schema, selector=None):
     sorting_args = []
     if query_arguments is not None and \
             REST_QUERY_PARAM_SORTING in query_arguments:
@@ -385,11 +380,7 @@ def get_sorting_args(query_arguments, resource, schema):
             sorting_values[0] = value
 
             # Validate sorting keys
-            valid_keys = []
-            valid_keys.extend(schema.ovs_tables[resource.table].config.keys())
-            valid_keys.extend(schema.ovs_tables[resource.table].status.keys())
-            valid_keys.extend(schema.ovs_tables[resource.table].stats.keys())
-            valid_keys.extend(schema.ovs_tables[resource.table].references.keys())
+            valid_keys = _get_valid_keys(resource, schema, selector)
 
             for value in sorting_values:
                 if value in valid_keys:
@@ -408,14 +399,10 @@ def get_query_arg(name, query_arguments):
     return arg
 
 
-def get_filters_args(query_arguments, resource, schema):
+def get_filters_args(query_arguments, resource, schema, selector=None):
     filters = {}
     if query_arguments is not None:
-        valid_keys = []
-        valid_keys.extend(schema.ovs_tables[resource.table].config.keys())
-        valid_keys.extend(schema.ovs_tables[resource.table].status.keys())
-        valid_keys.extend(schema.ovs_tables[resource.table].stats.keys())
-        valid_keys.extend(schema.ovs_tables[resource.table].references.keys())
+        valid_keys = _get_valid_keys(resource, schema, selector)
 
         for key in valid_keys:
             if key in query_arguments:
@@ -426,8 +413,35 @@ def get_filters_args(query_arguments, resource, schema):
     return filters
 
 
+def _get_valid_keys(resource, schema, selector=None):
+    valid_keys = []
+    if selector == OVSDB_SCHEMA_CONFIG:
+        valid_keys.extend(schema.ovs_tables[resource.table].config.keys())
+    elif selector == OVSDB_SCHEMA_STATUS:
+        valid_keys.extend(schema.ovs_tables[resource.table].status.keys())
+    elif selector == OVSDB_SCHEMA_STATS:
+        valid_keys.extend(schema.ovs_tables[resource.table].stats.keys())
+    else:
+        valid_keys.extend(schema.ovs_tables[resource.table].config.keys())
+        valid_keys.extend(schema.ovs_tables[resource.table].status.keys())
+        valid_keys.extend(schema.ovs_tables[resource.table].status.keys())
+
+    references = schema.ovs_tables[resource.table].references
+    references_keys = []
+    if selector is None:
+        references_keys = references.keys()
+    else:
+        for key in references.keys():
+            category = references[key].category
+            if selector == category:
+                references_keys.append(key)
+
+    valid_keys.extend(references_keys)
+    return valid_keys
+
+
 def post_process_get_data(get_data, table, schema, sorting_args,
-                          filter_args, offset, limit):
+                          filter_args, offset, limit, selector=None):
 
     # GET results are groupped in status, statistics
     # and configuration but all keys (per hash) need
@@ -452,7 +466,9 @@ def post_process_get_data(get_data, table, schema, sorting_args,
 
     # Now that keys have been processed, re-groupped
     # them in status, statistics, and configuration
-    processed_get_data = categorize_get_data(schema, table, processed_get_data)
+    processed_get_data = categorize_get_data(schema, table,
+                                             processed_get_data,
+                                             selector)
 
     # Paginate results if necessary
     processed_get_data = paginate_get_results(processed_get_data,
@@ -575,15 +591,18 @@ def flatten_get_data(data):
 
     for i in range(len(data)):
         staging_data = {}
-        staging_data.update(data[i][OVSDB_SCHEMA_CONFIG])
-        staging_data.update(data[i][OVSDB_SCHEMA_STATS])
-        staging_data.update(data[i][OVSDB_SCHEMA_STATUS])
+        if OVSDB_SCHEMA_CONFIG in data[i].keys():
+            staging_data.update(data[i][OVSDB_SCHEMA_CONFIG])
+        if OVSDB_SCHEMA_STATS in data[i].keys():
+            staging_data.update(data[i][OVSDB_SCHEMA_STATS])
+        if OVSDB_SCHEMA_STATUS in data[i].keys():
+            staging_data.update(data[i][OVSDB_SCHEMA_STATUS])
         flattened_get_data.append(staging_data)
 
     return flattened_get_data
 
 
-def categorize_get_data(schema, table, data):
+def categorize_get_data(schema, table, data, selector=None):
 
     config_keys = dict(schema.ovs_tables[table].config)
     stats_keys = dict(schema.ovs_tables[table].stats)
@@ -605,19 +624,24 @@ def categorize_get_data(schema, table, data):
 
     for i in range(len(data)):
 
-        staging_data = {}
-        staging_data[OVSDB_SCHEMA_CONFIG] = {}
-        staging_data[OVSDB_SCHEMA_STATS] = {}
-        staging_data[OVSDB_SCHEMA_STATUS] = {}
+        stats_data = {}
+        status_data = {}
+        config_data = {}
 
         for key in config_keys:
-            staging_data[OVSDB_SCHEMA_CONFIG][key] = data[i][key]
+            if key in data[i]:
+                config_data[key] = data[i][key]
 
         for key in stats_keys:
-            staging_data[OVSDB_SCHEMA_STATS][key] = data[i][key]
+            if key in data[i]:
+                stats_data[key] = data[i][key]
 
         for key in status_keys:
-            staging_data[OVSDB_SCHEMA_STATUS][key] = data[i][key]
+            if key in data[i]:
+                status_data[key] = data[i][key]
+
+        staging_data = _categorize_by_selector(config_data, stats_data,
+                                               status_data, selector)
 
         categorized_data.append(staging_data)
 
@@ -648,3 +672,19 @@ def _get_depth_param(query_arguments):
             return {ERROR: error_json}
 
     return depth
+
+
+def _categorize_by_selector(config_data, stats_data, status_data, selector):
+
+    data = {}
+    if selector == OVSDB_SCHEMA_CONFIG:
+        data = {OVSDB_SCHEMA_CONFIG: config_data}
+    elif selector == OVSDB_SCHEMA_STATS:
+        data = {OVSDB_SCHEMA_STATS: stats_data}
+    elif selector == OVSDB_SCHEMA_STATUS:
+        data = {OVSDB_SCHEMA_STATUS: status_data}
+    else:
+        data = {OVSDB_SCHEMA_CONFIG: config_data, OVSDB_SCHEMA_STATS:
+                stats_data, OVSDB_SCHEMA_STATUS: status_data}
+
+    return data
