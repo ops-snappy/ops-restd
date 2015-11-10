@@ -233,9 +233,10 @@ def get_column_json(column, row, table, schema, idl, uri,
     # case 1: reference is of dict type with index/uuid pairs
     if current_table.references[column].kv_type:
         # we already have the keys
+        _uri = uri + '/' + column
         if not depth:
             for key in db_col.keys():
-                resources_list.append(uri + '/' + str(key))
+                resources_list.append(_uri + '/' + str(key))
         else:
             for key in db_col.keys():
                 json_row = get_row_json(str(key), col_table, schema, idl, uri,
