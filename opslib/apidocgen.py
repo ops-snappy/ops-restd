@@ -167,7 +167,7 @@ def genCoreParams(table, parent_plurality, parents, resource_name,
     return params
 
 
-def genGetParams(table):
+def genGetParams(table, is_instance=False):
     params = []
 
     param = {}
@@ -178,55 +178,57 @@ def genGetParams(table):
     param["type"] = "string"
     params.append(param)
 
-    param = {}
-    param["name"] = "sort"
-    param["in"] = "query"
-    param["description"] = "comma separated list of columns to sort " + \
-                            "results by, add a - (dash) at the beginning " + \
-                            "to make sort descending"
-    param["required"] = False
-    param["type"] = "string"
-    params.append(param)
+    if not is_instance:
 
-    param = {}
-    param["name"] = "offset"
-    param["in"] = "query"
-    param["description"] = "index of the first element from the result" + \
-                            " list to be returned"
-    param["required"] = False
-    param["type"] = "integer"
-    params.append(param)
+        param = {}
+        param["name"] = "sort"
+        param["in"] = "query"
+        param["description"] = "comma separated list of columns to sort " + \
+                                "results by, add a - (dash) at the beginning " + \
+                                "to make sort descending"
+        param["required"] = False
+        param["type"] = "string"
+        params.append(param)
 
-    param = {}
-    param["name"] = "limit"
-    param["in"] = "query"
-    param["description"] = "number of elements to return from offset"
-    param["required"] = False
-    param["type"] = "integer"
-    params.append(param)
+        param = {}
+        param["name"] = "offset"
+        param["in"] = "query"
+        param["description"] = "index of the first element from the result" + \
+                                " list to be returned"
+        param["required"] = False
+        param["type"] = "integer"
+        params.append(param)
 
-    columns = {}
-    columns.update(table.config)
-    columns.update(table.stats)
-    columns.update(table.status)
-    columns.update(table.references)
+        param = {}
+        param["name"] = "limit"
+        param["in"] = "query"
+        param["description"] = "number of elements to return from offset"
+        param["required"] = False
+        param["type"] = "integer"
+        params.append(param)
 
-    for column, data in columns.iteritems():
-        if isinstance(data, OVSReference) or not data.is_dict:
-            param = {}
-            param["name"] = column
-            param["in"] = "query"
-            param["description"] = "filter '%s' by specified value" % column
-            param["required"] = False
+        columns = {}
+        columns.update(table.config)
+        columns.update(table.stats)
+        columns.update(table.status)
+        columns.update(table.references)
 
-            if data.type == types.IntegerType:
-                param["type"] = "integer"
-            elif data.type == types.RealType:
-                param["type"] = "real"
-            else:
-                param["type"] = "string"
+        for column, data in columns.iteritems():
+            if isinstance(data, OVSReference) or not data.is_dict:
+                param = {}
+                param["name"] = column
+                param["in"] = "query"
+                param["description"] = "filter '%s' by specified value" % column
+                param["required"] = False
 
-            params.append(param)
+                if data.type == types.IntegerType:
+                    param["type"] = "integer"
+                elif data.type == types.RealType:
+                    param["type"] = "real"
+                else:
+                    param["type"] = "string"
+
+                params.append(param)
 
     return params
 
@@ -315,7 +317,7 @@ def genGetInstance(table, parent_plurality, parents, resource_name, is_plural):
         param["type"] = "string"
         params.append(param)
 
-        get_params = genGetParams(table)
+        get_params = genGetParams(table, True)
         if get_params:
             params.extend(get_params)
 

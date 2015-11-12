@@ -39,6 +39,13 @@ def get_resource(idl, resource, schema, uri=None,
 
     # GET on System table
     if resource.next is None:
+
+        if query_arguments is not None:
+            validation_result = validate_system_query_args(query_arguments)
+
+            if ERROR in validation_result:
+                return validation_result
+
         return get_row_json(resource.row, resource.table, schema,
                             idl, uri, selector, depth)
 
@@ -59,32 +66,35 @@ def get_resource_from_db(resource, schema, idl, uri=None,
                          selector=None, query_arguments=None,
                          depth=0):
 
-    sorting_args = get_sorting_args(query_arguments, resource.next,
-                                    schema, selector)
-    filter_args = get_filters_args(query_arguments, resource.next,
-                                   schema, selector)
-    try:
-        limit = get_query_arg(REST_QUERY_PARAM_LIMIT, query_arguments)
-        offset = get_query_arg(REST_QUERY_PARAM_OFFSET, query_arguments)
-        if offset is not None:
-            offset = int(offset)
-        if limit is not None:
-            limit = int(limit)
-    except:
-        error_json = utils.to_json_error("Pagination indexes must be numbers")
-        return {ERROR: error_json}
+    sorting_args = []
+    filter_args = {}
+    pagination_args = {}
 
-    if depth == 0 and (sorting_args or filter_args or
-                       offset is not None or limit is not None):
-        error_json = utils.to_json_error("Sort, filter, and pagination " +
-                                         "parameters are only supported " +
-                                         "for depth > 0")
-        return {ERROR: error_json}
+    validation_result = validate_query_args(sorting_args, filter_args,
+                                            pagination_args, query_arguments,
+                                            resource.next, schema, selector,
+                                            depth)
+
+    if ERROR in validation_result:
+        return validation_result
+
+    offset = pagination_args['offset']
+    limit = pagination_args['limit']
 
     app_log.debug("Sorting args: %s" % sorting_args)
     app_log.debug("Filter args: %s" % filter_args)
     app_log.debug("Limit % s" % limit)
     app_log.debug("Offset % s" % offset)
+
+    # If query arguments are present, this error will
+    # be returned when a single resource is queried
+    non_collection_args_error = {}
+    if (sorting_args or filter_args or
+            offset is not None or limit is not None):
+        error_json = utils.to_json_error("Sort, filter, and pagination " +
+                                         "parameters are only supported " +
+                                         "for resource collections")
+        non_collection_args_error = {ERROR: error_json}
 
     resource_result = None
     table = None
@@ -97,6 +107,10 @@ def get_resource_from_db(resource, schema, idl, uri=None,
             resource_result = get_table_json(resource.next.table, schema, idl,
                                              uri, selector, depth)
         else:
+
+            if non_collection_args_error:
+                return non_collection_args_error
+
             resource_result = get_row_json(resource.next.row,
                                            resource.next.table, schema, idl,
                                            uri, selector, depth)
@@ -109,6 +123,10 @@ def get_resource_from_db(resource, schema, idl, uri=None,
                                               selector, depth)
         else:
             table = resource.next.table
+
+            if non_collection_args_error:
+                return non_collection_args_error
+
             resource_result = get_row_json(resource.next.row,
                                            resource.next.table, schema, idl,
                                            uri, selector, depth)
@@ -130,6 +148,10 @@ def get_resource_from_db(resource, schema, idl, uri=None,
                                                        selector, depth)
         else:
             table = resource.table
+
+            if non_collection_args_error:
+                return non_collection_args_error
+
             resource_result = get_row_json(resource.next.row,
                                            resource.next.table, schema, idl,
                                            uri, selector, depth)
@@ -346,6 +368,88 @@ def _create_uri(uri, paths):
     return uri
 
 
+def validate_query_args(sorting_args, filter_args, pagination_args,
+                        query_arguments, resource, schema, selector, depth):
+
+    staging_sort_data = get_sorting_args(query_arguments, resource,
+                                         schema, selector)
+
+    # get_sorting_args returns a list of column
+    # names to sort by or an ERROR dictionary
+    if ERROR in staging_sort_data:
+        return staging_sort_data
+    else:
+        sorting_args.extend(staging_sort_data)
+
+    # get_filters_args returns a dictionary with
+    # either filter->value pairs or an ERROR
+    filter_args.update(get_filters_args(query_arguments, resource,
+                                        schema, selector))
+
+    if ERROR in filter_args:
+        return filter_args
+
+    offset = None
+    limit = None
+
+    try:
+        limit = get_query_arg(REST_QUERY_PARAM_LIMIT, query_arguments)
+        offset = get_query_arg(REST_QUERY_PARAM_OFFSET, query_arguments)
+        if offset is not None:
+            offset = int(offset)
+        if limit is not None:
+            limit = int(limit)
+        pagination_args['offset'] = offset
+        pagination_args['limit'] = limit
+    except:
+        error_json = utils.to_json_error("Pagination indexes must be numbers")
+        return {ERROR: error_json}
+
+    if depth == 0 and (sorting_args or filter_args or
+                       offset is not None or limit is not None):
+        error_json = utils.to_json_error("Sort, filter, and pagination " +
+                                         "parameters are only supported " +
+                                         "for depth > 0")
+        return {ERROR: error_json}
+
+    return {}
+
+
+def validate_system_query_args(query_arguments):
+
+    error_json = utils.to_json_error("Sort, filter, and pagination " +
+                                     "parameters are only supported " +
+                                     "for resource collections")
+    error_json = {ERROR: error_json}
+
+    # Check if sort or pagination parameters are present
+
+    # NOTE any new query keys should be added to this condition
+    if REST_QUERY_PARAM_SORTING in query_arguments or \
+            REST_QUERY_PARAM_OFFSET in query_arguments or \
+            REST_QUERY_PARAM_LIMIT in query_arguments:
+        return error_json
+
+    # To detect if filter arguments (valid or not) are present,
+    # remove anything else valid, and check if something was left.
+    # At this point sort and pagination parameters should not be
+    # present as they are validated above
+
+    valid_keys_count = 0
+    if REST_QUERY_PARAM_SELECTOR in query_arguments:
+        valid_keys_count += 1
+
+    if REST_QUERY_PARAM_DEPTH in query_arguments:
+        valid_keys_count += 1
+
+    invalid_keys_count = len(query_arguments) - valid_keys_count
+
+    if invalid_keys_count > 0:
+        return error_json
+    else:
+        return {}
+
+
 def get_sorting_args(query_arguments, resource, schema, selector=None):
     sorting_args = []
     if query_arguments is not None and \
@@ -386,6 +490,11 @@ def get_sorting_args(query_arguments, resource, schema, selector=None):
             for value in sorting_values:
                 if value in valid_keys:
                     valid_sorting_values.append(value)
+                else:
+                    error_json = \
+                        utils.to_json_error("Invalid sort column: %s" %
+                                            value)
+                    return {ERROR: error_json}
 
             if valid_sorting_values:
                 valid_sorting_values.append(order)
@@ -405,11 +514,20 @@ def get_filters_args(query_arguments, resource, schema, selector=None):
     if query_arguments is not None:
         valid_keys = _get_valid_keys(resource, schema, selector)
 
-        for key in valid_keys:
-            if key in query_arguments:
-                filters[str(key)] = []
-                for filter in query_arguments[key]:
-                    filters[str(key)].extend(filter.split(","))
+        for key in query_arguments:
+            # NOTE any new query keys should be added to this condition
+            if key in (REST_QUERY_PARAM_LIMIT, REST_QUERY_PARAM_OFFSET,
+                       REST_QUERY_PARAM_DEPTH, REST_QUERY_PARAM_SORTING,
+                       REST_QUERY_PARAM_SELECTOR):
+                continue
+            elif key in valid_keys:
+                filters[key] = []
+                for filter_ in query_arguments[key]:
+                    filters[key].extend(filter_.split(","))
+            else:
+                error_json = \
+                    utils.to_json_error("Invalid filter column: %s" % key)
+                return {ERROR: error_json}
 
     return filters
 
@@ -659,7 +777,7 @@ def _get_referenced_table(schema, resource):
 def _get_depth_param(query_arguments):
 
     depth = 0
-    depth_param = get_query_arg("depth", query_arguments)
+    depth_param = get_query_arg(REST_QUERY_PARAM_DEPTH, query_arguments)
     if depth_param:
         try:
             depth = int(depth_param)
