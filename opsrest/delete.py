@@ -14,8 +14,8 @@
 
 from opsrest.constants import *
 from opsrest.utils import utils
-from opsrest.verify import *
-
+from opsrest import verify
+import httplib
 from tornado.log import app_log
 
 
@@ -29,6 +29,10 @@ def delete_resource(resource, schema, txn, idl):
         if resource.next.next is None:
             break
         resource = resource.next
+
+    # Check for invalid resource deletion
+    if verify.verify_http_method(resource, schema, "DELETE") is False:
+        raise Exception({'status': httplib.METHOD_NOT_ALLOWED})
 
     if resource.relation == OVSDB_SCHEMA_CHILD:
 

@@ -104,7 +104,8 @@ def parse(path, resource, schema, idl, http_method):
             app_log.debug("%s is a backward child in %s"
                           % (path[0], resource.table))
         else:
-            if resource.table == OVSDB_SCHEMA_SYSTEM_TABLE:
+            if resource.table == OVSDB_SCHEMA_SYSTEM_TABLE and \
+                    ovs_tables[path[0]].parent is None:
                 resource.relation = OVSDB_SCHEMA_TOP_LEVEL
                 app_log.debug("%s is a top level table" % (path[0]))
 
