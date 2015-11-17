@@ -15,15 +15,11 @@
 import ovs.db.idl
 from opsrest.constants import *
 from opsrest.utils import utils
-from ovs.db import types as ovs_types
 from verify import convert_string_to_value_by_type
 
 import types
-import json
-import urllib
 import re
 from tornado.log import app_log
-from operator import itemgetter
 
 
 def get_resource(idl, resource, schema, uri=None,
@@ -41,7 +37,7 @@ def get_resource(idl, resource, schema, uri=None,
     if resource.next is None:
 
         if query_arguments is not None:
-            validation_result = validate_system_query_args(query_arguments)
+            validation_result = validate_non_plural_query_args(query_arguments)
 
             if ERROR in validation_result:
                 return validation_result
@@ -66,101 +62,72 @@ def get_resource_from_db(resource, schema, idl, uri=None,
                          selector=None, query_arguments=None,
                          depth=0):
 
+    resource_result = None
+    uri = _get_uri(resource, schema, uri)
+    table = None
+
+    # Determine if result will be a collection or a single
+    # resource, plus the table to use in post processing
+    is_collection = _is_result_a_collection(resource)
+    table = resource.next.table
+
     sorting_args = []
     filter_args = {}
     pagination_args = {}
+    offset = None
+    limit = None
 
     validation_result = validate_query_args(sorting_args, filter_args,
                                             pagination_args, query_arguments,
                                             resource.next, schema, selector,
-                                            depth)
-
+                                            depth, is_collection)
     if ERROR in validation_result:
         return validation_result
 
-    offset = pagination_args['offset']
-    limit = pagination_args['limit']
+    if REST_QUERY_PARAM_OFFSET in pagination_args:
+        offset = pagination_args[REST_QUERY_PARAM_OFFSET]
+    if REST_QUERY_PARAM_LIMIT in pagination_args:
+        limit = pagination_args[REST_QUERY_PARAM_LIMIT]
 
     app_log.debug("Sorting args: %s" % sorting_args)
     app_log.debug("Filter args: %s" % filter_args)
     app_log.debug("Limit % s" % limit)
     app_log.debug("Offset % s" % offset)
 
-    # If query arguments are present, this error will
-    # be returned when a single resource is queried
-    non_collection_args_error = {}
-    if (sorting_args or filter_args or
-            offset is not None or limit is not None):
-        error_json = utils.to_json_error("Sort, filter, and pagination " +
-                                         "parameters are only supported " +
-                                         "for resource collections")
-        non_collection_args_error = {ERROR: error_json}
-
-    resource_result = None
-    table = None
-
-    if resource.relation is OVSDB_SCHEMA_TOP_LEVEL:
-
-        uri = _get_uri(resource, schema, uri)
-        table = resource.next.table
-        if resource.next.row is None:
-            resource_result = get_table_json(resource.next.table, schema, idl,
-                                             uri, selector, depth)
-        else:
-
-            if non_collection_args_error:
-                return non_collection_args_error
-
-            resource_result = get_row_json(resource.next.row,
-                                           resource.next.table, schema, idl,
-                                           uri, selector, depth)
-
-    elif resource.relation is OVSDB_SCHEMA_CHILD:
-        if resource.next.row is None:
-            table = _get_referenced_table(schema, resource)
-            resource_result = get_column_json(resource.column, resource.row,
-                                              resource.table, schema, idl, uri,
+    # Get the resource result according to result type
+    if is_collection:
+        resource_result = get_collection_json(resource, schema, idl, uri,
                                               selector, depth)
-        else:
-            table = resource.next.table
+    else:
+        resource_result = get_row_json(resource.next.row, resource.next.table,
+                                       schema, idl, uri, selector, depth)
 
-            if non_collection_args_error:
-                return non_collection_args_error
-
-            resource_result = get_row_json(resource.next.row,
-                                           resource.next.table, schema, idl,
-                                           uri, selector, depth)
-
-    elif resource.relation is OVSDB_SCHEMA_REFERENCE:
-        uri = _get_uri(resource, schema, uri)
-        table = _get_referenced_table(schema, resource)
-        resource_result = get_column_json(resource.column, resource.row,
-                                          resource.table, schema, idl, uri,
-                                          selector, depth)
-
-    elif resource.relation is OVSDB_SCHEMA_BACK_REFERENCE:
-        if isinstance(resource.next.row, types.ListType):
-            table = _get_referenced_table(schema, resource)
-            resource_result = get_back_references_json(resource.row,
-                                                       resource.table,
-                                                       resource.next.table,
-                                                       schema, idl, uri,
-                                                       selector, depth)
-        else:
-            table = resource.table
-
-            if non_collection_args_error:
-                return non_collection_args_error
-
-            resource_result = get_row_json(resource.next.row,
-                                           resource.next.table, schema, idl,
-                                           uri, selector, depth)
-
+    # Post process data if it necessary
     if (resource_result and depth and isinstance(resource_result, list)):
         # Apply filters, sorting, and pagination
         resource_result = post_process_get_data(resource_result, table, schema,
                                                 sorting_args, filter_args,
                                                 offset, limit, selector)
+
+    return resource_result
+
+
+def get_collection_json(resource, schema, idl, uri, selector, depth):
+
+    if resource.relation is OVSDB_SCHEMA_TOP_LEVEL:
+        resource_result = get_table_json(resource.next.table, schema, idl, uri,
+                                         selector, depth)
+
+    elif resource.relation in (OVSDB_SCHEMA_CHILD, OVSDB_SCHEMA_REFERENCE):
+        resource_result = get_column_json(resource.column, resource.row,
+                                          resource.table, schema, idl, uri,
+                                          selector, depth)
+
+    elif resource.relation is OVSDB_SCHEMA_BACK_REFERENCE:
+        resource_result = get_back_references_json(resource.row,
+                                                   resource.table,
+                                                   resource.next.table, schema,
+                                                   idl, uri, selector, depth)
 
     return resource_result
 
@@ -369,7 +336,16 @@ def _create_uri(uri, paths):
 
 
 def validate_query_args(sorting_args, filter_args, pagination_args,
-                        query_arguments, resource, schema, selector, depth):
+                        query_arguments, resource, schema, selector,
+                        depth, is_collection=True):
+
+    # Non-plural resources only required to validate if
+    # sort, filter, or pagination parameters are NOT present
+    if not is_collection:
+        return validate_non_plural_query_args(query_arguments)
+
+    # For collection resources, go ahead and
+    # validate correctness of all parameters
 
     staging_sort_data = get_sorting_args(query_arguments, resource,
                                          schema, selector)
@@ -395,12 +371,16 @@ def validate_query_args(sorting_args, filter_args, pagination_args,
     try:
         limit = get_query_arg(REST_QUERY_PARAM_LIMIT, query_arguments)
         offset = get_query_arg(REST_QUERY_PARAM_OFFSET, query_arguments)
+
         if offset is not None:
             offset = int(offset)
+
         if limit is not None:
             limit = int(limit)
-        pagination_args['offset'] = offset
-        pagination_args['limit'] = limit
+
+        pagination_args[REST_QUERY_PARAM_OFFSET] = offset
+        pagination_args[REST_QUERY_PARAM_LIMIT] = limit
+
     except:
         error_json = utils.to_json_error("Pagination indexes must be numbers")
         return {ERROR: error_json}
@@ -415,7 +395,7 @@ def validate_query_args(sorting_args, filter_args, pagination_args,
     return {}
 
 
-def validate_system_query_args(query_arguments):
+def validate_non_plural_query_args(query_arguments):
 
     error_json = utils.to_json_error("Sort, filter, and pagination " +
                                      "parameters are only supported " +
@@ -434,6 +414,9 @@ def validate_system_query_args(query_arguments):
     # remove anything else valid, and check if something was left.
     # At this point sort and pagination parameters should not be
     # present as they are validated above
+
+    # NOTE any new query key valid for non-plural
+    # resources should be added here
 
     valid_keys_count = 0
     if REST_QUERY_PARAM_SELECTOR in query_arguments:
@@ -579,8 +562,7 @@ def post_process_get_data(get_data, table, schema, sorting_args,
         # Last sorting argument is a boolean
         # indicating if sort should be reversed
         reverse_sort = sorting_args.pop()
-        processed_get_data = sort_get_results(schema, table,
-                                              processed_get_data,
+        processed_get_data = sort_get_results(processed_get_data,
                                               sorting_args, reverse_sort)
 
     # Now that keys have been processed, re-groupped
@@ -665,11 +647,11 @@ def paginate_get_results(get_data, offset=None, limit=None):
     error_json = {}
     if offset < 0 or offset > data_length:
         error_json = utils.to_json_error("Pagination index out of range",
-                                         None, 'offset')
+                                         None, REST_QUERY_PARAM_OFFSET)
 
     elif limit < 0:
         error_json = utils.to_json_error("Pagination index out of range",
-                                         None, 'limit')
+                                         None, REST_QUERY_PARAM_LIMIT)
 
     elif offset >= limit:
         error_json = utils.to_json_error("Pagination offset can't be equal " +
@@ -683,7 +665,7 @@ def paginate_get_results(get_data, offset=None, limit=None):
     return sliced_get_data
 
 
-def sort_get_results(schema, table, get_data, sort_by_columns, reverse_=False):
+def sort_get_results(get_data, sort_by_columns, reverse_=False):
 
     # The lambda function returns a tuple with the comparable
     # values of each column, so that sorted() use them as the
@@ -767,11 +749,26 @@ def categorize_get_data(schema, table, data, selector=None):
     return categorized_data
 
 
-def _get_referenced_table(schema, resource):
+def _is_result_a_collection(resource):
 
-    current_table = schema.ovs_tables[resource.table]
-    table = current_table.references[resource.column].ref_table
-    return table
+    is_collection = False
+
+    if resource.relation is OVSDB_SCHEMA_TOP_LEVEL:
+        if resource.next.row is None:
+            is_collection = True
+
+    elif resource.relation is OVSDB_SCHEMA_CHILD:
+        if resource.next.row is None:
+            is_collection = True
+
+    elif resource.relation is OVSDB_SCHEMA_REFERENCE:
+        is_collection = True
+
+    elif resource.relation is OVSDB_SCHEMA_BACK_REFERENCE:
+        if isinstance(resource.next.row, types.ListType):
+            is_collection = True
+
+    return is_collection
 
 
 def _get_depth_param(query_arguments):
