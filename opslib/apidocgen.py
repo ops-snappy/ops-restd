@@ -268,7 +268,8 @@ def genGetResource(table, parent_plurality, parents, resource_name, is_plural):
     return op
 
 
-def genPostResource(table, parent_plurality, parents, resource_name, is_plural):
+def genPostResource(table, parent_plurality,
+                    parents, resource_name, is_plural):
     op = {}
     op["summary"] = "Post operation"
     op["description"] = "Create a new resource instance"
@@ -470,9 +471,11 @@ def genDefinition(table_name, col, definitions):
 
 
 def getDefinition(schema, table, definitions):
-    properties = {}
+    properties_config, properties_full = {}, {}
     for colName, col in table.config.iteritems():
-        properties[colName] = genDefinition(table.name, col, definitions)
+        properties_config[colName] = \
+            genDefinition(table.name, col, definitions)
+        properties_full[colName] = genDefinition(table.name, col, definitions)
     # references are included in configuration as well
     for col_name in table.references:
         if table.references[col_name].relation == "reference":
@@ -490,9 +493,10 @@ def getDefinition(schema, table, definitions):
             else:
                 sub["$ref"] = "#/definitions/Resource"
                 sub["description"] = "Reference of " + child_table.name
-            properties[col_name] = sub
+            properties_config[col_name] = sub
+            properties_full[col_name] = sub
 
-    definitions[table.name + "Config"] = {"properties": properties}
+    definitions[table.name + "Config"] = {"properties": properties_config}
 
     # Construct full configuration definition to include subresources
     for col_name in table.children:
@@ -504,8 +508,18 @@ def getDefinition(schema, table, definitions):
             subtable_name = col_name
         sub = {}
         sub["$ref"] = "#/definitions/" + subtable_name + "ConfigData"
-        sub["description"] = "Referenced resource of " + subtable_name + " instances"
-        properties[col_name] = sub
+        sub["description"] = "Referenced resource of " + subtable_name + \
+                             " instances"
+        properties_full[col_name] = sub
+
+        sub = {}
+        sub["type"] = "array"
+        sub["description"] = "A list of " + subtable_name \
+                             + " references"
+        item = {}
+        item["$ref"] = "#/definitions/Resource"
+        sub["items"] = item
+        properties_config[col_name] = sub
 
     # Special treat /system resource
     # Include referenced resources at the top level as children
@@ -520,10 +534,11 @@ def getDefinition(schema, table, definitions):
 
             sub = {}
             sub["$ref"] = "#/definitions/" + subtable.name + "ConfigData"
-            sub["description"] = "Referenced resource of " + subtable.name + " instances"
-            properties[subtable_name] = sub
+            sub["description"] = "Referenced resource of " + subtable.name + \
+                                 " instances"
+            properties_full[subtable_name] = sub
 
-    definitions[table.name + "ConfigFull"] = {"properties": properties}
+    definitions[table.name + "ConfigFull"] = {"properties": properties_full}
 
     properties = {}
     definition = {}
@@ -711,8 +726,6 @@ def genAPI(paths, definitions, schema, table, resource_name, parent,
 
 def getFullConfigDef(schema, definitions):
     properties = {}
-
-
     definitions["FullConfig"] = {"properties": properties}
 
 
