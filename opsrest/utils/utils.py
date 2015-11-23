@@ -607,8 +607,8 @@ def get_parent_trace(table_name, row, schema, idl):
         parent_table = schema.ovs_tables[table.parent]
         column = get_parent_column_ref(parent_table.name, table.name, schema)
         row = get_parent_row(parent_table.name, row, column, schema, idl)
-        index_list = get_table_key(row, parent_table.name, schema)
-        table_path = (parent_table.name, index_list)
+        key_list = get_table_key(row, parent_table.name, schema, idl)
+        table_path = (parent_table.name, key_list)
         path.insert(0, table_path)
         table = parent_table
     return path
@@ -625,7 +625,7 @@ def get_parent_column_ref(table_name, table_ref, schema):
             return column_name
 
 
-def get_parent_row(table_name, row, column, schema, idl):
+def get_parent_row(table_name, child_row, column, schema, idl):
     """
     Get the row where the item is being referenced
     Returns idl.Row object
@@ -633,23 +633,43 @@ def get_parent_row(table_name, row, column, schema, idl):
     table = schema.ovs_tables[table_name]
     for uuid, row_ref in idl.tables[table_name].rows.iteritems():
         reflist = get_column_data_from_row(row_ref, column)
-        for item in reflist:
-            if item.uuid == row.uuid:
-                return row_ref
+        for value in reflist:
+            if table.references[column].kv_type:
+                db_col = row_ref.__getattr__(column)
+                row_value = db_col[value]
+                if row_value.uuid == child_row.uuid:
+                    return row_ref, value
+            else:
+                if value.uuid == child_row.uuid:
+                    return row_ref
 
 
-def get_table_key(row, table_name, schema):
+def get_table_key(row, table_name, schema, idl):
     """
     Get the row index
     Return the row index
     """
+    key_list = []
     table = schema.ovs_tables[table_name]
+
+    # Verify if is kv reference
+    if table.parent:
+        parent_table = schema.ovs_tables[table.parent]
+        column_ref = get_parent_column_ref(parent_table.name, table.name,
+                                           schema)
+        if parent_table.references[column_ref].kv_type:
+            parent_row, key = get_parent_row(parent_table.name,
+                                             row, column_ref, schema, idl)
+            key_list.append(str(key))
+            return key_list
+
+    # If not is a kv_reference return the index
     indexes = table.indexes
-    index_list = []
     for index in indexes:
         if index == 'uuid':
-            index_list.append(str(row.uuid))
+            key_list.append(str(row.uuid))
         else:
             value = urllib.quote(str(row.__getattr__(index)), safe='')
-            index_list.append(value)
-    return index_list
+            key_list.append(value)
+
+    return key_list
