@@ -38,11 +38,6 @@ def delete_resource(resource, schema, txn, idl):
         row = utils.delete_reference(resource.next, resource, schema, idl)
         row.delete()
 
-    elif resource.relation == OVSDB_SCHEMA_REFERENCE:
-
-        # delete the reference from the table
-        utils.delete_reference(resource.next, resource, None, idl)
-
     elif resource.relation == OVSDB_SCHEMA_BACK_REFERENCE:
         row = utils.get_row_from_resource(resource.next, idl)
         row.delete()

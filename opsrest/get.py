@@ -118,7 +118,7 @@ def get_collection_json(resource, schema, idl, uri, selector, depth):
         resource_result = get_table_json(resource.next.table, schema, idl, uri,
                                          selector, depth)
 
-    elif resource.relation in (OVSDB_SCHEMA_CHILD, OVSDB_SCHEMA_REFERENCE):
+    elif resource.relation is OVSDB_SCHEMA_CHILD:
         resource_result = get_column_json(resource.column, resource.row,
                                           resource.table, schema, idl, uri,
                                           selector, depth)
@@ -312,10 +312,6 @@ def _get_uri(resource, schema, uri=None):
     '''
     if resource.relation is OVSDB_SCHEMA_TOP_LEVEL:
         if resource.next.row is None:
-            uri = _get_base_uri() + \
-                schema.ovs_tables[resource.next.table].plural_name
-
-    elif resource.relation is OVSDB_SCHEMA_REFERENCE:
             uri = _get_base_uri() + \
                 schema.ovs_tables[resource.next.table].plural_name
 
@@ -760,9 +756,6 @@ def _is_result_a_collection(resource):
     elif resource.relation is OVSDB_SCHEMA_CHILD:
         if resource.next.row is None:
             is_collection = True
-
-    elif resource.relation is OVSDB_SCHEMA_REFERENCE:
-        is_collection = True
 
     elif resource.relation is OVSDB_SCHEMA_BACK_REFERENCE:
         if isinstance(resource.next.row, types.ListType):
