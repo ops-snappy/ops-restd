@@ -26,14 +26,14 @@ class Resource(object):
                  index=None, relation=None):
         # these attriutes uniquely identify an entry in OVSDB table
         self.table = table
-        self.row = None
-        self.column = None
+        self.row = row
+        self.column = column
 
         # these attributes are used to build a relationship between various
         # resources identified using a URI. The URI is mapped to a linked list
         # of Resource objects
-        self.index = None
-        self.relation = None
+        self.index = index
+        self.relation = relation
         self.next = None
 
     def get_allowed_methods(self, schema):
