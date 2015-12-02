@@ -19,11 +19,13 @@ from tornado.log import app_log
 import json
 import httplib
 import re
+import hashlib
 
 from opsrest.resource import Resource
 from opsrest.parse import parse_url_path
 from opsrest.constants import *
 from opsrest.utils.utils import *
+
 from opsrest import get, post, delete, put
 
 import userauth
@@ -205,32 +207,75 @@ class AutoHandler(BaseHandler):
 
         self.finish()
 
+    def compute_etag(self, data = None):
+        if data is None:
+            return super(AutoHandler, self).compute_etag()
+
+        hasher = hashlib.sha1()
+        for element in data:
+            hasher.update(element)
+        return '"%s"' % hasher.hexdigest()
+
+
+    def process_if_match(self):
+        if HTTP_HEADER_CONDITIONAL_IF_MATCH in self.request.headers:
+            result = get.get_resource(self.idl, self.resource_path,
+                                      self.schema, self.request.path,
+                                      None, self.request.query_arguments)
+            if result is None:
+                self.set_status(httplib.PRECONDITION_FAILED)
+                return False
+
+            match = False
+            etags = self.request.headers.get(HTTP_HEADER_CONDITIONAL_IF_MATCH,"").split(',')
+            current_etag = self.compute_etag(json.dumps(result))
+            for e in etags:
+                if e == current_etag or e == '"*"':
+                    match = True
+                    break
+
+            if not match:
+                if self.request.method == 'DELETE':
+                    self.set_status(httplib.PRECONDITION_FAILED)
+                    return False
+
+                data = json.loads(self.request.body)
+                if OVSDB_SCHEMA_CONFIG in data:
+                    if data[OVSDB_SCHEMA_CONFIG] == result[OVSDB_SCHEMA_CONFIG]:
+                        self.set_status(httplib.OK)
+                        return False
+                self.set_status(httplib.PRECONDITION_FAILED)
+                return False
+
+        return True
+
+
     @gen.coroutine
     def put(self):
-
         if HTTP_HEADER_CONTENT_LENGTH in self.request.headers:
             try:
-                # get the PUT body
-                update_data = json.loads(self.request.body)
+                proceed = self.process_if_match()
+                if proceed:
+                  # get the PUT body
+                  update_data = json.loads(self.request.body)
+                  # create a new ovsdb transaction
+                  self.txn = self.ref_object.manager.get_new_transaction()
 
-                # create a new ovsdb transaction
-                self.txn = self.ref_object.manager.get_new_transaction()
+                  # put_resource performs data verfication, prepares and
+                  # commits the ovsdb transaction
+                  result = put.put_resource(update_data, self.resource_path,
+                                            self.schema, self.txn, self.idl)
 
-                # put_resource performs data verficiation, prepares and
-                # commits the ovsdb transaction
-                result = put.put_resource(update_data, self.resource_path,
-                                          self.schema, self.txn, self.idl)
+                  if result == INCOMPLETE:
+                      self.ref_object.manager.monitor_transaction(self.txn)
+                      # on 'incomplete' state we wait until the transaction
+                      # completes with either success or failure
+                      yield self.txn.event.wait()
+                      result = self.txn.status
 
-                if result == INCOMPLETE:
-                    self.ref_object.manager.monitor_transaction(self.txn)
-                    # on 'incomplete' state we wait until the transaction
-                    # completes with either success or failure
-                    yield self.txn.event.wait()
-                    result = self.txn.status
-
-                app_log.debug("PUT operation result: %s", result)
-                if self.successful_transaction(result):
-                    self.set_status(httplib.OK)
+                  app_log.debug("PUT operation result: %s", result)
+                  if self.successful_transaction(result):
+                      self.set_status(httplib.OK)
 
             except ValueError, e:
                 self.set_status(httplib.BAD_REQUEST)
@@ -254,22 +299,24 @@ class AutoHandler(BaseHandler):
     def delete(self):
 
         try:
-            self.txn = self.ref_object.manager.get_new_transaction()
+            proceed = self.process_if_match()
+            if proceed:
+                self.txn = self.ref_object.manager.get_new_transaction()
 
-            result = delete.delete_resource(self.resource_path, self.schema,
-                                            self.txn, self.idl)
+                result = delete.delete_resource(self.resource_path, self.schema,
+                                                self.txn, self.idl)
 
-            if result == INCOMPLETE:
-                self.ref_object.manager.monitor_transaction(self.txn)
-                # on 'incomplete' state we wait until the transaction
-                # completes with either success or failure
-                yield self.txn.event.wait()
-                result = self.txn.status
+                if result == INCOMPLETE:
+                    self.ref_object.manager.monitor_transaction(self.txn)
+                    # on 'incomplete' state we wait until the transaction
+                    # completes with either success or failure
+                    yield self.txn.event.wait()
+                    result = self.txn.status
 
-            app_log.debug("DELETE operation result: %s", result)
-            if self.successful_transaction(result):
-                app_log.debug("Successful transaction!")
-                self.set_status(httplib.NO_CONTENT)
+                app_log.debug("DELETE operation result: %s", result)
+                if self.successful_transaction(result):
+                    app_log.debug("Successful transaction!")
+                    self.set_status(httplib.NO_CONTENT)
 
         except Exception, e:
             if isinstance(e.message, dict):
