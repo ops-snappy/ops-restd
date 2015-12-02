@@ -544,34 +544,56 @@ def kv_index_to_row(index_values, parent, idl):
     return None
 
 
-def row_to_index(table_schema, row, uuid_sequencer=None):
+def row_to_index(row, table, restschema, idl, parent_row=None):
 
-    tmp = []
-    for index in table_schema.indexes:
-        if index == 'uuid':
-            if uuid_sequencer is None:
-                return str(row.uuid)
+    index = None
+    schema = restschema.ovs_tables[table]
+    indexes = schema.indexes
 
-            # Generate dummy index for all entries in tables that
-            #don't have anything besides UUID
-            if (table_schema.name, str(row.uuid)) not in uuid_sequencer:
+    # if index is just UUID
+    if len(indexes) == 1 and indexes[0] == 'uuid':
 
-                if (table_schema.name, 'last_sequence') not in uuid_sequencer:
-                    uuid_sequencer[(table_schema.name, 'last_sequence')] = 0
+        if schema.parent is not None:
+            parent = schema.parent
+            parent_schema = restschema.ovs_tables[parent]
 
-                next_sequence = uuid_sequencer[(table_schema.name,
-                                                'last_sequence')] + 1
-                uuid_sequencer[(table_schema.name, 'last_sequence')] = \
-                    next_sequence
-                uuid_sequencer[(table_schema.name, str(row.uuid))] = \
-                    table_schema.name + str(next_sequence)
+            # check in parent if a child 'column' exists
+            column_name = schema.plural_name
+            if column_name in parent_schema.references:
+                # look in all resources
+                parent_rows = None
+                if parent_row is not None:
+                    # TODO: check if this row exists in parent table
+                    parent_rows = [parent_row]
+                else:
+                    parent_rows = idl.tables[parent].rows
 
-            return uuid_sequencer[(table_schema.name, str(row.uuid))]
+                for item in parent_rows.itervalues():
+                    column_data = item.__getattr__(column_name)
+
+                    if isinstance(column_data, types.ListType):
+                        for ref in column_data:
+                            if ref.uuid == row:
+                                index = str(row.uuid)
+                                break
+                    elif isinstance(column_data, types.DictType):
+                        for key,value in column_data.iteritems():
+                            if value == row:
+                                # found the index
+                                index = key
+                                break
+
+                    if index is not None:
+                        break
         else:
-            val = str(row.__getattr__(index))
-            tmp.append(str(val.replace('/', '\/')))
+            index = str(row.uuid)
+    else:
+        tmp = []
+        for item in indexes:
+            tmp.append(urllib.quote(str(row.__getattr__(item)), safe=''))
+        index = '/'.join(tmp)
 
-    return '/'.join(tmp)
+    return index
 
 
 def escaped_split(s_in):

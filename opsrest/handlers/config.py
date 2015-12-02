@@ -29,28 +29,12 @@ from opsrest.parse import parse_url_path
 from opsrest.constants import *
 from opsrest.utils.utils import *
 from opsrest import get, post, delete, put
+from opsrest.handlers.base import BaseHandler
 
 from tornado.log import app_log
 
 
-class ConfigHandler(web.RequestHandler):
-
-    # pass the application reference to the handlers
-    def initialize(self, ref_object):
-        self.ref_object = ref_object
-        self.schema = self.ref_object.restschema
-        self.idl = self.ref_object.manager.idl
-        self.request.path = re.sub("/{2,}", "/", self.request.path)
-
-        # CORS
-        allow_origin = self.request.protocol + "://"
-        # removing port if present
-        allow_origin += self.request.host.split(":")[0]
-        self.set_header("Access-Control-Allow-Origin", allow_origin)
-        self.set_header("Access-Control-Expose-Headers", "Date")
-
-        # TODO - remove next line before release - needed for testing
-        self.set_header("Access-Control-Allow-Origin", "*")
+class ConfigHandler(BaseHandler):
 
     def prepare(self):
         self.request_type = self.get_argument('type', 'running')
@@ -99,13 +83,12 @@ class ConfigHandler(web.RequestHandler):
             app_log.debug('Transaction result: %s, Transaction error: %s',
                           result, error)
 
-            if result.lower() != 'success' and result.lower() != 'unchanged':
-                self.set_status(httplib.BAD_REQUEST)
-                self.write(to_json_error(err_msg))
-            else:
+            if result.lower() == 'unchanged':
+                self.set_status(httplib.NOT_MODIFIED)
+            elif result.lower() == 'success':
                 self.set_status(httplib.OK)
-
-            self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
+            else:
+                self.set_status(httplib.BAD_REQUEST)
 
         else:
             self.set_status(httplib.LENGTH_REQUIRED)

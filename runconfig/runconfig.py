@@ -16,11 +16,10 @@
 # under the License.
 
 
-from opsrest.settings import settings
-from opsrest.manager import OvsdbConnectionManager
 from opsrest.utils import utils
 from opsrest import resource
 from opslib import restparser
+import declarativeconfig
 import ovs
 import json
 import sys
@@ -38,196 +37,12 @@ immutable_tables = ['Fan', 'Power_supply', 'LED', 'Temp_sensor',
 
 
 class RunConfigUtil():
-    def __init__(self, settings):
-        manager = OvsdbConnectionManager(settings.get('ovs_remote'),
-                                         settings.get('ovs_schema'))
-        manager.start()
-        self.idl = manager.idl
-
-        init_seq_no = 0
-        # Wait until the connection is ready
-        while True:
-            self.idl.run()
-            # print self.idl.change_seqno
-            if init_seq_no != self.idl.change_seqno:
-                break
-            time.sleep(0.001)
-
-        self.restschema = restparser.parseSchema(settings.get('ext_schema'))
-        self.uuid_seq = {}
-
     def __init__(self, idl, restschema):
         self.idl = idl
         self.restschema = restschema
-        self.uuid_seq = {}
-
-# READ CONFIG
-
-    def get_row_data(self, table, row):
-        rowobj = {}
-
-        # Routes are special case - only static routes are returned
-        if table == 'Route' and row.__getattr__('from') != 'static':
-            return
-
-        for column_name, column in table.config.iteritems():
-            _data = row.__getattr__(column_name)
-            if _data is None or _data == {} or _data == []:
-                continue
-            rowobj[column_name] = _data
-
-        for child_name in table.children:
-            table_schema = self.restschema.ovs_tables[table.name]
-
-            index_map = {}
-            if child_name in table.references:
-                reference = table_schema.references[child_name]
-                kv_type = reference.kv_type
-                column = table.references[child_name]
-                refdata = row.__getattr__(child_name)
-
-                if kv_type and type(refdata) is types.DictType:
-                    v = []
-                    for key, value in refdata.iteritems():
-                        index_map[value.uuid] = key
-                        v.append(value)
-
-                    refdata = v
-
-                reflist = []
-                for i in range(0, len(refdata)):
-                    reflist.append(refdata[i].uuid)
-
-                if len(reflist) > 0:
-                    table_ = self.restschema.ovs_tables[column.ref_table]
-                    tabledata = \
-                        self.get_table_data(column.ref_table,
-                                            table_,
-                                            reflist, index_map)
-                    if len(tabledata) > 0:
-                        rowobj[child_name] = tabledata
-            else:
-                table_ = self.restschema.ovs_tables[child_name]
-                tabledata = \
-                    self.get_table_data_by_parent(child_name,
-                                                  table_,
-                                                  row.uuid)
-                if len(tabledata) > 0:
-                    rowobj[child_name] = tabledata
-
-        for column_name, column in table.references.iteritems():
-            if column.relation != 'reference':
-                continue
-
-            refdata = row.__getattr__(column_name)
-            # this is a list of references
-            reflist = []
-            for i in refdata:
-                table_ = self.restschema.ovs_tables[column.ref_table]
-                reflist.append(utils.row_to_index(table_,
-                                                  i,
-                                                  self.uuid_seq))
-            if len(reflist) > 0:
-                rowobj[column_name] = reflist
-
-        return rowobj
-
-    def get_table_data_by_parent(self, table_name,
-                                 schema_table,
-                                 parent_uuid):
-
-        tableobj = {}
-        dbtable = self.idl.tables[table_name]
-
-        # find the parent column
-        parent_column = None
-        for columnName, column in schema_table.references.iteritems():
-            if column.relation == "parent":
-                parent_column = columnName
-                break
-
-        rows = []
-        for row in dbtable.rows.itervalues():
-            uuid = row.__getattr__(parent_column).uuid
-            if uuid == parent_uuid:
-                rowdata = self.get_row_data(schema_table, row)
-                if len(rowdata) > 0:
-                    tableobj[utils.row_to_index(schema_table,
-                                                row, self.uuid_seq)] = rowdata
-
-        return tableobj
-
-    def get_table_data(self, table_name, schema_table, uuid_list=None,
-                       index_map={}):
-
-        tableobj = {}
-        dbtable = self.idl.tables[table_name]
-
-        rows = []
-        if uuid_list is not None:
-            for uuid in uuid_list:
-                rows.append(dbtable.rows[uuid])
-        else:
-            for item in dbtable.rows.itervalues():
-                rows.append(item)
-
-        for item in rows:
-            rowdata = self.get_row_data(schema_table, item)
-            if len(rowdata) > 0:
-                if table_name == 'System':
-                    tableobj = rowdata
-                else:
-                    if index_map:
-                        index_ = index_map[item.uuid]
-                    else:
-                        index_ = utils.row_to_index(schema_table,
-                                                    item, self.uuid_seq)
-                    tableobj[index_] = rowdata
-
-        return tableobj
 
     def get_running_config(self):
-        try:
-            config = {}
-
-            #foreach table in Tables, create uri and add to the data
-            for table_name, table in self.restschema.ovs_tables.iteritems():
-
-# print("Parent  = %s" % table.parent)
-# print("Configuration attributes: ")
-# for column_name, column in table.config.iteritems():
-#     print("Col name = %s: %s" % (column_name, "plural" \
-#           if column.is_list else "singular"))
-# print("Status attributes: ")
-# for column_name, column in table.status.iteritems():
-#     print("Col name = %s: %s" % (column_name, "plural" \
-#           if column.is_list else "singular"))
-# print("Stats attributes: ")
-# for column_name, column in table.stats.iteritems():
-#     print("Col name = %s: %s" % (column_name, "plural"\
-#           if column.is_list else "singular"))
-# print("Subresources: ")
-# for column_name, column in table.references.iteritems():
-#     print("Col name = %s: %s, %s" % (column_name, column.relation,\
-#            "plural" if column.is_plural else "singular"))
-# print("\n")
-
-                if table.parent is not None:
-                    continue
-                tabledata = self.get_table_data(table_name, table)
-
-                if len(tabledata) > 0:
-                    config[table_name] = tabledata
-
-            return config
-        except Exception, e:
-            print str(e)
-            print traceback.format_exc()
-            print "Unexpected error:", sys.exc_info()[0]
-            return None
-
-    def get_config(self):
-        return self.get_running_config()
+        return declarativeconfig.read(self.restschema, self.idl)
 
     # WRITE CONFIG
 
@@ -562,7 +377,7 @@ class RunConfigUtil():
         # delete rows from DB that are not in declarative config
         delete_rows = []
         for row in self.idl.tables[table].rows.itervalues():
-            index = utils.row_to_index(self.restschema.ovs_tables[table], row)
+            index = utils.row_to_index(row, table, self.restschema, self.idl, parent)
 
             if parent_column is not None and \
                row.__getattr__(parent_column) != parent:
@@ -656,67 +471,3 @@ class RunConfigUtil():
         result = txn.commit_block()
         error = txn.get_error()
         return (result, error)
-
-
-def test_write():
-    # read the config file
-    filename = 'config.db'
-    with open(filename) as json_data:
-        data = json.load(json_data)
-        json_data.close()
-
-    # set up IDL
-    manager = OvsdbConnectionManager(settings.get('ovs_remote'),
-                                     settings.get('ovs_schema'))
-    manager.start()
-    manager.idl.run()
-
-    init_seq_no = 0
-    while True:
-        manager.idl.run()
-        if init_seq_no != manager.idl.change_seqno:
-            break
-
-    # read the schema
-    schema = restparser.parseSchema(settings.get('ext_schema'))
-    run_config_util = RunConfigUtil(manager.idl, schema)
-    run_config_util.write_config_to_db(data)
-
-
-def main():
-    run_config_util = RunConfigUtil(settings)
-    config = run_config_util.get_running_config()
-    print("Running Config: %s " % json.dumps(config,
-                                             sort_keys=True,
-                                             indent=4,
-                                             separators=(',', ': ')))
-
-
-def test_read():
-    manager = OvsdbConnectionManager(settings.get('ovs_remote'),
-                                     settings.get('ovs_schema'))
-    manager.start()
-    idl = manager.idl
-
-    init_seq_no = 0
-    # Wait until the connection is ready
-    while True:
-        idl.run()
-        # print self.idl.change_seqno
-        if init_seq_no != idl.change_seqno:
-            break
-        time.sleep(1)
-
-    restschema = restparser.parseSchema(settings.get('ext_schema'))
-
-    run_config_util = RunConfigUtil(idl, restschema)
-    config = run_config_util.get_running_config()
-    filename = 'config.db'
-    with open(filename, 'w') as fp:
-        json.dump(config, fp, sort_keys=True, indent=4, separators=(',', ': '))
-        fp.write('\n')
-    print(json.dumps(config, sort_keys=True, indent=4, separators=(',', ': ')))
-
-if __name__ == "__main__":
-    test_read()
-    # test_write()
