@@ -19,9 +19,11 @@ setup(
     name='restd',
     version='1.0',
     py_modules=['restd'],
-    packages=['opsrest', 'opsrest.handlers', 'opsrest.utils', 'opslib',
-              'runconfig'],
+    packages=['opsrest', 'opsrest.handlers',
+              'opsrest.utils', 'opsrest.custom',
+              'opslib', 'runconfig'],
     entry_points={
         'console_scripts': ['restd = restd:main', ]
-    }
+    },
+    package_data={'opsrest.custom': ['schemas/*']}
 )

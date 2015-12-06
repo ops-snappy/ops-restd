@@ -31,6 +31,8 @@ from opsrest import get, post, delete, put
 import userauth
 from opsrest.settings import settings
 
+# TODO refactor common handler functions
+
 
 class BaseHandler(web.RequestHandler):
 
@@ -55,6 +57,9 @@ class BaseHandler(web.RequestHandler):
         if HTTP_HEADER_ORIGIN in self.request.headers:
             self.set_header("Access-Control-Allow-Origin",
                             self.request.headers[HTTP_HEADER_ORIGIN])
+
+    def get_current_user(self):
+        return userauth.get_request_user(self)
 
 
 class LoginHandler(BaseHandler):

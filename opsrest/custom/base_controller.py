@@ -12,17 +12,30 @@
 #  License for the specific language governing permissions and limitations
 #  under the License.
 
-from opsrest.handlers import base, config, custom_rest
-from custom import user_controller
+OP_CREATE = 1,
+OP_UPDATE = 2,
+OP_DELETE = 3,
+OP_GET = 4,
+OP_GET_ALL = 5
 
-REGEX_RESOURCE_ID = '?(?P<resource_id>[A-Za-z0-9-_]+[$]?)?/?'
 
-url_patterns = [(r'/login', base.LoginHandler),
-                (r'/rest/v1/system/full-configuration', config.ConfigHandler),
-                (r'/.*', base.AutoHandler),
-                ]
+class BaseController():
+    """
+    BaseController base controller class with generic
+    CRUD operations.
+    """
 
-custom_url_patterns = [(r'/rest/v1/system/users/%s' % REGEX_RESOURCE_ID,
-                        custom_rest.CustomRESTHandler,
-                        user_controller.UserController),
-                       ]
+    def create(self, data, current_user=None):
+        pass
+
+    def update(self, item_id, data, current_user=None):
+        pass
+
+    def delete(self, item_id, current_user=None):
+        pass
+
+    def get(self, item_id, current_user=None, selector=None, query_args=None):
+        pass
+
+    def get_all(self, current_user=None, selector=None, query_args=None):
+        pass

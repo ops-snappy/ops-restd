@@ -65,3 +65,6 @@ HTTP_HEADER_CONDITIONAL_IF_MATCH = 'If-Match'
 
 # HTTP Content Types
 HTTP_CONTENT_TYPE_JSON = 'application/json; charset=UTF-8'
+
+# User Management
+DEFAULT_USER_GRP = "ovsdb_users"
