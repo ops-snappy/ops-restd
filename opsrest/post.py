@@ -15,6 +15,9 @@
 from opsrest.constants import *
 from opsrest.utils import utils
 from opsrest import verify
+from opsrest.transaction import OvsdbTransactionResult
+from opsrest.exceptions import MethodNotAllowed, DataValidationFailed
+
 import httplib
 
 from tornado.log import app_log
@@ -32,10 +35,9 @@ def post_resource(data, resource, schema, txn, idl):
     are attemtping to add a Port as a reference on bridge
     """
 
-    # POST not allowed on System table
     if resource is None or resource.next is None:
         app_log.info("POST is not allowed on System table")
-        return None
+        raise MethodNotAllowed
 
     # get the last resource pair
     while True:
@@ -44,18 +46,17 @@ def post_resource(data, resource, schema, txn, idl):
         resource = resource.next
 
     if verify.verify_http_method(resource, schema, "POST") is False:
-        raise Exception({'status': httplib.METHOD_NOT_ALLOWED})
+        raise MethodNotAllowed
 
-    verified_data = verify.verify_data(data, resource, schema, idl, 'POST')
-
-    if verified_data is None:
-        app_log.info("verification of data failed")
-        return None
-
-    if ERROR in verified_data:
-        return verified_data
+    # verify data
+    try:
+        verified_data = verify.verify_data(data, resource, schema, idl, 'POST')
+    except DataValidationFailed as e:
+        app_log.debug(e)
+        raise e
 
     app_log.debug("adding new resource to " + resource.next.table + " table")
+
     if resource.relation == OVSDB_SCHEMA_CHILD:
         # create new row, populate it with data
         # add it as a reference to the parent resource
@@ -72,7 +73,7 @@ def post_resource(data, resource, schema, txn, idl):
 
     elif resource.relation == OVSDB_SCHEMA_BACK_REFERENCE:
         # row for a back referenced item contains the parent's reference
-        #in the verified data
+        # in the verified data
         new_row = utils.setup_new_row(resource.next, verified_data,
                                       schema, txn, idl)
 
@@ -85,4 +86,5 @@ def post_resource(data, resource, schema, txn, idl):
             for reference in verified_data[OVSDB_SCHEMA_REFERENCED_BY]:
                 utils.add_reference(new_row, reference, idl)
 
-    return txn.commit()
+    result = txn.commit()
+    return OvsdbTransactionResult(result)

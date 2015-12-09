@@ -42,6 +42,11 @@ class OvsdbTransaction:
         if self.txn is not None:
             self.txn.abort()
 
-    def get_db_error_msg(self):
-        db_dict = json.loads(self.txn.get_error())
-        return db_dict['details']
+    def get_error(self):
+        return json.loads(self.txn.get_error())
+
+
+class OvsdbTransactionResult:
+    def __init__(self, status, index=None):
+        self.status = status
+        self.index = index

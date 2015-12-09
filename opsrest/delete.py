@@ -15,6 +15,9 @@
 from opsrest.constants import *
 from opsrest.utils import utils
 from opsrest import verify
+from opsrest.transaction import OvsdbTransactionResult
+from opsrest.exceptions import MethodNotAllowed, DataValidationFailed
+
 import httplib
 from tornado.log import app_log
 
@@ -30,14 +33,21 @@ def delete_resource(resource, schema, txn, idl):
             break
         resource = resource.next
 
-    # Check for invalid resource deletion
+    # Check for invalid resource deletioin
     if verify.verify_http_method(resource, schema, "DELETE") is False:
-        raise Exception({'status': httplib.METHOD_NOT_ALLOWED})
+        raise MethodNotAllowed
+
+    try:
+        verified_data = verify.verify_data(None, resource, schema,
+                                           idl, "DELETE")
+    except DataValidationFailed as e:
+        app_log.debug(e)
+        raise e
 
     if resource.relation == OVSDB_SCHEMA_CHILD:
 
         if resource.next.row is None:
-            raise Exception({'status': httplib.METHOD_NOT_ALLOWED})
+            raise MethodNotAllowed
 
         row = utils.delete_reference(resource.next, resource, schema, idl)
         row.delete()
@@ -49,4 +59,5 @@ def delete_resource(resource, schema, txn, idl):
     elif resource.relation == OVSDB_SCHEMA_TOP_LEVEL:
         utils.delete_all_references(resource.next, schema, idl)
 
-    return txn.commit()
+    result = txn.commit()
+    return OvsdbTransactionResult(result)

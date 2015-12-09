@@ -15,8 +15,10 @@
 from opsrest.constants import *
 from opsrest.utils import utils
 from opsrest import verify
-import httplib
+from opsrest.transaction import OvsdbTransactionResult
+from opsrest.exceptions import MethodNotAllowed, DataValidationFailed
 
+import httplib
 from tornado.log import app_log
 
 
@@ -24,9 +26,9 @@ def put_resource(data, resource, schema, txn, idl):
 
     # Allow PUT operation on System table
     if resource is None:
-        return None
+        raise MethodNotAllowed
 
-    #We want to modify System table
+    # We want to modify System table
     if resource.next is None:
         resource_update = resource
     else:
@@ -38,23 +40,22 @@ def put_resource(data, resource, schema, txn, idl):
 
     app_log.debug("Resource = Table: %s Relation: %s Column: %s"
                   % (resource.table, resource.relation, resource.column))
+
     if resource_update is not None:
         app_log.debug("Resource to Update = Table: %s "
                       % resource_update.table)
 
     if verify.verify_http_method(resource, schema, "PUT") is False:
-        raise Exception({'status': httplib.METHOD_NOT_ALLOWED})
+        raise MethodNotAllowed
 
-    verified_data = verify.verify_data(data, resource, schema, idl, 'PUT')
+    # verify data
+    try:
+        verified_data = verify.verify_data(data, resource, schema, idl, 'PUT')
+    except DataValidationFailed as e:
+        app_log.debug(e)
+        raise e
 
-    if verified_data is None:
-        app_log.info("verification of data failed")
-        return None
-
-    if ERROR in verified_data:
-        return verified_data
-
-    #We want to modify System table
+    # We want to modify System table
     if resource.next is None:
         updated_row = utils.update_row(resource, verified_data,
                                        schema, txn, idl)
@@ -66,7 +67,7 @@ def put_resource(data, resource, schema, txn, idl):
         /system/bridges: PUT is allowed when modifying the bridge child table
         '''
         # update row, populate it with data, add it as a reference to
-        #the parent resource
+        # the parent resource
         updated_row = utils.update_row(resource_update,
                                        verified_data, schema, txn, idl)
 
@@ -93,5 +94,5 @@ def put_resource(data, resource, schema, txn, idl):
         updated_row = utils.update_row(resource_update, verified_data,
                                        schema, txn, idl)
 
-    # TODO we need to query the modified object and return it
-    return txn.commit()
+    result = txn.commit()
+    return OvsdbTransactionResult(result)

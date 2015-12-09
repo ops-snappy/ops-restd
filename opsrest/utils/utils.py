@@ -378,7 +378,7 @@ def get_empty_by_basic_type(data):
         return 0
 
     elif type_ in ovs_types.RealType.python_types or \
-    type_ is ovs_types.RealType:
+            type_ is ovs_types.RealType:
         return 0.0
 
     elif type_ is types.BooleanType or \
