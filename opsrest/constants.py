@@ -70,3 +70,10 @@ HTTP_CONTENT_TYPE_JSON = 'application/json; charset=UTF-8'
 
 # User Management
 DEFAULT_USER_GRP = "ovsdb_users"
+
+# HTTP Request Types
+REQUEST_TYPE_CREATE = 'POST'
+REQUEST_TYPE_UPDATE = 'PUT'
+REQUEST_TYPE_DELETE = 'DELETE'
+
+OPSPLUGIN_DIR = '/usr/share/opsplugins'

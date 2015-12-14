@@ -19,11 +19,14 @@ from opsrest.exceptions import DataValidationFailed
 
 import types
 import httplib
+import json
 import copy
 
 from tornado.log import app_log
 from opsrest.utils.utils import to_json_error
 from ovs.db import types as ovs_types
+from opsvalidator import validator
+from opsvalidator.error import ValidationError
 
 
 def verify_http_method(resource, schema, http_method):
@@ -97,19 +100,21 @@ def verify_http_method(resource, schema, http_method):
 
 
 def verify_data(data, resource, schema, idl, http_method):
+    verified_data = {}
+
     try:
-        if http_method == 'POST':
-            return verify_post_data(data, resource, schema, idl)
+        if http_method == REQUEST_TYPE_CREATE:
+            verified_data = verify_post_data(data, resource, schema, idl)
+        elif http_method == REQUEST_TYPE_UPDATE:
+            verified_data = verify_put_data(data, resource, schema, idl)
 
-        elif http_method == 'PUT':
-            return verify_put_data(data, resource, schema, idl)
+        validator.exec_validator(idl, schema, resource, http_method, data)
+    except ValidationError as e:
+        app_log.debug("Custom validations failed:")
+        app_log.debug(e.error)
+        raise DataValidationFailed(e.error)
 
-        elif http_method == 'DELETE':
-            return verify_delete_data(resource, schema, idl)
-
-    # placeholder for catching validators exception
-    except DataValidationFailed as e:
-        raise e
+    return verified_data
 
 
 def verify_post_data(data, resource, schema, idl):

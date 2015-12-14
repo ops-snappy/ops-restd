@@ -22,8 +22,8 @@ from ovs.poller import Poller
 from opsrest.manager import OvsdbConnectionManager
 from opslib import restparser
 from opsrest import constants
+from opsvalidator import validator
 import cookiesecret
-
 
 class OvsdbApiApplication(Application):
     def __init__(self, settings):
@@ -38,6 +38,9 @@ class OvsdbApiApplication(Application):
 
         # connect to OVSDB using a callback
         IOLoop.current().add_callback(self.manager.start)
+
+        # Load all custom validators
+        validator.init_plugins(constants.OPSPLUGIN_DIR)
 
     # adds 'self' to url_patterns
     def _get_url_patterns(self):

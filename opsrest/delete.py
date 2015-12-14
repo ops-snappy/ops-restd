@@ -17,6 +17,8 @@ from opsrest.utils import utils
 from opsrest import verify
 from opsrest.transaction import OvsdbTransactionResult
 from opsrest.exceptions import MethodNotAllowed, DataValidationFailed
+from opsvalidator import validator
+from opsvalidator.error import ValidationError
 
 import httplib
 from tornado.log import app_log
@@ -33,16 +35,17 @@ def delete_resource(resource, schema, txn, idl):
             break
         resource = resource.next
 
-    # Check for invalid resource deletioin
-    if verify.verify_http_method(resource, schema, "DELETE") is False:
+    # Check for invalid resource deletion
+    if verify.verify_http_method(resource, schema,
+                                 REQUEST_TYPE_DELETE) is False:
         raise MethodNotAllowed
 
     try:
-        verified_data = verify.verify_data(None, resource, schema,
-                                           idl, "DELETE")
-    except DataValidationFailed as e:
-        app_log.debug(e)
-        raise e
+        validator.exec_validator(idl, schema, resource, REQUEST_TYPE_DELETE)
+    except ValidationError as e:
+        app_log.debug("Custom validations failed:")
+        app_log.debug(e.error)
+        raise DataValidationFailed(e.error)
 
     if resource.relation == OVSDB_SCHEMA_CHILD:
 
