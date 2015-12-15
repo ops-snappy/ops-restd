@@ -43,6 +43,7 @@ def ordered(obj):
 
 
 def test_read():
+
     manager = OvsdbConnectionManager(settings.get('ovs_remote'),
                                      settings.get('ovs_schema'))
     manager.start()
@@ -52,15 +53,22 @@ def test_read():
     # Wait until the connection is ready
     while True:
         idl.run()
-        # print self.idl.change_seqno
+        # Print self.idl.change_seqno
         if init_seq_no != idl.change_seqno:
             break
         time.sleep(0.001)
 
-    restschema = restparser.parseSchema(settings.get('ext_schema'))
+    schema = restparser.parseSchema(settings.get('ext_schema'))
 
-    run_config_util = runconfig.RunConfigUtil(idl, restschema)
-    config = run_config_util.get_running_config()
+    run_config_util = runconfig.RunConfigUtil(idl, schema)
+    config = run_config_util.get_config()
+    '''
+    TODO: Adding json.dumps and the json.loads as a workaround because
+    the config returned from test_read has a missing unicode character
+    for keys
+    '''
+    temp_config = json.dumps(config)
+    config = json.loads(temp_config)
     filename = 'config.db'
     with open(filename, 'w') as fp:
         json.dump(config, fp, sort_keys=True, indent=4,
@@ -75,7 +83,7 @@ def test_write(filename):
         data = json.load(json_data)
         json_data.close()
 
-    # set up IDL
+    # Set up IDL
     manager = OvsdbConnectionManager(settings.get('ovs_remote'),
                                      settings.get('ovs_schema'))
     manager.start()
@@ -87,15 +95,15 @@ def test_write(filename):
         if init_seq_no != manager.idl.change_seqno:
             break
 
-    # read the schema
+    # Read the schema
     schema = restparser.parseSchema(settings.get('ext_schema'))
     run_config_util = runconfig.RunConfigUtil(manager.idl, schema)
     run_config_util.write_config_to_db(data)
 
 
-#empty config test case
+# Empty config test case
 def test_empty_config(full_config, empty_config):
-    #print("Test case for empty config")
+
     with open(empty_config) as json_data:
         empty_config_to_write = json.load(json_data)
         json_data.close()
@@ -108,13 +116,12 @@ def test_empty_config(full_config, empty_config):
     config2 = test_read()
 
     res = ordered(config2) == ordered(config1)
-    print res
     return res
 
 
-#read and modify
+# Read and modify
 def test_write_read_compare(fname):
-    #print("Test case for full config\n\n")
+
     with open(fname) as json_data:
         config_to_write = json.load(json_data)
         json_data.close()
@@ -122,9 +129,9 @@ def test_write_read_compare(fname):
     test_write(fname)
 
     config = test_read()
+
     res = ordered(config_to_write) == ordered(config)
 
-    print res
     return res
 
 

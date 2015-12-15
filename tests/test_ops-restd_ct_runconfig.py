@@ -21,9 +21,17 @@ import time
 import pytest
 import subprocess
 import shutil
+
 from opsvsi.docker import *
 from opsvsi.opsvsitest import *
 from opsvsiutils.systemutil import *
+
+'''
+This script copies user config files(config_test1.db, config_test2.db,
+empty_config.db) and runconfig_test_in_docker.py onto the switch. The
+runconfig_test_in_docker.py verifies if the user config is written
+successfully to the OVSDB.
+'''
 
 NUM_OF_SWITCHES = 1
 NUM_HOSTS_PER_SWITCH = 0
@@ -71,7 +79,7 @@ class configTest (OpsVsiTest):
                      script_shared_local)
         shutil.copy2(os.path.join(src_path, "config_test1.db"),
                      script_shared_test_file1)
-        shutil.copy2(os.path.join(src_path, "config_test3.db"),
+        shutil.copy2(os.path.join(src_path, "config_test2.db"),
                      script_shared_test_file2)
         shutil.copy2(os.path.join(src_path, "empty_config.db"),
                      script_shared_test_file3)
@@ -82,7 +90,6 @@ class configTest (OpsVsiTest):
         switch = self.net.switches[0]
         script_shared_docker = '/shared/runconfig_test_in_docker.py'
         out = switch.cmd('python ' + script_shared_docker)
-        info(out)
         res = out.find("Test Failure")
         assert res == -1, "\n### Write was not successful ###\n"
         info("\n### Write was successful ###\n")
