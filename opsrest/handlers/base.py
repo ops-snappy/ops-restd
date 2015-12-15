@@ -223,9 +223,10 @@ class AutoHandler(BaseHandler):
 
     def process_if_match(self):
         if HTTP_HEADER_CONDITIONAL_IF_MATCH in self.request.headers:
+            selector = self.get_query_argument(REST_QUERY_PARAM_SELECTOR, None)
             result = get.get_resource(self.idl, self.resource_path,
                                       self.schema, self.request.path,
-                                      None, self.request.query_arguments)
+                                      selector, self.request.query_arguments)
             if result is None:
                 self.set_status(httplib.PRECONDITION_FAILED)
                 return False
