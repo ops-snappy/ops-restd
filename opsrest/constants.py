@@ -51,6 +51,8 @@ OVSDB_SCHEMA_PARENT = 'parent'
 OVSDB_SCHEMA_BACK_REFERENCE = 'back'
 OVSDB_BASE_URI = REST_VERSION_PATH + OVSDB_SCHEMA_SYSTEM_URI + '/'
 OVSDB_SCHEMA_REFERENCED_BY = 'referenced_by'
+# schema common columns which do not require keys to be validated
+OVSDB_COMMON_COLUMNS = ['other_config', 'external_ids']
 
 # HTTP headers
 HTTP_HEADER_CONTENT_TYPE = 'Content-Type'

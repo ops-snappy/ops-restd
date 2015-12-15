@@ -351,6 +351,15 @@ def verify_container_values_type(column_name, column_data, request_data):
 
     elif column_data.is_dict:
         for key, value in request_data.iteritems():
+            # Check if request data has unknown keys for columns other than
+            # external_ids and other_config (which are common columns and should
+            # accept any keys). Note: common columns which do not require key
+            # validation can be added to OVSDB_COMMON_COLUMNS array.
+            if column_name not in OVSDB_COMMON_COLUMNS:
+                if column_data.kvs and key not in column_data.kvs:
+                    error_json =  to_json_error("Unknown key %s" % key,
+                                                None, column_name)
+                    break
 
             value_type = type(value)
 
@@ -361,8 +370,7 @@ def verify_container_values_type(column_name, column_data, request_data):
                 # types, so each value must be checked if kvs type exists
 
                 if value_type in ovs_types.StringType.python_types \
-                        and column_data.kvs:
-
+                        and column_data.kvs and key in column_data.kvs:
                     kvs_value_type = column_data.kvs[key]['type']
                     converted_value = \
                         convert_string_to_value_by_type(value, kvs_value_type)
@@ -421,8 +429,9 @@ def verify_valid_attribute_values(request_data, column_data, column_name):
 
         valid_keys = set(column_data.kvs.keys())
         data_keys = set(request_data.keys())
-
-        unknown_keys = data_keys.difference(valid_keys)
+        unknown_keys = []
+        if column_name not in OVSDB_COMMON_COLUMNS:
+            unknown_keys = data_keys.difference(valid_keys)
         missing_keys = valid_keys.difference(data_keys)
 
         if unknown_keys:
@@ -564,7 +573,7 @@ def verify_attribute_range(column_name, column_data, request_data):
                 max_ = column_data.valueRangeMax
 
                 # If kvs is defined, ranges shouldbe taken from it
-                if column_data.kvs:
+                if column_data.kvs and key in column_data.kvs:
                     # Skip range check for booleans
                     if column_data.kvs[key]['type'] == ovs_types.BooleanType:
                         continue
