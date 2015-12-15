@@ -416,6 +416,17 @@ def genBaseType(type, min, max, desc):
     return item
 
 
+def genBaseTypeList(type, desc):
+    sub = {}
+    sub["type"] = "array"
+    sub["description"] = desc
+    item = {}
+    item["type"] = str(type)
+    sub["items"] = item
+
+    return sub
+
+
 # Generate definitions including "properties" and "required" for all columns.
 # Tuples of "properties" dictionary and "required" array are returned.
 def genAllColDefinition(cols, table_name, definitions):
@@ -480,6 +491,8 @@ def genDefinition(table_name, col, definitions):
         sub["$ref"] = "#/definitions/" + table_name + "-" + col.name + "-KV"
         sub["description"] = "Key-Value pairs for " + col.name
         return sub
+    elif col.is_list:
+        return genBaseTypeList(col.type, col.desc)
     else:
         # simple attributes
         return genBaseType(col.type, col.rangeMin, col.rangeMax, col.desc)
