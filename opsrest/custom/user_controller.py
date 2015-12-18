@@ -41,11 +41,13 @@ class UserController(BaseController):
 
     def __get_encrypted_password__(self, user):
         """
-        Encrypts the user password using SHA-256 and
-        base 64 salt (username + random value)
+        Encrypts the user password using SHA-512 and
+        base 64 salt (userid + random value)
         Returns encrypted password
+        $6$somesalt$someveryverylongencryptedpasswd
         """
-        salt_data = user.configuration.username.encode("utf8") + os.urandom(16)
+        user_id = user_utils.get_user_id(user.configuration.username)
+        salt_data = str(user_id) + os.urandom(16)
         salt = base64.b64encode(salt_data)
         encoded_password = crypt.crypt(user.configuration.password,
                                        "$6$%s$" % salt)
@@ -64,6 +66,20 @@ class UserController(BaseController):
         user_instance = RestObject.from_json(user_dict)
         return user_instance
 
+    def __call_user_add__(self, username):
+        cmd_result = call(["sudo", "useradd", username,
+                           "-g", DEFAULT_USER_GRP])
+        return cmd_result
+
+    def __call_user_mod__(self, username, encoded_password):
+        cmd_result = call(["sudo", "usermod", "-p",
+                           encoded_password, username])
+        return cmd_result
+
+    def __call_user_del__(self, username):
+        cmd_result = call(["sudo", "userdel", "-r", username], shell=False)
+        return cmd_result
+
     def create(self, data, current_user):
         """
         Create user at ovsdb_users group
@@ -81,14 +97,32 @@ class UserController(BaseController):
         if validation_result is not None:
             return {ERROR: validation_result}
 
+        # Create user
         username = user.configuration.username
-        encoded_password = self.__get_encrypted_password__(user)
         result = {}
         try:
-            cmd_result = call(["sudo", "useradd", username, "-p",
-                               encoded_password, "-g", DEFAULT_USER_GRP])
-            if cmd_result == 0:
-                result = {"key": username}
+            """
+            Add the user first because the user_id is going to be used as
+            part of the salt
+            """
+            cmd_result_add = self.__call_user_add__(username)
+            if cmd_result_add == 0:
+                encoded_password = self.__get_encrypted_password__(user)
+                cmd_result_mod = self.__call_user_mod__(username,
+                                                        encoded_password)
+                if cmd_result_mod == 0:
+                    result = {"key": username}
+                else:
+                    # Try to delete the added user
+                    cmd_result_del = self.__call_user_del__(username)
+                    message_error = ""
+                    if cmd_result_del == 0:
+                        message_error = "User password not set, user deleted."
+                    else:
+                        message_error = "User password not set, failed deleting "\
+                                        "user."
+                    error_json = to_json_error(message_error, None, None)
+                    result = {ERROR: error_json}
             else:
                 error_json = to_json_error("User %s not added" % username,
                                            None, None)
@@ -104,23 +138,24 @@ class UserController(BaseController):
         Update user from ovsdb_users group
         Returns result dictionary
         """
+        # Validate json
         validation_result = self.schema_validator.validate_json(data,
                                                                 OP_UPDATE)
         if validation_result is not None:
             return {ERROR: validation_result}
-
+        # Validate user
         data[OVSDB_SCHEMA_CONFIG]["username"] = item_id
         user = RestObject.from_json(data)
         validation_result = self.validator.validate_update(user, current_user)
         if validation_result is not None:
             return {ERROR: validation_result}
 
+        # Update user
         username = user.configuration.username
         encoded_password = self.__get_encrypted_password__(user)
         result = {}
         try:
-            cmd_result = call(["sudo", "usermod", "-p",
-                               encoded_password, username])
+            cmd_result = self.__call_user_mod__(username, encoded_password)
             if cmd_result != 0:
                 error_json = to_json_error("User %s not modified" % username,
                                            None, None)
@@ -141,7 +176,7 @@ class UserController(BaseController):
         if validation_result is not None:
             return {ERROR: validation_result}
 
-        cmd_result = call(["sudo", "userdel", "-r", username], shell=False)
+        cmd_result = self.__call_user_del__(username)
         result = {}
         if cmd_result != 0:
             if cmd_result == 8:

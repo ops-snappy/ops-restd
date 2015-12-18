@@ -46,6 +46,13 @@ def user_exists(username):
         return False
 
 
+def get_user_id(username):
+    try:
+        return pwd.getpwnam(username).pw_uid
+    except KeyError:
+        return None
+
+
 def get_group_members(group_name):
     all_users = pwd.getpwall()
     all_users_group = []
