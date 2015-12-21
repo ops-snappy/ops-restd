@@ -348,7 +348,7 @@ def row_to_json(row, column_keys):
             if len(attribute) > 0:
                 attribute = attribute[0]
             else:
-                attribute = get_empty_by_basic_type(column_keys[key].type)
+                attribute = None
 
         value_type = column_keys[key].type
         if attribute_type is dict:
@@ -417,7 +417,7 @@ def to_json(data, value_type=None):
         return data
 
     elif type_ is types.NoneType:
-        return get_empty_by_basic_type(value_type)
+        return None
 
     elif type_ is uuid.UUID:
         return str(data)

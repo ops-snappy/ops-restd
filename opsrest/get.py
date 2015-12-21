@@ -156,29 +156,48 @@ def get_row_json(row, table, schema, idl, uri, selector=None,
     if selector is None or selector == OVSDB_SCHEMA_CONFIG:
         config_keys = schema_table.config
         config_data = utils.row_to_json(db_row, config_keys)
+    # To remove the unnecessary empty values from the config data
+    config_data = {key:config_data[key] for key in config_keys
+                   if not(config_data[key] == None or
+                   config_data[key] == {} or config_data[key] == [])}
 
     stats_keys = {}
     stats_data = {}
     if selector is None or selector == OVSDB_SCHEMA_STATS:
         stats_keys = schema_table.stats
         stats_data = utils.row_to_json(db_row, stats_keys)
+    # To remove all the empty columns from the satistics data
+    stats_data = {key: stats_data[key] for key in stats_keys
+                  if stats_data[key]}
 
     status_keys = {}
     status_data = {}
     if selector is None or selector == OVSDB_SCHEMA_STATUS:
         status_keys = schema_table.status
         status_data = utils.row_to_json(db_row, status_keys)
+    # To remove all the empty columns from the status data
+    status_data = {key: status_data[key] for key in status_keys
+                   if status_data[key]}
 
     references = schema_table.references
+    reference_data = []
     for key in references:
         # Don't consider back references
         if references[key].ref_table != schema_table.parent:
             if (depth_counter >= depth):
                 depth = 0
-            reference_data = get_column_json(key, row, table, schema,
-                                             idl, uri, selector, depth,
-                                             depth_counter)
 
+        temp = get_column_json(key, row, table, schema,
+               idl, uri, selector, depth,
+               depth_counter)
+
+        # The condition below is used to discard the empty list of references
+        # in the data returned for get requests
+        if not temp:
+            continue
+
+        reference_data = temp
+   
         # depending upon the category of reference
         # pair them with the right data set
         category = references[key].category
@@ -188,6 +207,9 @@ def get_row_json(row, table, schema, idl, uri, selector=None,
 
         elif stats_keys and category == OVSDB_SCHEMA_STATS:
             stats_data.update({key: reference_data})
+
+        elif (depth_counter >= depth):
+            depth = 0
 
         elif status_keys and category == OVSDB_SCHEMA_STATUS:
             status_data.update({key: reference_data})

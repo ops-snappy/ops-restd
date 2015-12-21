@@ -400,6 +400,8 @@ def filter_get_results(get_data, filters, schema, table=None):
 
                 if filter_set.difference(value_set) == filter_set:
                     valid = False
+            else:
+                valid = False
 
         if valid:
             filtered_data.append(element)
@@ -462,6 +464,20 @@ def _process_filters(filters, column_type):
     return filter_set
 
 
+def process_sort_value(item, key):
+    if key in item:
+        value = item[key]
+        if isinstance(value, str):
+            value = value.lower()
+    else:
+        # We might in the future need to change this to
+        # process the value's type accordingly, but sort
+        # is currently done ascii-wise so this should be ok.
+        value = ""
+
+    return value
+
+
 def sort_get_results(get_data, sort_by_columns, reverse_=False):
 
     # The lambda function returns a tuple with the comparable
@@ -470,18 +486,11 @@ def sort_get_results(get_data, sort_by_columns, reverse_=False):
 
     sorted_data = sorted(
         get_data,
-        key=lambda item: tuple(sort_value_to_lower(item[k])
+        key=lambda item: tuple(process_sort_value(item, k)
                                for k in sort_by_columns),
         reverse=reverse_)
 
     return sorted_data
-
-
-def sort_value_to_lower(value):
-    if isinstance(value, str):
-        return value.lower()
-    else:
-        return value
 
 
 def paginate_get_results(get_data, offset=None, limit=None):
