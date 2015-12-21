@@ -88,6 +88,9 @@ class ConfigHandler(BaseHandler):
             elif result.lower() == 'success':
                 self.set_status(httplib.OK)
             else:
+                if type(error) is list:
+                    self.write(json.dumps({"error": error}))
+
                 self.set_status(httplib.BAD_REQUEST)
 
         else:

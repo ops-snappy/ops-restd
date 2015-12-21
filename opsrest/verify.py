@@ -19,14 +19,10 @@ from opsrest.exceptions import DataValidationFailed
 
 import types
 import httplib
-import json
-import copy
 
 from tornado.log import app_log
 from opsrest.utils.utils import to_json_error
 from ovs.db import types as ovs_types
-from opsvalidator import validator
-from opsvalidator.error import ValidationError
 
 
 def verify_http_method(resource, schema, http_method):
@@ -100,21 +96,10 @@ def verify_http_method(resource, schema, http_method):
 
 
 def verify_data(data, resource, schema, idl, http_method):
-    verified_data = {}
-
-    try:
-        if http_method == REQUEST_TYPE_CREATE:
-            verified_data = verify_post_data(data, resource, schema, idl)
-        elif http_method == REQUEST_TYPE_UPDATE:
-            verified_data = verify_put_data(data, resource, schema, idl)
-
-        validator.exec_validator(idl, schema, resource, http_method, data)
-    except ValidationError as e:
-        app_log.debug("Custom validations failed:")
-        app_log.debug(e.error)
-        raise DataValidationFailed(e.error)
-
-    return verified_data
+    if http_method == REQUEST_TYPE_CREATE:
+        return verify_post_data(data, resource, schema, idl)
+    else:
+        return verify_put_data(data, resource, schema, idl)
 
 
 def verify_post_data(data, resource, schema, idl):
@@ -122,8 +107,7 @@ def verify_post_data(data, resource, schema, idl):
     if OVSDB_SCHEMA_CONFIG not in data:
         raise DataValidationFailed("Missing %s data" % OVSDB_SCHEMA_CONFIG)
 
-    # deepcopy as we want to maintain the original copy for use in validators
-    _data = copy.deepcopy(data[OVSDB_SCHEMA_CONFIG])
+    _data = data[OVSDB_SCHEMA_CONFIG]
 
     # verify config and reference columns data
     verified_data = {}
@@ -191,8 +175,7 @@ def verify_put_data(data, resource, schema, idl):
     if OVSDB_SCHEMA_CONFIG not in data:
         raise DataValidationFailed("Missing %s data" % OVSDB_SCHEMA_CONFIG)
 
-    # deepcopy as we want to maintain the original copy for use in validators
-    _data = copy.deepcopy(data[OVSDB_SCHEMA_CONFIG])
+    _data = data[OVSDB_SCHEMA_CONFIG]
 
     # We neet to verify System table
     if resource.next is None:
@@ -229,11 +212,6 @@ def verify_put_data(data, resource, schema, idl):
 
     # data verified
     return verified_data
-
-
-def verify_delete_data(resource, schema, idl):
-    # placeholder for validators to be inserted in the future
-    return
 
 
 def verify_config_data(data, resource, schema, http_method):
@@ -595,8 +573,6 @@ def verify_attribute_range(column_name, column_data, request_data):
         if value < column_data.rangeMin or value > column_data.rangeMax:
             error = "Attribute value is out of range for column %s" % column_name
             raise DataValidationFailed(error)
-
-    return
 
 
 def verify_forward_reference(data, resource, schema, idl):

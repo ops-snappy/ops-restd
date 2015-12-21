@@ -46,20 +46,16 @@ def register_plugins():
             app_log.info("Invalid resource defined for %s" % plugin.type())
 
 
-def exec_validator(idl, schema, resource, method, data=None):
+def exec_validators(idl, schema, table_name, row, method,
+                    p_table_name=None, p_row=None):
     app_log.debug("Executing validator...")
 
-    # Validate based on the child resource if it exists, which should
-    # be most cases.
-    if resource.next is not None:
-        resource_name = resource.next.table.lower()
-    else:
-        resource_name = resource.table.lower()
-
+    resource_name = table_name.lower()
     if resource_name in g_validators:
         resource_validators = g_validators[resource_name]
 
-        validation_args = ValidationArgs(idl, schema, resource, data)
+        validation_args = ValidationArgs(idl, schema, table_name, row,
+                                         p_table_name, p_row, False)
 
         for validator in resource_validators:
             app_log.debug("Invoking validator \"%s\" for resource \"%s\"" %
@@ -73,10 +69,12 @@ def exec_validator(idl, schema, resource, method, data=None):
 
 def validate_by_method(validator, method, validation_args):
     if method == constants.REQUEST_TYPE_CREATE:
-        validator.validate_create(validation_args)
+        validation_args.is_new = True
+        validator.validate_modification(validation_args)
     elif method == constants.REQUEST_TYPE_UPDATE:
-        validator.validate_update(validation_args)
+        validation_args.is_new = False
+        validator.validate_modification(validation_args)
     elif method == constants.REQUEST_TYPE_DELETE:
-        validator.validate_delete(validation_args)
+        validator.validate_deletion(validation_args)
     else:
         app_log.debug("Unsupported validation for method %s" % method)

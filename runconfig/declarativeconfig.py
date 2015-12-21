@@ -1,14 +1,14 @@
 from opsrest.constants import *
 from opsrest.utils import utils
+from validatoradapter import ValidatorAdapter
 import ovs
 import urllib
 import types
 
 
-# immutable tables cannot have any additions or deletions
+# Immutable tables cannot have any additions or deletions
 # TODO : Will be removing this array after adding the check for
 # immutable tables as done in verify.py for POST/DELETE check
-
 immutable_tables = ['Fan', 'Power_supply', 'LED', 'Temp_sensor',
                     'System', 'Subsystem', 'VRF', 'Daemon']
 
@@ -180,8 +180,8 @@ def read(schema, idl):
 # WRITE CONFIG
 
 
-def setup_row(index_values, table, row_data,
-              txn, reflist, schema, idl, old_row=None):
+def setup_row(index_values, table, row_data, txn, reflist, schema, idl,
+              validator_adapter, old_row=None):
 
     # Initialize the flag for row to check if it is new row
     is_new = False
@@ -245,9 +245,11 @@ def setup_row(index_values, table, row_data,
                         rowlist = row.__getattr__(key).values()
                     else:
                         rowlist = row.__getattr__(key)
-                    clean_subtree(child_table, rowlist, txn, schema, idl)
+                    clean_subtree(child_table, rowlist, txn, schema, idl,
+                                  validator_adapter)
                 else:
-                    clean_subtree(child_table, [], txn, schema, idl, row)
+                    clean_subtree(child_table, [], txn, schema, idl,
+                                  validator_adapter, row)
             continue
 
         # forward child references
@@ -268,7 +270,7 @@ def setup_row(index_values, table, row_data,
             else:
                 new_data = row_data[child_table]
             remove_deleted_rows(child_table, new_data, txn, schema, idl,
-                                row)
+                                validator_adapter, row)
 
     # set up children that exist
     for key in children:
@@ -314,10 +316,16 @@ def setup_row(index_values, table, row_data,
                                                           child_row_data,
                                                           txn, reflist,
                                                           schema, idl,
+                                                          validator_adapter,
                                                           current_row)
                     if child_row is None:
                         continue
 
+                    op = REQUEST_TYPE_CREATE if is_child_new else \
+                        REQUEST_TYPE_UPDATE
+
+                    validator_adapter.add_resource_op(op, child_row,
+                                                      child_table, row, table)
                     if kv_type:
                         child_reference_list.update({child_index: child_row})
                     else:
@@ -343,9 +351,17 @@ def setup_row(index_values, table, row_data,
                                                           child_table,
                                                           child_row_data,
                                                           txn, reflist,
-                                                          schema, idl)
+                                                          schema, idl,
+                                                          validator_adapter)
                     if child_row is None:
                         continue
+
+                    op = REQUEST_TYPE_CREATE if is_child_new else \
+                        REQUEST_TYPE_UPDATE
+
+                    validator_adapter.add_resource_op(op, child_row,
+                                                      child_table, row, table)
+
                     # Set the references column in child row
                     if parent_column is not None and is_child_new:
                         child_row.__setattr__(parent_column, row)
@@ -357,16 +373,18 @@ def setup_row(index_values, table, row_data,
     return (row, is_new)
 
 
-def clean_subtree(table, entries, txn, schema, idl, parent=None):
+def clean_subtree(table, entries, txn, schema, idl, validator_adapter,
+                  parent=None):
 
     if parent is None:
         # Forward references
         for row in entries:
-            clean_row(table, row, txn, schema, idl)
+            clean_row(table, row, txn, schema, idl, validator_adapter)
     else:
         # Backward references
         if table not in immutable_tables:
-            remove_deleted_rows(table, {}, txn, schema, idl, parent)
+            remove_deleted_rows(table, {}, txn, schema, idl, validator_adapter,
+                                parent)
         else:
             parent_column = None
             references_ = schema.ovs_tables[table].references
@@ -377,10 +395,10 @@ def clean_subtree(table, entries, txn, schema, idl, parent=None):
             for row in idl.tables[table].rows.itervalues():
                 if parent_column is not None and \
                    row.__getattr__(parent_column) == parent:
-                    clean_row(table, row, txn, schema, idl)
+                    clean_row(table, row, txn, schema, idl, validator_adapter)
 
 
-def clean_row(table, row, txn, schema, idl):
+def clean_row(table, row, txn, schema, idl, validator_adapter):
     references = schema.ovs_tables[table].references
     children = schema.ovs_tables[table].children
     config_rows = schema.ovs_tables[table].config
@@ -400,10 +418,12 @@ def clean_row(table, row, txn, schema, idl):
                     rowlist = row.__getattr__(key).values()
                 else:
                     rowlist = row.__getattr__(key)
-                clean_subtree(child_table, rowlist, txn, schema, idl)
+                clean_subtree(child_table, rowlist, txn, schema, idl,
+                              validator_adapter)
         else:
             child_table = key
-            clean_subtree(child_table, [], txn, schema, idl, row)
+            clean_subtree(child_table, [], txn, schema, idl,
+                          validator_adapter, row)
 
     # Clean config fields
     for key in config_rows.keys():
@@ -418,18 +438,20 @@ def clean_row(table, row, txn, schema, idl):
             row.__setattr__(key, [])
 
 
-def setup_table(table, table_data, txn, reflist, schema, idl):
+def setup_table(table, table_data, txn, reflist, schema, idl,
+                validator_adapter):
 
     # Iterate over each row
     for index, row_data in table_data.iteritems():
         index_values = utils.escaped_split(index)
 
-        (row, isNew) = setup_row(index_values,
-                                 table,
-                                 row_data,
-                                 txn, reflist, schema, idl)
+        (row, isNew) = setup_row(index_values, table, row_data, txn, reflist,
+                                 schema, idl, validator_adapter)
         if row is None:
             continue
+
+        op = REQUEST_TYPE_CREATE if isNew else REQUEST_TYPE_UPDATE
+        validator_adapter.add_resource_op(op, row, table)
 
         # Save this in global reflist
         reflist[(table, index)] = (row, isNew)
@@ -481,18 +503,20 @@ def setup_references(table, table_data, txn, reflist, schema, idl):
                                  schema, idl)
 
 
-def remove_deleted_rows(table, table_data, txn, schema, idl, parent=None):
+def remove_deleted_rows(table, table_data, txn, schema, idl, validator_adapter,
+                        parent=None):
 
     parent_column = None
+    parent_table = None
     if parent is not None:
         references = schema.ovs_tables[table].references
         for key, value in references.iteritems():
             if value.relation == 'parent':
                 parent_column = key
+                parent_table = value.ref_table
                 break
 
-    # delete rows from DB that are not in declarative config
-    delete_rows = []
+    # Find rows for deletion from the DB that are not in the declarative config
     for row in idl.tables[table].rows.itervalues():
         index = utils.row_to_index(row, table, schema, idl, parent)
 
@@ -505,13 +529,12 @@ def remove_deleted_rows(table, table_data, txn, schema, idl, parent=None):
             continue
 
         if index not in table_data:
-            delete_rows.append(row)
+            # Add to validator adapter for validation and deletion
+            validator_adapter.add_resource_op(REQUEST_TYPE_DELETE, row, table,
+                                              parent, parent_table)
 
-    for i in delete_rows:
-        i.delete()
 
-
-def remove_orphaned_rows(txn, schema, idl):
+def remove_orphaned_rows(txn, schema, idl, validator_adapter):
 
     for table_name, table_schema in schema.ovs_tables.iteritems():
         if table_schema.parent is None:
@@ -545,6 +568,10 @@ def write_config_to_db(schema, idl, data):
     # Maintain a dict with all index:references
     reflist = {}
 
+    # Validator adapter for keeping track of the operations and performing
+    # validations.
+    validator_adapter = ValidatorAdapter(idl, schema)
+
     # Reconstruct System record with correct UUID from the DB
     system_uuid = str(idl.tables['System'].rows.keys()[0])
     data['System'] = {system_uuid: data['System']}
@@ -562,9 +589,11 @@ def write_config_to_db(schema, idl, data):
             new_data = data[table_name]
 
         if table_name not in immutable_tables:
-            remove_deleted_rows(table_name, new_data, txn, schema, idl)
+            remove_deleted_rows(table_name, new_data, txn, schema, idl,
+                                validator_adapter)
 
-        setup_table(table_name, new_data, txn, reflist, schema, idl)
+        setup_table(table_name, new_data, txn, reflist, schema, idl,
+                    validator_adapter)
 
     # The tables are all set up, now connect the references together
     for table_name, value in data.iteritems():
@@ -576,6 +605,14 @@ def write_config_to_db(schema, idl, data):
     # entry can't be removed
     # remove_orphaned_rows(txn)
 
-    result = txn.commit_block()
-    error = txn.get_error()
-    return (result, error)
+    # Execute custom validations, which also performs deletions from the IDL.
+    validator_adapter.exec_validators_with_ops()
+    if validator_adapter.has_errors():
+        txn.abort()
+        result = txn.ERROR
+        errors = validator_adapter.errors
+    else:
+        result = txn.commit_block()
+        errors = txn.get_error()
+
+    return (result, errors)

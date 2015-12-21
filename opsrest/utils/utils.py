@@ -23,6 +23,7 @@ import urllib
 
 from opsrest.resource import Resource
 from opsrest.constants import *
+from opsvalidator import validator
 from tornado.log import app_log
 
 
@@ -268,6 +269,9 @@ def setup_new_row(resource, data, schema, txn, idl):
     if resource.table is None:
         return None
     row = txn.insert(idl.tables[resource.table])
+
+    # Update the resource's row info
+    resource.row = row.uuid
 
     # add config items
     config_keys = schema.ovs_tables[resource.table].config
@@ -704,3 +708,22 @@ def get_table_key(row, table_name, schema, idl):
             key_list.append(value)
 
     return key_list
+
+
+def exec_validators_with_resource(idl, schema, resource, http_method):
+    p_table_name = None
+    p_row = None
+    child_resource = resource
+
+    # Set parent info if a child exists
+    if resource.next is not None:
+        p_table_name = resource.table
+        p_row = idl.tables[p_table_name].rows[resource.row]
+
+        child_resource = resource.next
+
+    table_name = child_resource.table
+    row = idl.tables[table_name].rows[child_resource.row]
+
+    validator.exec_validators(idl, schema, table_name, row, http_method,
+                              p_table_name, p_row)

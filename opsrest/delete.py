@@ -41,7 +41,8 @@ def delete_resource(resource, schema, txn, idl):
         raise MethodNotAllowed
 
     try:
-        validator.exec_validator(idl, schema, resource, REQUEST_TYPE_DELETE)
+        utils.exec_validators_with_resource(idl, schema, resource,
+                                            REQUEST_TYPE_DELETE)
     except ValidationError as e:
         app_log.debug("Custom validations failed:")
         app_log.debug(e.error)
