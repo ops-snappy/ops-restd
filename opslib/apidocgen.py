@@ -61,6 +61,11 @@ def addCommonResponse(responses):
     responses["405"] = response
 
     response = {}
+    response["description"] = "Precondition failed"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["412"] = response
+
+    response = {}
     response["description"] = "Internal server error"
     response["schema"] = {'$ref': "#/definitions/Error"}
     responses["500"] = response
@@ -72,6 +77,11 @@ def addCommonResponse(responses):
 
 
 def addGetResponse(responses):
+    response = {}
+    response["description"] = "Not modified"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["304"] = response
+
     response = {}
     response["description"] = "Not acceptable"
     response["schema"] = {'$ref': "#/definitions/Error"}
@@ -172,6 +182,16 @@ def genGetParams(table, is_instance=False):
     params = []
 
     param = {}
+    param["name"] = "If-None-Match"
+    param["in"] = "header"
+    param["description"] = ("entity-tag value for representation " +
+                            "comparison (see RFC 7232 - Conditional " +
+                            "Requests - section 3.2)")
+    param["required"] = False
+    param["type"] = "string"
+    params.append(param)
+
+    param = {}
     param["name"] = "depth"
     param["in"] = "query"
     param["description"] = "maximum depth of subresources included in result"
@@ -253,6 +273,12 @@ def genGetResource(table, parent_plurality, parents, resource_name, is_plural):
     responses = {}
     response = {}
     response["description"] = "OK"
+    response["headers"] = {'ETag':
+                           {'description':
+                            ('The current entity-tag for the selected ' +
+                             'representation (see RFC 7232 - Conditional ' +
+                             'Requests - section 2.3)'),
+                            'type': 'string'}}
     schema = {}
     schema["type"] = "array"
     item = {}
@@ -328,6 +354,12 @@ def genGetInstance(table, parent_plurality, parents, resource_name, is_plural):
         responses = {}
         response = {}
         response["description"] = "OK"
+        response["headers"] = {'ETag':
+                               {'description':
+                                ('The current entity-tag for the selected ' +
+                                 'representation (see RFC 7232 - ' +
+                                 'Conditional Requests - section 2.3)'),
+                                'type': 'string'}}
         response["schema"] = {'$ref': "#/definitions/"+table.name+"All"}
         responses["200"] = response
 
@@ -346,6 +378,16 @@ def genPutInstance(table, parent_plurality, parents, resource_name, is_plural):
 
         params = genCoreParams(table, parent_plurality, parents,
                                resource_name, is_plural)
+        param = {}
+        param["name"] = "If-Match"
+        param["in"] = "header"
+        param["description"] = ("entity-tag value for representation " +
+                                "comparison (see RFC 7232 - Conditional " +
+                                "Requests - section 3.1)")
+        param["required"] = False
+        param["type"] = "string"
+        params.append(param)
+
         param = {}
         param["name"] = "data"
         param["in"] = "body"
@@ -370,6 +412,16 @@ def genDelInstance(table, parent_plurality, parents, resource_name, is_plural):
 
     params = genCoreParams(table, parent_plurality, parents,
                            resource_name, is_plural)
+    param = {}
+    param["name"] = "If-Match"
+    param["in"] = "header"
+    param["description"] = ("entity-tag value for representation " +
+                            "comparison (see RFC 7232 - Conditional " +
+                            "Requests - section 3.1)")
+    param["required"] = False
+    param["type"] = "string"
+    params.append(param)
+
     if params:
         op["parameters"] = params
 
