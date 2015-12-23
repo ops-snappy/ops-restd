@@ -370,7 +370,7 @@ class AutoHandler(BaseHandler):
 
         # uncaught exceptions
         if not isinstance(e, APIException):
-            self.set_status = httplib.INTERNAL_SERVER_ERROR
+            self.set_status(httplib.INTERNAL_SERVER_ERROR)
         else:
             self.set_status(e.status_code)
 
