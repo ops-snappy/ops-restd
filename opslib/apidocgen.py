@@ -21,6 +21,7 @@ import sys
 import re
 import string
 import copy
+import os
 
 import xml.etree.ElementTree as ET
 
@@ -674,7 +675,6 @@ def getDefinition(schema, table, definitions):
     definitions[table.name + "Stats"] = {"properties": properties,
                                          "required": required}
 
-
     properties = {}
     sub = {}
     sub["$ref"] = "#/definitions/" + table.name + "Config"
@@ -820,6 +820,214 @@ def genAPI(paths, definitions, schema, table, resource_name, parent,
                table, parents, parent_plurality)
         parents.pop()
         parent_plurality.pop()
+
+
+def genCustomDef(resource_name, definitions):
+    '''
+    Creates the custom definition from a json schema file
+    '''
+    # Read custom json schema
+    # TODO Find a way to read the json custom schemas from rest
+    schema_path = os.path.join(os.path.dirname("../opsrest/custom/"),
+                               'schemas/%s.json' % resource_name)
+    json_schema = None
+    try:
+        with open(schema_path, 'r') as data_file:
+            json_schema = json.load(data_file)
+    except IOError:
+        print "Cannot read %s json schema file" % schema_path
+
+    # Create swagger definitions structure
+    # Step 3: Create ResourceConfig, ResourceStatus, ResourceStats definitions
+    if json_schema:
+        properties_config = json_schema["properties"]["configuration"]
+        if "properties" in properties_config:
+            definitions[resource_name + "Config"] = properties_config
+        else:
+            definitions[resource_name + "Stats"] = {"configuration": {}}
+
+        properties_status = json_schema["properties"]["status"]
+        if "properties" in properties_status:
+            definitions[resource_name + "Status"] = properties_status
+        else:
+            definitions[resource_name + "Status"] = {"status": {}}
+
+        properties_stats = json_schema["properties"]["statistics"]
+        if "properties" in properties_status:
+            definitions[resource_name + "Stats"] = properties_stats
+        else:
+            definitions[resource_name + "Stats"] = {"statistics": {}}
+    else:
+        definitions[resource_name + "Config"] = {"properties": {}}
+        definitions[resource_name + "Status"] = {"properties": {}}
+        definitions[resource_name + "Stats"] = {"properties": {}}
+
+    # Step 2: Create ResourceConfigAll definition
+    properties = {}
+    sub = {}
+    sub["$ref"] = "#/definitions/" + resource_name + "Config"
+    sub["description"] = "Configuration of " + resource_name
+    properties["configuration"] = sub
+    sub = {}
+    sub["$ref"] = "#/definitions/" + resource_name + "Status"
+    sub["description"] = "Status of " + resource_name
+    properties["status"] = sub
+    sub = {}
+    sub["$ref"] = "#/definitions/" + resource_name + "Stats"
+    sub["description"] = "Statistics of " + resource_name
+    properties["statistics"] = sub
+    definitions[resource_name + "All"] = {"properties": properties}
+
+    # Step 3: Create ResourceConfigOnly definition
+    properties = {}
+    sub = {}
+    sub["$ref"] = "#/definitions/" + resource_name + "Config"
+    sub["description"] = "Configuration of " + resource_name
+    properties["configuration"] = sub
+    definitions[resource_name + "ConfigOnly"] = {"properties": properties}
+
+
+def genCustomAPI(resource_name, path, paths,
+                 operations=["get_all", "get_id",
+                             "post", "put", "delete"]):
+    '''
+    Creates Custom Resource API
+    '''
+    ops_id = {}
+    ops = {}
+    if "get_all" in operations:
+        # Get All Operation
+        op = {}
+        op["summary"] = "Get operation"
+        op["description"] = "Get a list of resources"
+        op["tags"] = [resource_name]
+
+        params = []
+        op["parameters"] = params
+
+        responses = {}
+        response = {}
+        response["description"] = "OK"
+        schema = {}
+        schema["type"] = "array"
+        item = {}
+        item["description"] = "Resource URI"
+        item["$ref"] = "#/definitions/" + resource_name + "All"
+        schema["items"] = item
+        schema["description"] = "A list of resources"
+        response["schema"] = schema
+        responses["200"] = response
+
+        addGetResponse(responses)
+        op["responses"] = responses
+        ops["get"] = op
+
+    if "get_id" in operations:
+        # Get by id Operation
+        op = {}
+        op["summary"] = "Get operation"
+        op["description"] = "Get a set of attributes"
+        op["tags"] = [resource_name]
+
+        params = []
+        param = {}
+        param["name"] = "id"
+        param["in"] = "path"
+        param["description"] = resource_name + " id"
+        param["required"] = True
+        param["type"] = "string"
+        params.append(param)
+        op["parameters"] = params
+
+        responses = {}
+        response = {}
+        response["description"] = "OK"
+        response["schema"] = {'$ref': "#/definitions/" + resource_name + "All"}
+        responses["200"] = response
+
+        addGetResponse(responses)
+        op["responses"] = responses
+        ops_id["get"] = op
+
+    if "post" in operations:
+        # Post Operation
+        op = {}
+        op["summary"] = "Post operation"
+        op["description"] = "Create a new resource instance"
+        op["tags"] = [resource_name]
+
+        params = []
+        param = {}
+        param["name"] = "data"
+        param["in"] = "body"
+        param["description"] = "data"
+        param["required"] = True
+        param["schema"] = {'$ref': "#/definitions/" +
+                           resource_name + "ConfigOnly"}
+        params.append(param)
+        op["parameters"] = params
+
+        responses = {}
+        addPostResponse(responses)
+        op["responses"] = responses
+        ops["post"] = op
+
+    if "put" in operations:
+        # Update Operation
+        op = {}
+        op["summary"] = "Put operation"
+        op["description"] = "Update configuration"
+        op["tags"] = [resource_name]
+
+        params = []
+        param = {}
+        param["name"] = "id"
+        param["in"] = "path"
+        param["description"] = resource_name + " id"
+        param["required"] = True
+        param["type"] = "string"
+        params.append(param)
+
+        param = {}
+        param["name"] = "data"
+        param["in"] = "body"
+        param["description"] = "configuration"
+        param["required"] = True
+        param["schema"] = {'$ref': "#/definitions/" +
+                           resource_name + "ConfigOnly"}
+        params.append(param)
+        op["parameters"] = params
+
+        responses = {}
+        addPutResponse(responses)
+        op["responses"] = responses
+        ops_id["put"] = op
+
+    if "delete" in operations:
+        # Delete Operation
+        op = {}
+        op["summary"] = "Delete operation"
+        op["description"] = "Delete a resource instance"
+        op["tags"] = [resource_name]
+
+        params = []
+        param = {}
+        param["name"] = "id"
+        param["in"] = "path"
+        param["description"] = resource_name + " id"
+        param["required"] = True
+        param["type"] = "string"
+        params.append(param)
+        op["parameters"] = params
+
+        responses = {}
+        addDeleteResponse(responses)
+        op["responses"] = responses
+        ops_id["delete"] = op
+
+    path_id = path + "/{id}"
+    paths[path_id] = ops_id
+    paths[path] = ops
 
 
 def getFullConfigDef(schema, definitions):
@@ -998,6 +1206,11 @@ def getFullAPI(schema):
 
     # Creating the login URL
     genUserLogin(paths)
+
+    # Custom APIs
+    genCustomDef("User", definitions)
+    genCustomAPI("User", "/system/users", paths,
+                 ["get_all", "post", "put", "delete"])
 
     api["paths"] = paths
 
