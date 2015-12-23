@@ -122,9 +122,58 @@ class AutoHandler(BaseHandler):
                 self.set_status(httplib.NOT_FOUND)
                 self.finish()
 
+        #If Match support
+        match = self.process_if_match()
+        if not match:
+            self.finish()
+
     def on_finish(self):
         app_log.debug("Finished handling of request from %s",
                       self.request.remote_ip)
+
+    def compute_etag(self, data=None):
+        if data is None:
+            return super(AutoHandler, self).compute_etag()
+
+        hasher = hashlib.sha1()
+        for element in data:
+            hasher.update(element)
+        return '"%s"' % hasher.hexdigest()
+
+    def process_if_match(self):
+        if HTTP_HEADER_CONDITIONAL_IF_MATCH in self.request.headers:
+            selector = self.get_query_argument(REST_QUERY_PARAM_SELECTOR, None)
+            result = get.get_resource(self.idl, self.resource_path,
+                                      self.schema, self.request.path,
+                                      selector, self.request.query_arguments)
+            if result is None:
+                self.set_status(httplib.PRECONDITION_FAILED)
+                return False
+
+            match = False
+            etags = self.request.headers.get(HTTP_HEADER_CONDITIONAL_IF_MATCH,
+                                             "").split(',')
+            current_etag = self.compute_etag(json.dumps(result))
+            for e in etags:
+                if e == current_etag or e == '"*"':
+                    match = True
+                    break
+
+            if not match:
+                if self.request.method == 'DELETE':
+                    self.set_status(httplib.PRECONDITION_FAILED)
+                    return False
+
+                data = json.loads(self.request.body)
+                if OVSDB_SCHEMA_CONFIG in data:
+                    if data[OVSDB_SCHEMA_CONFIG] == \
+                            result[OVSDB_SCHEMA_CONFIG]:
+                        self.set_status(httplib.OK)
+                        return False
+                self.set_status(httplib.PRECONDITION_FAILED)
+                return False
+
+        return True
 
     @gen.coroutine
     def options(self):
@@ -212,76 +261,30 @@ class AutoHandler(BaseHandler):
 
         self.finish()
 
-    def compute_etag(self, data=None):
-        if data is None:
-            return super(AutoHandler, self).compute_etag()
-
-        hasher = hashlib.sha1()
-        for element in data:
-            hasher.update(element)
-        return '"%s"' % hasher.hexdigest()
-
-    def process_if_match(self):
-        if HTTP_HEADER_CONDITIONAL_IF_MATCH in self.request.headers:
-            selector = self.get_query_argument(REST_QUERY_PARAM_SELECTOR, None)
-            result = get.get_resource(self.idl, self.resource_path,
-                                      self.schema, self.request.path,
-                                      selector, self.request.query_arguments)
-            if result is None:
-                self.set_status(httplib.PRECONDITION_FAILED)
-                return False
-
-            match = False
-            etags = self.request.headers.get(HTTP_HEADER_CONDITIONAL_IF_MATCH,
-                                             "").split(',')
-            current_etag = self.compute_etag(json.dumps(result))
-            for e in etags:
-                if e == current_etag or e == '"*"':
-                    match = True
-                    break
-
-            if not match:
-                if self.request.method == 'DELETE':
-                    self.set_status(httplib.PRECONDITION_FAILED)
-                    return False
-
-                data = json.loads(self.request.body)
-                if OVSDB_SCHEMA_CONFIG in data:
-                    if data[OVSDB_SCHEMA_CONFIG] == \
-                            result[OVSDB_SCHEMA_CONFIG]:
-                        self.set_status(httplib.OK)
-                        return False
-                self.set_status(httplib.PRECONDITION_FAILED)
-                return False
-
-        return True
-
     @gen.coroutine
     def put(self):
         if HTTP_HEADER_CONTENT_LENGTH in self.request.headers:
             try:
-                proceed = self.process_if_match()
-                if proceed:
-                    # get the PUT body
-                    update_data = json.loads(self.request.body)
-                    # create a new ovsdb transaction
-                    self.txn = self.ref_object.manager.get_new_transaction()
+                # get the PUT body
+                update_data = json.loads(self.request.body)
+                # create a new ovsdb transaction
+                self.txn = self.ref_object.manager.get_new_transaction()
 
-                    # put_resource performs data verfication, prepares and
-                    # commits the ovsdb transaction
-                    result = put.put_resource(update_data, self.resource_path,
-                                              self.schema, self.txn, self.idl)
+                # put_resource performs data verfication, prepares and
+                # commits the ovsdb transaction
+                result = put.put_resource(update_data, self.resource_path,
+                                          self.schema, self.txn, self.idl)
 
-                    status = result.status
-                    if status == INCOMPLETE:
-                        self.ref_object.manager.monitor_transaction(self.txn)
-                        # on 'incomplete' state we wait until the transaction
-                        # completes with either success or failure
-                        yield self.txn.event.wait()
-                        status = self.txn.status
+                status = result.status
+                if status == INCOMPLETE:
+                    self.ref_object.manager.monitor_transaction(self.txn)
+                    # on 'incomplete' state we wait until the transaction
+                    # completes with either success or failure
+                    yield self.txn.event.wait()
+                    status = self.txn.status
 
-                    # complete transaction
-                    self.transaction_complete(status)
+                # complete transaction
+                self.transaction_complete(status)
 
             except APIException as e:
                 self.on_exception(e)
@@ -304,20 +307,18 @@ class AutoHandler(BaseHandler):
     def delete(self):
 
         try:
-            proceed = self.process_if_match()
-            if proceed:
-                self.txn = self.ref_object.manager.get_new_transaction()
+            self.txn = self.ref_object.manager.get_new_transaction()
 
-                result = delete.delete_resource(self.resource_path,
-                                                self.schema, self.txn,
-                                                self.idl)
-                status = result.status
-                if status == INCOMPLETE:
-                    self.ref_object.manager.monitor_transaction(self.txn)
-                    # on 'incomplete' state we wait until the transaction
-                    # completes with either success or failure
-                    yield self.txn.event.wait()
-                    status = self.txn.status
+            result = delete.delete_resource(self.resource_path,
+                                            self.schema, self.txn,
+                                            self.idl)
+            status = result.status
+            if status == INCOMPLETE:
+                self.ref_object.manager.monitor_transaction(self.txn)
+                # on 'incomplete' state we wait until the transaction
+                # completes with either success or failure
+                yield self.txn.event.wait()
+                status = self.txn.status
 
             # complete transaction
             self.transaction_complete(status)
