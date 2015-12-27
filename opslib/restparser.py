@@ -69,7 +69,8 @@ def extractColDesc(column_desc):
 
 class OVSColumn(object):
     """__init__() functions as the class constructor"""
-    def __init__(self, table, col_name, type_, is_optional=True, mutable=True, category=None):
+    def __init__(self, table, col_name, type_, is_optional=True,
+                 mutable=True, category=None):
         self.name = col_name
 
         # category type of this column
@@ -144,14 +145,16 @@ class OVSColumn(object):
                     kvs[column.attrib['key']]['rangeMin'] = min_
                     kvs[column.attrib['key']]['rangeMax'] = max_
                     kvs[column.attrib['key']]['enum'] = enum
-                    # Since there's no indication of optional in the XML schema,
-                    # it inherits its column's. Setting this so that eventually
+                    # Since there's no indication of optional
+                    # in the XML schema, it inherits its column's.
+                    # Setting this so that eventually
                     # it can be filled from info in the XML schema
                     kvs[column.attrib['key']]['is_optional'] = self.is_optional
 
                     key_desc = ET.tostring(column, encoding='utf8',
                                            method='html')
-                    kvs[column.attrib['key']]['desc'] = extractColDesc(key_desc)
+                    kvs[column.attrib['key']]['desc'] =\
+                        extractColDesc(key_desc)
             break
 
         return extractColDesc(columnDesc)
@@ -194,7 +197,8 @@ class OVSColumn(object):
 
 class OVSReference(object):
     """__init__() functions as the class constructor"""
-    def __init__(self, type_, relation='reference', mutable=True, category=None):
+    def __init__(self, type_, relation='reference', mutable=True,
+                 category=None):
         base_type = type_.key
         self.mutable = mutable
 
@@ -231,7 +235,7 @@ class OVSReference(object):
 
 class OVSTable(object):
     """__init__() functions as the class constructor"""
-    def __init__(self, name, is_root, is_many=True, indexes=['uuid']):
+    def __init__(self, name, is_root, is_many=True):
         self.name = name
         self.plural_name = normalizeName(name)
 
@@ -239,9 +243,6 @@ class OVSTable(object):
 
         # list of all column names
         self.columns = []
-
-        # What is the name of the index column
-        self.indexes = indexes
 
         # Is the table in plural form?
         self.is_many = is_many
@@ -268,9 +269,15 @@ class OVSTable(object):
         # table name to OVSReference object mapping
         self.references = {}
 
-    def setIndexes(self, indexes):
-        if len(indexes) > 0:
-            self.indexes = indexes
+        # TODO: index columns are those columns that
+        # OVSDB uses for indexing rows in a table.
+        self.index_columns = None
+
+        # TODO: indexes was introduced to create unique URIs for
+        # resources. This is not always equal to index_columns
+        # and is a source of confusion. This should be removed
+        # eventually.
+        self.indexes = None
 
     @staticmethod
     def from_json(json, name):
@@ -279,7 +286,7 @@ class OVSTable(object):
         mutable = parser.get_optional("mutable", [bool], True)
         is_root = parser.get_optional("isRoot", [bool], False)
         max_rows = parser.get_optional("maxRows", [int])
-        indexes_json = parser.get_optional("indexes", [list], [])
+        indexes_json = parser.get_optional("indexes", [list], [[]])
 
         parser.finish()
 
@@ -292,6 +299,8 @@ class OVSTable(object):
             raise error.Error("table must have at least one column", json)
 
         table = OVSTable(name, is_root, max_rows != 1)
+        table.index_columns = indexes_json[0]
+
         for column_name, column_json in columns_json.iteritems():
             parser = ovs.db.parser.Parser(column_json, "column %s" % name)
             category = parser.get_optional("category", [str, unicode])
@@ -314,7 +323,8 @@ class OVSTable(object):
             # new form of tagging as a second step.
             # For now, we are using only one tag.
             if relationship == "1:m":
-                table.references[column_name] = OVSReference(type_, "child", True, category)
+                table.references[column_name] = OVSReference(type_, "child",
+                                                             True, category)
                 table.references[column_name].column = OVSColumn(table,
                                                                  column_name,
                                                                  type_,
@@ -322,9 +332,12 @@ class OVSTable(object):
                                                                  True,
                                                                  category)
             elif relationship == "m:1":
-                table.references[column_name] = OVSReference(type_, "parent", True, category)
+                table.references[column_name] = OVSReference(type_, "parent",
+                                                             True, category)
             elif relationship == "reference":
-                table.references[column_name] = OVSReference(type_, "reference", True, category)
+                table.references[column_name] = OVSReference(type_,
+                                                             "reference",
+                                                             True, category)
             elif category == "configuration":
                 table.config[column_name] = OVSColumn(table, column_name,
                                                       type_, is_optional,
@@ -361,19 +374,16 @@ class OVSTable(object):
                                                              mutable,
                                                              category)
 
-        indexes_list = []
-        for index_list in indexes_json:
-            tmp_indexes = []
-            for index in index_list:
-                if (index in table.references and
-                        table.references[index].relation == "parent"):
+        # TODO: indexes should be removed eventually
+        table.indexes = []
+        if not table.index_columns:
+            table.indexes = ['uuid']
+        else:
+            for item in table.index_columns:
+                if item in table.references and\
+                        table.references[item].relation == 'parent':
                     continue
-                tmp_indexes.append(index)
-            if len(tmp_indexes) > 0:
-                indexes_list = tmp_indexes
-                break
-
-        table.setIndexes(indexes_list)
+                table.indexes.append(item)
 
         return table
 
@@ -451,6 +461,77 @@ def get_references_tables(schema, ref_table):
     return table_references
 
 
+def is_immutable(table, schema):
+
+    """
+    A table is considered IMMUTABLE if REST API cannot add or
+    delete a row from it
+    """
+    table_schema = schema.ovs_tables[table]
+
+    # ROOT table
+    if table_schema.is_root:
+        # CASE 1: if there are no indices, a root table is considered
+        #         IMMUTABLE for REST API
+        # CASE 2: if there is at least one index of category 'configuration',
+        #         a root table is considered MUTABLE for REST API
+
+        # NOTE: an immutable table can still be modified by other daemons
+        # running on  the switch. For example, system daemon can modify
+        # FAN table although REST cannot
+        return not _has_config_index(table, schema)
+
+    else:
+
+        # top level table e.g. Port
+        if table_schema.parent is None:
+            return not _has_config_index(table, schema)
+        else:
+            # child e.g. Bridge
+            # check if the reference in 'parent' is of category 'configuration'
+            parent = table_schema.parent
+            parent_schema = schema.ovs_tables[parent]
+            children = parent_schema.children
+
+            regular_children = []
+            for item in children:
+                if item in parent_schema.references:
+                    regular_children.append(item)
+
+            ref = None
+            if table not in parent_schema.children:
+                for item in regular_children:
+                    if parent_schema.references[item].ref_table == table:
+                        ref = item
+                        break
+
+                if parent_schema.references[ref].category == 'configuration':
+                    return False
+
+            else:
+                # back children
+                return not _has_config_index(table, schema)
+
+    return True
+
+
+def _has_config_index(table, schema):
+    """
+    return True if table has at least one index column of category
+    configuration
+    """
+    for index in schema.ovs_tables[table].index_columns:
+        if index in schema.ovs_tables[table].config:
+            return True
+        elif index in schema.ovs_tables[table].references:
+            if schema.ovs_tables[table].references[index].category == \
+                    'configuration':
+                return True
+
+    # no indices or no index columns with category configuration
+    return False
+
+
 def parseSchema(schemaFile, title=None, version=None):
     # Initialize a global variable here
     global xml_tree
@@ -467,6 +548,10 @@ def parseSchema(schemaFile, title=None, version=None):
         title = schema.name
     if version is None:
         version = "UNKNOWN"
+
+    # add mutable flag to OVSTable
+    for name, table in schema.ovs_tables.iteritems():
+        table.mutable = not is_immutable(name, schema)
 
     return schema
 
