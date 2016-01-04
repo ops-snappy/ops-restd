@@ -30,6 +30,7 @@ from opsrest.constants import *
 from opsrest.utils.utils import *
 from opsrest import get, post, delete, put
 from opsrest.handlers.base import BaseHandler
+from opsrest.settings import settings
 
 from tornado.log import app_log
 
@@ -37,16 +38,27 @@ from tornado.log import app_log
 class ConfigHandler(BaseHandler):
 
     def prepare(self):
-        self.request_type = self.get_argument('type', 'running')
-        app_log.debug('request type: %s', self.request_type)
-
-        if self.request_type == 'running':
-            self.config_util = runconfig.RunConfigUtil(self.idl, self.schema)
-        elif self.request_type == 'startup':
-            self.config_util = startupconfig.StartupConfigUtil()
+        if settings['auth_enabled']:
+            is_authenticated = userauth.is_user_authenticated(self)
         else:
-            self.set_status(httplib.BAD_REQUEST)
+            is_authenticated = True
+
+        if not is_authenticated:
+            self.set_status(httplib.UNAUTHORIZED)
+            self.set_header("Link", "/login")
             self.finish()
+        else:
+            self.request_type = self.get_argument('type', 'running')
+            app_log.debug('request type: %s', self.request_type)
+
+            if self.request_type == 'running':
+                self.config_util = runconfig.RunConfigUtil(self.idl,
+                                                           self.schema)
+            elif self.request_type == 'startup':
+                self.config_util = startupconfig.StartupConfigUtil()
+            else:
+                self.set_status(httplib.BAD_REQUEST)
+                self.finish()
 
     @gen.coroutine
     def get(self):
