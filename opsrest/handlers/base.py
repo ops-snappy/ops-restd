@@ -121,11 +121,11 @@ class AutoHandler(BaseHandler):
             if self.resource_path is None:
                 self.set_status(httplib.NOT_FOUND)
                 self.finish()
-
-        #If Match support
-        match = self.process_if_match()
-        if not match:
-            self.finish()
+            else:
+                #If Match support
+                match = self.process_if_match()
+                if not match:
+                    self.finish()
 
     def on_finish(self):
         app_log.debug("Finished handling of request from %s",
