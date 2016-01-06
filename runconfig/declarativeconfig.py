@@ -1,6 +1,10 @@
 from opsrest.constants import *
 from opsrest.utils import utils
+from opsrest.exceptions import DataValidationFailed
+from opsrest import verify
 from validatoradapter import ValidatorAdapter
+from tornado.log import app_log
+from copy import deepcopy
 import ovs
 import urllib
 import types
@@ -181,7 +185,7 @@ def read(schema, idl):
 
 
 def setup_row(index_values, table, row_data, txn, reflist, schema, idl,
-              validator_adapter, old_row=None):
+              validator_adapter, errors, old_row=None):
 
     # Initialize the flag for row to check if it is new row
     is_new = False
@@ -209,6 +213,25 @@ def setup_row(index_values, table, row_data, txn, reflist, schema, idl,
         elif is_new:
             row.__setattr__('from', 'static')
 
+    references = schema.ovs_tables[table].references
+    children = schema.ovs_tables[table].children
+
+    try:
+        request_type = REQUEST_TYPE_CREATE if is_new else REQUEST_TYPE_UPDATE
+        get_all_errors = True
+
+        # Check for back-references and remove it from the row data since
+        # it will be checked upon recursive call anyways.
+        _row_data = deepcopy(row_data)
+        for data in row_data:
+            if data in children and data not in references:
+                del _row_data[data]
+
+        results = verify.verify_config_data(_row_data, table, schema,
+                                            request_type, get_all_errors)
+    except DataValidationFailed as e:
+        errors.extend(e.detail)
+
     config_rows = schema.ovs_tables[table].config
     config_keys = config_rows.keys()
 
@@ -225,9 +248,6 @@ def setup_row(index_values, table, row_data, txn, reflist, schema, idl,
         elif (key in row_data and
                 (is_new or row.__getattr__(key) != row_data[key])):
             row.__setattr__(key, row_data[key])
-
-    references = schema.ovs_tables[table].references
-    children = schema.ovs_tables[table].children
 
     # Delete all the keys that don't exist
     for key in children:
@@ -317,6 +337,7 @@ def setup_row(index_values, table, row_data, txn, reflist, schema, idl,
                                                           txn, reflist,
                                                           schema, idl,
                                                           validator_adapter,
+                                                          errors,
                                                           current_row)
                     if child_row is None:
                         continue
@@ -352,7 +373,8 @@ def setup_row(index_values, table, row_data, txn, reflist, schema, idl,
                                                           child_row_data,
                                                           txn, reflist,
                                                           schema, idl,
-                                                          validator_adapter)
+                                                          validator_adapter,
+                                                          errors)
                     if child_row is None:
                         continue
 
@@ -439,14 +461,14 @@ def clean_row(table, row, txn, schema, idl, validator_adapter):
 
 
 def setup_table(table, table_data, txn, reflist, schema, idl,
-                validator_adapter):
+                validator_adapter, errors):
 
     # Iterate over each row
     for index, row_data in table_data.iteritems():
         index_values = utils.escaped_split(index)
 
         (row, isNew) = setup_row(index_values, table, row_data, txn, reflist,
-                                 schema, idl, validator_adapter)
+                                 schema, idl, validator_adapter, errors)
         if row is None:
             continue
 
@@ -457,7 +479,7 @@ def setup_table(table, table_data, txn, reflist, schema, idl,
         reflist[(table, index)] = (row, isNew)
 
 
-def setup_references(table, table_data, txn, reflist, schema, idl):
+def setup_references(table, table_data, txn, reflist, schema, idl, errors):
 
     references = schema.ovs_tables[table].references
 
@@ -480,10 +502,12 @@ def setup_references(table, table_data, txn, reflist, schema, idl):
                 if key in row_data:
                     ref_table = value.ref_table
                     for item in row_data[key]:
-                        # TODO: missing item/references will throw
-                        # an exception
                         if (ref_table, item) not in reflist:
+                            error = "Invalid reference to " + item
+                            app_log.debug(error)
+                            errors.append(error)
                             continue
+
                         (ref_row, is_new_referenced) = reflist[(ref_table,
                                                                 item)]
                         new_reference_list.append(ref_row)
@@ -497,10 +521,8 @@ def setup_references(table, table_data, txn, reflist, schema, idl):
                     child_table = references[key].ref_table
                 else:
                     child_table = key
-                setup_references(child_table,
-                                 row_data[key],
-                                 txn, reflist,
-                                 schema, idl)
+                setup_references(child_table, row_data[key], txn, reflist,
+                                 schema, idl, errors)
 
 
 def remove_deleted_rows(table, table_data, txn, schema, idl, validator_adapter,
@@ -561,6 +583,8 @@ def remove_orphaned_rows(txn, schema, idl, validator_adapter):
 
 
 def write_config_to_db(schema, idl, data):
+    # Errors list for collecting all errors during verifications
+    errors = []
 
     # Create a transaction
     txn = ovs.db.idl.Transaction(idl)
@@ -572,13 +596,19 @@ def write_config_to_db(schema, idl, data):
     # validations.
     validator_adapter = ValidatorAdapter(idl, schema)
 
-    # Reconstruct System record with correct UUID from the DB
-    system_uuid = str(idl.tables['System'].rows.keys()[0])
-    data['System'] = {system_uuid: data['System']}
+    # Start with System table
+    table_name = 'System'
+
+    if table_name not in data:
+        # Log the error, but proceed to collect all errors
+        errors.append("System table missing")
+    else:
+        # Reconstruct System record with correct UUID from the DB
+        system_uuid = str(idl.tables[table_name].rows.keys()[0])
+        data[table_name] = {system_uuid: data[table_name]}
 
     # Iterate over all top-level tables
     for table_name, table_data in schema.ovs_tables.iteritems():
-
         # Check if it is root table
         if table_data.parent is not None:
             continue
@@ -593,12 +623,12 @@ def write_config_to_db(schema, idl, data):
                                 validator_adapter)
 
         setup_table(table_name, new_data, txn, reflist, schema, idl,
-                    validator_adapter)
+                    validator_adapter, errors)
 
     # The tables are all set up, now connect the references together
     for table_name, value in data.iteritems():
         setup_references(table_name, data[table_name], txn, reflist,
-                         schema, idl)
+                         schema, idl, errors)
 
     # remove orphaned rows
     # TODO: FIX THIS and turn on - not critical right away since VRF
@@ -608,9 +638,11 @@ def write_config_to_db(schema, idl, data):
     # Execute custom validations, which also performs deletions from the IDL.
     validator_adapter.exec_validators_with_ops()
     if validator_adapter.has_errors():
+        errors.extend(validator_adapter.errors)
+
+    if len(errors):
         txn.abort()
         result = txn.ERROR
-        errors = validator_adapter.errors
     else:
         result = txn.commit_block()
         errors = txn.get_error()

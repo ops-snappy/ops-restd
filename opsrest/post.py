@@ -46,12 +46,14 @@ def post_resource(data, resource, schema, txn, idl):
             break
         resource = resource.next
 
-    if verify.verify_http_method(resource, schema, "POST") is False:
+    if verify.verify_http_method(resource, schema,
+                                 REQUEST_TYPE_CREATE) is False:
         raise MethodNotAllowed
 
     # verify data
     try:
-        verified_data = verify.verify_data(data, resource, schema, idl, 'POST')
+        verified_data = verify.verify_data(data, resource, schema, idl,
+                                           REQUEST_TYPE_CREATE)
     except DataValidationFailed as e:
         app_log.debug(e)
         raise e

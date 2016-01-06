@@ -45,12 +45,14 @@ def put_resource(data, resource, schema, txn, idl):
         app_log.debug("Resource to Update = Table: %s "
                       % resource_update.table)
 
-    if verify.verify_http_method(resource, schema, "PUT") is False:
+    if verify.verify_http_method(resource, schema,
+                                 REQUEST_TYPE_UPDATE) is False:
         raise MethodNotAllowed
 
     # verify data
     try:
-        verified_data = verify.verify_data(data, resource, schema, idl, 'PUT')
+        verified_data = verify.verify_data(data, resource, schema, idl,
+                                           REQUEST_TYPE_UPDATE)
     except DataValidationFailed as e:
         app_log.debug(e)
         raise e

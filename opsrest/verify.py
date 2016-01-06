@@ -38,7 +38,8 @@ def verify_http_method(resource, schema, http_method):
     '''
     # only GET/PUT is allowed on System table
     if resource.next is None and resource.table == 'System':
-        if http_method == 'PUT' or http_method == 'GET':
+        if http_method == REQUEST_TYPE_UPDATE \
+                or http_method == REQUEST_TYPE_READ:
             return True
         else:
             return False
@@ -62,17 +63,18 @@ def verify_http_method(resource, schema, http_method):
         if ref.category == OVSDB_SCHEMA_CONFIG:
             parent_config_refs.append(name)
 
-    if http_method == 'GET':
+    if http_method == REQUEST_TYPE_READ:
         return True
 
-    elif http_method == 'PUT':
+    elif http_method == REQUEST_TYPE_UPDATE:
         # check if atleast one attribute is tagged as category:configuration
         if len(resource_config) > 0 or len(resource_config_refs) > 0:
             return True
         else:
             return False
 
-    elif http_method == 'POST' or http_method == 'DELETE':
+    elif http_method == REQUEST_TYPE_CREATE \
+            or http_method == REQUEST_TYPE_DELETE:
         # root table
         if is_root:
             # is index 'uuid'
@@ -133,8 +135,9 @@ def verify_post_data(data, resource, schema, idl):
     try:
         # verify configuration data, add it to verified data
         verified_config_data = verify_config_data(_data,
-                                                  resource.next,
-                                                  schema, 'POST')
+                                                  resource.next.table,
+                                                  schema,
+                                                  REQUEST_TYPE_CREATE)
         verified_data.update(verified_config_data)
 
         # verify reference data, add it to verified data
@@ -187,8 +190,9 @@ def verify_put_data(data, resource, schema, idl):
     verified_data = {}
     try:
         verified_config_data = verify_config_data(_data,
-                                                  resource_verify,
-                                                  schema, 'PUT')
+                                                  resource_verify.table,
+                                                  schema,
+                                                  REQUEST_TYPE_UPDATE)
 
         verified_data.update(verified_config_data)
 
@@ -214,12 +218,13 @@ def verify_put_data(data, resource, schema, idl):
     return verified_data
 
 
-def verify_config_data(data, resource, schema, http_method):
-    config_keys = schema.ovs_tables[resource.table].config
-    reference_keys = schema.ovs_tables[resource.table].references
+def verify_config_data(data, table_name, schema, request_type,
+                       get_all_errors=False):
+    config_keys = schema.ovs_tables[table_name].config
+    reference_keys = schema.ovs_tables[table_name].references
 
     verified_config_data = {}
-    error_json = {}
+    errors = []
 
     # Check for extra or unknown attributes
     unknown_attribute = find_unknown_attribute(data,
@@ -227,47 +232,57 @@ def verify_config_data(data, resource, schema, http_method):
                                                reference_keys)
     if unknown_attribute is not None:
         error = "Unknown configuration attribute: %s" % unknown_attribute
-        raise DataValidationFailed(error)
+        if get_all_errors:
+            errors.append(error)
+        else:
+            raise DataValidationFailed(error)
 
-    non_mutable_attributes = get_non_mutable_attributes(resource, schema)
+    non_mutable_attributes = get_non_mutable_attributes(table_name,
+                                                        schema)
 
-    try:
-        # Check for all required/valid attributes to be present
-        for column_name in config_keys:
+    # Check for all required/valid attributes to be present
+    for column_name in config_keys:
+        is_optional = config_keys[column_name].is_optional
 
-            is_optional = config_keys[column_name].is_optional
-
-            if column_name in data:
-
+        if column_name in data:
+            try:
                 verify_attribute_type(column_name, config_keys[column_name],
                                       data[column_name])
                 verify_attribute_range(column_name, config_keys[column_name],
                                        data[column_name])
+            except DataValidationFailed as e:
+                if get_all_errors:
+                    errors.append(e.detail)
+                else:
+                    raise e
 
-                if http_method == 'POST':
-                    verified_config_data[column_name] = data[column_name]
-
-                elif http_method == 'PUT':
-                    if column_name not in non_mutable_attributes:
-                        verified_config_data[column_name] = data[column_name]
-
-            # PUT ignores non mutable attributes, otherwise they are required
-            elif http_method == 'PUT':
+            if request_type == REQUEST_TYPE_CREATE:
+                verified_config_data[column_name] = data[column_name]
+            elif request_type == REQUEST_TYPE_UPDATE:
                 if column_name not in non_mutable_attributes:
-                    if not is_optional:
-                        error = "Attribute %s is required" % column_name
-                        raise DataValidationFailed(error)
+                    verified_config_data[column_name] = data[column_name]
+        else:
+            # PUT ignores immutable attributes, otherwise they are required.
+            # If it's a PUT request, and the field is a mutable and mandatory,
+            # but not found, then it's an error.
+            #
+            # POST requires all attributes. If it's a mandatory field not found
+            # then it's an error.
+            if request_type == REQUEST_TYPE_UPDATE \
+                    and column_name in non_mutable_attributes:
+                continue
 
-            # Anything else (POST) requires all attributes
-            else:
-                if not is_optional:
-                    error = "Attribute %s is required" % column_name
+            if not is_optional:
+                error = "Attribute %s is required" % column_name
+                if get_all_errors:
+                    errors.append(error)
+                else:
                     raise DataValidationFailed(error)
 
-    except DataValidationFailed as e:
-        raise e
-
-    return verified_config_data
+    if len(errors):
+        raise DataValidationFailed(errors)
+    else:
+        return verified_config_data
 
 
 def verify_attribute_type(column_name, column_data, request_data):
@@ -669,7 +684,8 @@ def verify_referenced_by(data, resource, schema, idl):
             attributes = item['attributes']
 
         # verify URI
-        uri_resource = parse.parse_url_path(uri, schema, idl, 'POST')
+        uri_resource = parse.parse_url_path(uri, schema, idl,
+                                            REQUEST_TYPE_CREATE)
 
         if uri_resource is None:
             error = "referenced_by resource error"
@@ -731,9 +747,9 @@ def find_unknown_attribute(data, config_keys, reference_keys):
     return None
 
 
-def get_non_mutable_attributes(resource, schema):
-    config_keys = schema.ovs_tables[resource.table].config
-    reference_keys = schema.ovs_tables[resource.table].references
+def get_non_mutable_attributes(table_name, schema):
+    config_keys = schema.ovs_tables[table_name].config
+    reference_keys = schema.ovs_tables[table_name].references
 
     attribute_keys = {}
     attribute_keys.update(config_keys)
