@@ -1,6 +1,6 @@
 {
     "System": {
-        "entry1": {
-        }
+        "hostname": "",
+        "asset_tag_number": ""
     }
 }

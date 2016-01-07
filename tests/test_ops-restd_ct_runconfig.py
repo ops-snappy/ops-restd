@@ -85,8 +85,9 @@ class configTest (OpsVsiTest):
                      script_shared_test_file3)
 
     def verify_runconfig(self):
-        info('''"\n########## Verify config writes for empty config and
-        full config ##########\n"''')
+        info('########################################################\n')
+        info('###### Testing full config and empty config   ######\n')
+        info('########################################################\n')
         switch = self.net.switches[0]
         script_shared_docker = '/shared/runconfig_test_in_docker.py'
         out = switch.cmd('python ' + script_shared_docker)
@@ -95,7 +96,6 @@ class configTest (OpsVsiTest):
         info("\n### Write was successful ###\n")
 
 
-@pytest.mark.skipif(True, reason="Temporarily disabled due to changes in review id 2795")
 class Test_config:
     def setup(self):
         pass
