@@ -89,13 +89,14 @@ def post_resource(data, resource, schema, txn, idl):
             for reference in verified_data[OVSDB_SCHEMA_REFERENCED_BY]:
                 utils.add_reference(new_row, reference, idl)
 
-    try:
-        utils.exec_validators_with_resource(idl, schema, resource,
-                                            REQUEST_TYPE_CREATE)
-    except ValidationError as e:
-        app_log.debug("Custom validations failed:")
-        app_log.debug(e.error)
-        raise DataValidationFailed(e.error)
+    if ENABLE_VALIDATIONS:
+        try:
+            utils.exec_validators_with_resource(idl, schema, resource,
+                                                REQUEST_TYPE_CREATE)
+        except ValidationError as e:
+            app_log.debug("Custom validations failed:")
+            app_log.debug(e.error)
+            raise DataValidationFailed(e.error)
 
     result = txn.commit()
     return OvsdbTransactionResult(result)

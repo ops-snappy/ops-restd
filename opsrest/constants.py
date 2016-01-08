@@ -78,3 +78,8 @@ REQUEST_TYPE_UPDATE = 'PUT'
 REQUEST_TYPE_DELETE = 'DELETE'
 
 OPSPLUGIN_DIR = '/usr/share/opsplugins'
+
+# TODO: Flag used to temporarily enable/disable custom validators/schema
+# validations. Flag will be used for easier identification of the code
+# associated with these validation features. Should be removed in the future.
+ENABLE_VALIDATIONS = False

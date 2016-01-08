@@ -216,21 +216,24 @@ def setup_row(index_values, table, row_data, txn, reflist, schema, idl,
     references = schema.ovs_tables[table].references
     children = schema.ovs_tables[table].children
 
-    try:
-        request_type = REQUEST_TYPE_CREATE if is_new else REQUEST_TYPE_UPDATE
-        get_all_errors = True
+    if ENABLE_VALIDATIONS:
+        try:
+            request_type = REQUEST_TYPE_CREATE if is_new \
+                                               else REQUEST_TYPE_UPDATE
 
-        # Check for back-references and remove it from the row data since
-        # it will be checked upon recursive call anyways.
-        _row_data = deepcopy(row_data)
-        for data in row_data:
-            if data in children and data not in references:
-                del _row_data[data]
+            get_all_errors = True
 
-        results = verify.verify_config_data(_row_data, table, schema,
-                                            request_type, get_all_errors)
-    except DataValidationFailed as e:
-        errors.extend(e.detail)
+            # Check for back-references and remove it from the row data since
+            # it will be checked upon recursive call anyways.
+            _row_data = deepcopy(row_data)
+            for data in row_data:
+                if data in children and data not in references:
+                    del _row_data[data]
+
+            results = verify.verify_config_data(_row_data, table, schema,
+                                                request_type, get_all_errors)
+        except DataValidationFailed as e:
+            errors.extend(e.detail)
 
     config_rows = schema.ovs_tables[table].config
     config_keys = config_rows.keys()
@@ -342,11 +345,14 @@ def setup_row(index_values, table, row_data, txn, reflist, schema, idl,
                     if child_row is None:
                         continue
 
-                    op = REQUEST_TYPE_CREATE if is_child_new else \
-                        REQUEST_TYPE_UPDATE
+                    if ENABLE_VALIDATIONS:
+                        op = REQUEST_TYPE_CREATE if is_child_new else \
+                            REQUEST_TYPE_UPDATE
 
-                    validator_adapter.add_resource_op(op, child_row,
-                                                      child_table, row, table)
+                        validator_adapter.add_resource_op(op, child_row,
+                                                          child_table, row,
+                                                          table)
+
                     if kv_type:
                         child_reference_list.update({child_index: child_row})
                     else:
@@ -378,11 +384,13 @@ def setup_row(index_values, table, row_data, txn, reflist, schema, idl,
                     if child_row is None:
                         continue
 
-                    op = REQUEST_TYPE_CREATE if is_child_new else \
-                        REQUEST_TYPE_UPDATE
+                    if ENABLE_VALIDATIONS:
+                        op = REQUEST_TYPE_CREATE if is_child_new else \
+                            REQUEST_TYPE_UPDATE
 
-                    validator_adapter.add_resource_op(op, child_row,
-                                                      child_table, row, table)
+                        validator_adapter.add_resource_op(op, child_row,
+                                                          child_table, row,
+                                                          table)
 
                     # Set the references column in child row
                     if parent_column is not None and is_child_new:
@@ -472,8 +480,9 @@ def setup_table(table, table_data, txn, reflist, schema, idl,
         if row is None:
             continue
 
-        op = REQUEST_TYPE_CREATE if isNew else REQUEST_TYPE_UPDATE
-        validator_adapter.add_resource_op(op, row, table)
+        if ENABLE_VALIDATIONS:
+            op = REQUEST_TYPE_CREATE if isNew else REQUEST_TYPE_UPDATE
+            validator_adapter.add_resource_op(op, row, table)
 
         # Save this in global reflist
         reflist[(table, index)] = (row, isNew)
@@ -505,7 +514,9 @@ def setup_references(table, table_data, txn, reflist, schema, idl, errors):
                         if (ref_table, item) not in reflist:
                             error = "Invalid reference to " + item
                             app_log.debug(error)
-                            errors.append(error)
+
+                            if ENABLE_VALIDATIONS:
+                                errors.append(error)
                             continue
 
                         (ref_row, is_new_referenced) = reflist[(ref_table,
@@ -539,6 +550,9 @@ def remove_deleted_rows(table, table_data, txn, schema, idl, validator_adapter,
                 break
 
     # Find rows for deletion from the DB that are not in the declarative config
+    if not ENABLE_VALIDATIONS:
+        delete_rows = []
+
     for row in idl.tables[table].rows.itervalues():
         index = utils.row_to_index(row, table, schema, idl, parent)
 
@@ -552,8 +566,15 @@ def remove_deleted_rows(table, table_data, txn, schema, idl, validator_adapter,
 
         if index not in table_data:
             # Add to validator adapter for validation and deletion
-            validator_adapter.add_resource_op(REQUEST_TYPE_DELETE, row, table,
-                                              parent, parent_table)
+            if ENABLE_VALIDATIONS:
+                validator_adapter.add_resource_op(REQUEST_TYPE_DELETE, row,
+                                                  table, parent, parent_table)
+            else:
+                delete_rows.append(row)
+
+    if not ENABLE_VALIDATIONS:
+        for i in delete_rows:
+            i.delete()
 
 
 def remove_orphaned_rows(txn, schema, idl, validator_adapter):
@@ -594,14 +615,18 @@ def write_config_to_db(schema, idl, data):
 
     # Validator adapter for keeping track of the operations and performing
     # validations.
-    validator_adapter = ValidatorAdapter(idl, schema)
+    if ENABLE_VALIDATIONS:
+        validator_adapter = ValidatorAdapter(idl, schema)
+    else:
+        validator_adapter = None
 
     # Start with System table
     table_name = 'System'
 
     if table_name not in data:
         # Log the error, but proceed to collect all errors
-        errors.append("System table missing")
+        if ENABLE_VALIDATIONS:
+            errors.append("System table missing")
     else:
         # Reconstruct System record with correct UUID from the DB
         system_uuid = str(idl.tables[table_name].rows.keys()[0])
@@ -636,9 +661,10 @@ def write_config_to_db(schema, idl, data):
     # remove_orphaned_rows(txn)
 
     # Execute custom validations, which also performs deletions from the IDL.
-    validator_adapter.exec_validators_with_ops()
-    if validator_adapter.has_errors():
-        errors.extend(validator_adapter.errors)
+    if ENABLE_VALIDATIONS:
+        validator_adapter.exec_validators_with_ops()
+        if validator_adapter.has_errors():
+            errors.extend(validator_adapter.errors)
 
     if len(errors):
         txn.abort()
