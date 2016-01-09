@@ -35,4 +35,5 @@ settings['auth_enabled'] = False
 settings['cookie_secret'] = '61oETzKXQAGaYdkL5gEmGeJJFuYh7EQnp2XdTP1o/Vo='
 settings['cfg_db_schema'] = '/usr/share/openvswitch/configdb.ovsschema'
 
-settings["user_schema"] = os.path.join(os.path.dirname(custom.__file__), 'schemas/User.json')
+settings["user_schema"] = os.path.join(os.path.dirname(custom.__file__),
+                                       'schemas/User.json')

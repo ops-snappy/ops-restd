@@ -1,4 +1,4 @@
-# Copyright (C) 2015 Hewlett Packard Enterprise Development LP
+# Copyright (C) 2015-2016 Hewlett Packard Enterprise Development LP
 #
 #  Licensed under the Apache License, Version 2.0 (the "License"); you may
 #  not use this file except in compliance with the License. You may obtain
@@ -18,10 +18,8 @@ from opsrest.constants import *
 from opsrest.exceptions import DataValidationFailed
 
 import types
-import httplib
 
 from tornado.log import app_log
-from opsrest.utils.utils import to_json_error
 from ovs.db import types as ovs_types
 
 
@@ -30,16 +28,17 @@ def verify_http_method(resource, schema, http_method):
     Operations are allowed on each schema table/resource:
      - GET: any table with at least one attribute tagged as
        category:[configuration|status|statistics] can be retrieved.
-     - PUT: any table with at least one attribute tagged as
+     - PUT/PATCH: any table with at least one attribute tagged as
        category:configuration (relationship or not) can be updated.
      - POST/DELETE: any root table with an index attribute tagged as
        category:configuration OR any non-root table referenced by an attribute
        tagged as category:configuration can be created/deleted.
     '''
-    # only GET/PUT is allowed on System table
+    # only GET/PUT/PATCH is allowed on System table
     if resource.next is None and resource.table == 'System':
-        if http_method == REQUEST_TYPE_UPDATE \
-                or http_method == REQUEST_TYPE_READ:
+        if http_method == REQUEST_TYPE_UPDATE or \
+                http_method == REQUEST_TYPE_READ or \
+                http_method == REQUEST_TYPE_PATCH:
             return True
         else:
             return False
@@ -66,15 +65,16 @@ def verify_http_method(resource, schema, http_method):
     if http_method == REQUEST_TYPE_READ:
         return True
 
-    elif http_method == REQUEST_TYPE_UPDATE:
-        # check if atleast one attribute is tagged as category:configuration
+    elif http_method == REQUEST_TYPE_UPDATE or \
+            http_method == REQUEST_TYPE_PATCH:
+        # check if at least one attribute is tagged as category:configuration
         if len(resource_config) > 0 or len(resource_config_refs) > 0:
             return True
         else:
             return False
 
-    elif http_method == REQUEST_TYPE_CREATE \
-            or http_method == REQUEST_TYPE_DELETE:
+    elif http_method == REQUEST_TYPE_CREATE or \
+            http_method == REQUEST_TYPE_DELETE:
         # root table
         if is_root:
             # is index 'uuid'
@@ -98,10 +98,13 @@ def verify_http_method(resource, schema, http_method):
 
 
 def verify_data(data, resource, schema, idl, http_method):
+
     if http_method == REQUEST_TYPE_CREATE:
         return verify_post_data(data, resource, schema, idl)
-    else:
+    elif http_method == REQUEST_TYPE_UPDATE:
         return verify_put_data(data, resource, schema, idl)
+    elif http_method == REQUEST_TYPE_PATCH:
+        return verify_patch_data(data, resource, schema, idl)
 
 
 def verify_post_data(data, resource, schema, idl):
@@ -138,6 +141,7 @@ def verify_post_data(data, resource, schema, idl):
                                                   resource.next.table,
                                                   schema,
                                                   REQUEST_TYPE_CREATE)
+
         verified_data.update(verified_config_data)
 
         # verify reference data, add it to verified data
@@ -218,8 +222,38 @@ def verify_put_data(data, resource, schema, idl):
     return verified_data
 
 
+def verify_patch_data(data, resource, schema, idl):
+
+    # We need to verify System table
+    if resource.next is None:
+        resource_verify = resource
+    else:
+        resource_verify = resource.next
+
+    # verify config and reference columns data
+    verified_data = {}
+    try:
+        verified_config_data = verify_config_data(data,
+                                                  resource_verify.table,
+                                                  schema, REQUEST_TYPE_PATCH)
+
+        verified_data.update(verified_config_data)
+
+        verified_reference_data = verify_forward_reference(data,
+                                                           resource_verify,
+                                                           schema, idl)
+        verified_data.update(verified_reference_data)
+
+    except DataValidationFailed as e:
+        raise e
+
+    # data verified
+    return verified_data
+
+
 def verify_config_data(data, table_name, schema, request_type,
                        get_all_errors=False):
+
     config_keys = schema.ovs_tables[table_name].config
     reference_keys = schema.ovs_tables[table_name].references
 
@@ -258,7 +292,7 @@ def verify_config_data(data, table_name, schema, request_type,
 
             if request_type == REQUEST_TYPE_CREATE:
                 verified_config_data[column_name] = data[column_name]
-            elif request_type == REQUEST_TYPE_UPDATE:
+            elif request_type in (REQUEST_TYPE_UPDATE, REQUEST_TYPE_PATCH):
                 if column_name not in non_mutable_attributes:
                     verified_config_data[column_name] = data[column_name]
         else:
@@ -334,14 +368,13 @@ def verify_container_values_type(column_name, column_data, request_data):
     elif column_data.is_dict:
         for key, value in request_data.iteritems():
             # Check if request data has unknown keys for columns other than
-            # external_ids and other_config (which are common columns and should
-            # accept any keys). Note: common columns which do not require key
-            # validation can be added to OVSDB_COMMON_COLUMNS array.
+            # those in OVSDB_COMMON_COLUMNS (which should accept any keys).
+            # Note: common columns which do not require key validation should
+            # be added to OVSDB_COMMON_COLUMNS array.
             if column_name not in OVSDB_COMMON_COLUMNS:
                 if column_data.kvs and key not in column_data.kvs:
-                    error_json =  to_json_error("Unknown key %s" % key,
-                                                None, column_name)
-                    break
+                    error = "Unknown key %s for column %s" % (key, column_name)
+                    raise DataValidationFailed(error)
 
             value_type = type(value)
 
@@ -374,12 +407,12 @@ def convert_string_to_value_by_type(value, type_):
     if type_ == ovs_types.IntegerType:
         try:
             converted_value = int(value)
-        except ValueError, e:
+        except ValueError:
             converted_value = None
     elif type_ == ovs_types.RealType:
         try:
             converted_value = float(value)
-        except ValueError, e:
+        except ValueError:
             converted_value = None
     elif type_ == ovs_types.BooleanType:
         if not (value == 'true' or value == 'false'):
@@ -389,11 +422,11 @@ def convert_string_to_value_by_type(value, type_):
 
 
 def verify_valid_attribute_values(request_data, column_data, column_name):
+
     valid = True
-    error_json = {}
 
     error_details = ""
-    error_message = "Attribute value is invalid"
+    error_message = "Attribute value is invalid for column '%s'." % column_name
 
     # If data has an enum defined, check for a valid value
     if column_data.enum:
@@ -479,8 +512,6 @@ def verify_attribute_range(column_name, column_data, request_data):
     # so request_data type must be correct (save for a small
     # exception if column is list)
 
-    result = {}
-    error_json = {}
     data_type = type(request_data)
 
     # Check elements in in a list
@@ -496,7 +527,8 @@ def verify_attribute_range(column_name, column_data, request_data):
 
         request_len = len(request_list)
         if request_len < column_data.n_min or request_len > column_data.n_max:
-            error = "List's number of elements is out of range for column %s" % column_name
+            error = "List number of elements is out of range for column %s" % \
+                column_name
             raise DataValidationFailed(error)
         else:
             for element in request_list:
@@ -508,14 +540,16 @@ def verify_attribute_range(column_name, column_data, request_data):
 
                 if (value < column_data.rangeMin or
                         value > column_data.rangeMax):
-                    error = "List element %s is out of range for column %s" % (element, column_name)
+                    error = "List element %s is out of range for column %s" % \
+                        (element, column_name)
                     raise DataValidationFailed(error)
 
     # Check elements in a dictionary
     elif column_data.is_dict:
         request_len = len(request_data)
         if request_len < column_data.n_min or request_len > column_data.n_max:
-            error = "Dictionary's number of elements is out of range for column %s" % column_name
+            error = "Dict number of elements is out of range for column %s" % \
+                column_name
             raise DataValidationFailed(error)
         else:
             for key, data in request_data.iteritems():
@@ -529,7 +563,8 @@ def verify_attribute_range(column_name, column_data, request_data):
 
                 if (value < column_data.rangeMin or
                         value > column_data.rangeMax):
-                    error = "Dictionary key %s is out of range for column %s" % (key, column_name)
+                    error = "Key %s's value is out of range for column %s" % \
+                        (key, column_name)
                     raise DataValidationFailed(error)
 
                 # Now check ranges for values in dictionary
@@ -555,9 +590,10 @@ def verify_attribute_range(column_name, column_data, request_data):
                     # If value is a string, it might represent values of other
                     # types and therefore it needs to be converted
                     if type(value) in ovs_types.StringType.python_types:
+                        column_ovs_type = column_data.kvs[key]['type']
                         value = \
                             convert_string_to_value_by_type(value,
-                                                            column_data.kvs[key]['type'])
+                                                            column_ovs_type)
 
                 # If it was a string all along or if after convertion it's
                 # still a string, its length range is checked instead
@@ -566,8 +602,8 @@ def verify_attribute_range(column_name, column_data, request_data):
 
                 if (value < min_ or
                         value > max_):
-                    error = "Dictionary value %s is out of range for key %s in column %s"\
-                            % (data, key, column_name)
+                    error = "Dictionary value %s is out of range " % data + \
+                        "for key %s in column %s" % (key, column_name)
                     raise DataValidationFailed(error)
 
     # Check single elements (non-list/non-dictionary)
@@ -586,7 +622,8 @@ def verify_attribute_range(column_name, column_data, request_data):
             value = len(value)
 
         if value < column_data.rangeMin or value > column_data.rangeMax:
-            error = "Attribute value is out of range for column %s" % column_name
+            error = "Attribute value is out of range for column %s" % \
+                column_name
             raise DataValidationFailed(error)
 
 
@@ -618,7 +655,7 @@ def verify_forward_reference(data, resource, schema, idl):
             # this is either a URI or list of URIs
             _refdata = data[key]
             notList = False
-            if type(_refdata) is not types.ListType:
+            if not isinstance(_refdata, types.ListType):
                 notList = True
                 _refdata = [_refdata]
 

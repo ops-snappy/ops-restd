@@ -1,4 +1,4 @@
-# Copyright (C) 2015 Hewlett Packard Enterprise Development LP
+# Copyright (C) 2015-2016 Hewlett Packard Enterprise Development LP
 #
 #  Licensed under the Apache License, Version 2.0 (the "License"); you may
 #  not use this file except in compliance with the License. You may obtain
@@ -76,5 +76,21 @@ REQUEST_TYPE_CREATE = 'POST'
 REQUEST_TYPE_READ = 'GET'
 REQUEST_TYPE_UPDATE = 'PUT'
 REQUEST_TYPE_DELETE = 'DELETE'
+REQUEST_TYPE_OPTIONS = 'OPTIONS'
+REQUEST_TYPE_PATCH = 'PATCH'
 
 OPSPLUGIN_DIR = '/usr/share/opsplugins'
+
+# PATCH operation's keys according to RFC 6902
+PATCH_KEY_OP = 'op'
+PATCH_KEY_PATH = 'path'
+PATCH_KEY_VALUE = 'value'
+PATCH_KEY_FROM = 'from'
+
+# PATCH operations according to RFC 6902
+PATCH_OP_TEST = 'test'
+PATCH_OP_REMOVE = 'remove'
+PATCH_OP_ADD = 'add'
+PATCH_OP_REPLACE = 'replace'
+PATCH_OP_MOVE = 'move'
+PATCH_OP_COPY = 'copy'
