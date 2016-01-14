@@ -634,15 +634,21 @@ def getDefinition(schema, table, definitions):
 
     properties = {}
     definition = {}
+    required = []
     definition["type"] = "string"
     definition["description"] = table.name + " id"
-    properties["id"] = definition
+    config = "id"
+    required.append(config)
+    properties[config] = definition
     definition = {}
     definition["$ref"] = "#/definitions/" + table.name + "ConfigFull"
     definition["description"] = "Configuration of " + table.name + " instance"
-    properties["configuration"] = definition
+    config = "configuration"
+    required.append(config)
+    properties[config] = definition
 
-    definitions[table.name + "ConfigInstance"] = {"properties": properties}
+    definitions[table.name + "ConfigInstance"] = {"properties": properties,
+                                                  "required": required}
 
     properties = {}
     sub = {}
@@ -693,17 +699,24 @@ def getDefinition(schema, table, definitions):
 
     properties = {}
     sub = {}
+    required = []
     sub["$ref"] = "#/definitions/" + table.name + "Config"
     sub["description"] = "Configuration of " + table.name
-    properties["configuration"] = sub
+    config = "configuration"
+    required.append(config)
+    properties[config] = sub
 
-    definitions[table.name + "ConfigOnly"] = {"properties": properties}
+    definitions[table.name + "ConfigOnly"] = {"properties": properties,
+                                              "required": required}
 
     properties = {}
     sub = {}
+    required = []
     sub["$ref"] = "#/definitions/" + table.name + "Config"
     sub["description"] = "Configuration of " + table.name
-    properties["configuration"] = sub
+    config = "configuration"
+    required.append(config)
+    properties[config] = sub
 
     sub = {}
     sub["type"] = "array"
@@ -711,9 +724,12 @@ def getDefinition(schema, table, definitions):
     item = {}
     item["$ref"] = "#/definitions/ReferencedBy"
     sub["items"] = item
-    properties["referenced_by"] = sub
+    config = "referenced_by"
+    required.append(config)
+    properties[config] = sub
 
-    definitions[table.name + "ConfigReferenced"] = {"properties": properties}
+    definitions[table.name + "ConfigReferenced"] = {"properties": properties,
+                                                    "required": required}
 
 
 def genAPI(paths, definitions, schema, table, resource_name, parent,
@@ -844,7 +860,7 @@ def genCustomDef(resource_name, definitions):
         if "properties" in properties_config:
             definitions[resource_name + "Config"] = properties_config
         else:
-            definitions[resource_name + "Stats"] = {"configuration": {}}
+            definitions[resource_name + "Config"] = {"configuration": {}}
 
         properties_status = json_schema["properties"]["status"]
         if "properties" in properties_status:
@@ -876,7 +892,8 @@ def genCustomDef(resource_name, definitions):
     sub["$ref"] = "#/definitions/" + resource_name + "Stats"
     sub["description"] = "Statistics of " + resource_name
     properties["statistics"] = sub
-    definitions[resource_name + "All"] = {"properties": properties}
+    definitions[resource_name + "All"] = {"properties": properties,
+                                          "required": ["configuration"]}
 
     # Step 3: Create ResourceConfigOnly definition
     properties = {}
@@ -884,7 +901,8 @@ def genCustomDef(resource_name, definitions):
     sub["$ref"] = "#/definitions/" + resource_name + "Config"
     sub["description"] = "Configuration of " + resource_name
     properties["configuration"] = sub
-    definitions[resource_name + "ConfigOnly"] = {"properties": properties}
+    definitions[resource_name + "ConfigOnly"] = {"properties": properties,
+                                                 "required": ["configuration"]}
 
 
 def genCustomAPI(resource_name, path, paths,
