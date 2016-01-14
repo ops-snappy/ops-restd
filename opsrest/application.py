@@ -40,8 +40,7 @@ class OvsdbApiApplication(Application):
         IOLoop.current().add_callback(self.manager.start)
 
         # Load all custom validators
-        if constants.ENABLE_VALIDATIONS:
-            validator.init_plugins(constants.OPSPLUGIN_DIR)
+        validator.init_plugins(constants.OPSPLUGIN_DIR)
 
     # adds 'self' to url_patterns
     def _get_url_patterns(self):

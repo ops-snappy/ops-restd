@@ -40,14 +40,13 @@ def delete_resource(resource, schema, txn, idl):
                                  REQUEST_TYPE_DELETE) is False:
         raise MethodNotAllowed
 
-    if ENABLE_VALIDATIONS:
-        try:
-            utils.exec_validators_with_resource(idl, schema, resource,
-                                                REQUEST_TYPE_DELETE)
-        except ValidationError as e:
-            app_log.debug("Custom validations failed:")
-            app_log.debug(e.error)
-            raise DataValidationFailed(e.error)
+    try:
+        utils.exec_validators_with_resource(idl, schema, resource,
+                                            REQUEST_TYPE_DELETE)
+    except ValidationError as e:
+        app_log.debug("Custom validations failed:")
+        app_log.debug(e.error)
+        raise DataValidationFailed(e.error)
 
     if resource.relation == OVSDB_SCHEMA_CHILD:
 

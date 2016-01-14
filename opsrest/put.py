@@ -17,6 +17,7 @@ from opsrest.utils import utils
 from opsrest import verify
 from opsrest.transaction import OvsdbTransactionResult
 from opsrest.exceptions import MethodNotAllowed, DataValidationFailed
+from opsvalidator.error import ValidationError
 
 import httplib
 from tornado.log import app_log
@@ -96,14 +97,13 @@ def put_resource(data, resource, schema, txn, idl):
         updated_row = utils.update_row(resource_update, verified_data,
                                        schema, txn, idl)
 
-    if ENABLE_VALIDATIONS:
-        try:
-            utils.exec_validators_with_resource(idl, schema, resource,
-                                                REQUEST_TYPE_UPDATE)
-        except ValidationError as e:
-            app_log.debug("Custom validations failed:")
-            app_log.debug(e.error)
-            raise DataValidationFailed(e.error)
+    try:
+        utils.exec_validators_with_resource(idl, schema, resource,
+                                            REQUEST_TYPE_UPDATE)
+    except ValidationError as e:
+        app_log.debug("Custom validations failed:")
+        app_log.debug(e.error)
+        raise DataValidationFailed(e.error)
 
     result = txn.commit()
     return OvsdbTransactionResult(result)
