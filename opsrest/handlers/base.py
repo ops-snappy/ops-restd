@@ -163,19 +163,22 @@ class AutoHandler(BaseHandler):
                     break
 
             if not match:
-                if self.request.method == 'DELETE':
-                    self.set_status(httplib.PRECONDITION_FAILED)
-                    return False
-
-                data = json.loads(self.request.body)
-                if OVSDB_SCHEMA_CONFIG in data:
-                    if data[OVSDB_SCHEMA_CONFIG] == \
-                            result[OVSDB_SCHEMA_CONFIG]:
-                        self.set_status(httplib.OK)
-                        return False
+                # If is a PUT operation and the change request state
+                # is already reflected in the current state of the
+                # target resource it must return 2xx(Succesful)
+                # https://tools.ietf.org/html/rfc7232#section-3.1
+                if self.request.method == REQUEST_TYPE_UPDATE:
+                    data = json.loads(self.request.body)
+                    if OVSDB_SCHEMA_CONFIG in data and \
+                        data[OVSDB_SCHEMA_CONFIG] == \
+                        result[OVSDB_SCHEMA_CONFIG]:
+                            # Set PUT Successful code and finish
+                            self.set_status(httplib.OK)
+                            return False
+                # For POST, GET, DELETE, PATCH return precondition failed
                 self.set_status(httplib.PRECONDITION_FAILED)
                 return False
-
+        # Etag matches
         return True
 
     @gen.coroutine
