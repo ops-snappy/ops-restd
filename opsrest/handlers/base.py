@@ -1,4 +1,4 @@
-# Copyright (C) 2015 Hewlett Packard Enterprise Development LP
+# Copyright (C) 2015-2016 Hewlett Packard Enterprise Development LP
 #
 #  Licensed under the Apache License, Version 2.0 (the "License"); you may
 #  not use this file except in compliance with the License. You may obtain
@@ -52,7 +52,10 @@ class BaseHandler(web.RequestHandler):
         self.set_header("Cache-control", "no-cache")
         self.set_header("Access-Control-Allow-Origin", allow_origin)
         self.set_header("Access-Control-Allow-Credentials", "true")
-        self.set_header("Access-Control-Expose-Headers", "Date")
+        self.set_header("Access-Control-Expose-Headers", "Date,%s" % \
+                        HTTP_HEADER_ETAG)
+        self.set_header("Access-Control-Request-Headers", \
+                       HTTP_HEADER_CONDITIONAL_IF_MATCH)
 
         # TODO - remove next line before release - needed for testing
         if HTTP_HEADER_ORIGIN in self.request.headers:
