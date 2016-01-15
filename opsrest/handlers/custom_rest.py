@@ -134,6 +134,30 @@ class CustomRESTHandler(BaseHandler):
         self.finish()
 
     @gen.coroutine
+    def patch(self, resource_id):
+        if resource_id:
+            try:
+                data = json.loads(self.request.body)
+                result = self.controller.patch(resource_id,
+                                               data,
+                                               self.current_user)
+                if result is None:
+                    self.set_status(httplib.NOT_FOUND)
+                elif self.successful_request(result):
+                    self.set_status(httplib.NO_CONTENT)
+            except ValueError, e:
+                self.set_status(httplib.BAD_REQUEST)
+                self.set_header(HTTP_HEADER_CONTENT_TYPE,
+                                HTTP_CONTENT_TYPE_JSON)
+                self.write(to_json_error(e))
+            except Exception, e:
+                app_log.debug("Unexpected exception: %s", e)
+                self.set_status(httplib.INTERNAL_SERVER_ERROR)
+        else:
+            self.set_status(httplib.NOT_FOUND)
+        self.finish()
+
+    @gen.coroutine
     def delete(self, resource_id):
         if resource_id:
             try:

@@ -175,7 +175,7 @@ def get_current_row(resource_update, uri, schema, idl):
     return row_json
 
 
-def apply_patch(patch, row_json, resource_update, schema):
+def apply_patch(patch, row_json, resource_update=None, schema=None):
 
     try:
         # Now apply the patch to the row's JSON representation
@@ -189,14 +189,13 @@ def apply_patch(patch, row_json, resource_update, schema):
         app_log.debug(e)
         raise PatchOperationFailed("Invalid path within PATCH.")
 
-    app_log.debug("Post-patch pre-hack row_json -> %s" % patched_row_json)
-
-    # TODO remove this ugly hack after fix in GET behavior is merged (bug #127)
-    patched_row_json = remove_empty_optional_columns_hack(schema,
-                                                          resource_update,
-                                                          patched_row_json)
-
-    app_log.debug("Post-patch post-hack row_json -> %s" % patched_row_json)
+    if resource_update is not None and schema is not None:
+        app_log.debug("Post-patch pre-hack row_json -> %s" % patched_row_json)
+        # TODO remove this ugly hack after fix in GET behavior is merged (bug #127)
+        patched_row_json = remove_empty_optional_columns_hack(schema,
+                                                              resource_update,
+                                                              patched_row_json)
+        app_log.debug("Post-patch post-hack row_json -> %s" % patched_row_json)
 
     return patched_row_json
 
