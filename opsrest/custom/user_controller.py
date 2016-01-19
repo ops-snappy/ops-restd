@@ -1,4 +1,4 @@
-# Copyright (C) 2015 Hewlett Packard Enterprise Development LP
+# Copyright (C) 2015-2016 Hewlett Packard Enterprise Development LP
 #
 #  Licensed under the Apache License, Version 2.0 (the "License"); you may
 #  not use this file except in compliance with the License. You may obtain
@@ -23,14 +23,17 @@ from subprocess import call
 # Local imports
 import opsrest.utils.user_utils as user_utils
 
-from opsrest.utils.utils import to_json_error
-from opsrest.constants import ERROR
+from opsrest.exceptions import\
+    TransactionFailed, DataValidationFailed,\
+    NotFound
 from opsrest.custom.schema_validator import SchemaValidator
 from opsrest.custom.base_controller import BaseController
 from opsrest.custom.rest_object import RestObject
 from opsrest.custom.user_validator import UserValidator
-from opsrest.constants import OVSDB_SCHEMA_CONFIG, DEFAULT_USER_GRP
-from opsrest.custom.base_controller import OP_CREATE, OP_UPDATE
+from opsrest.constants import\
+    REQUEST_TYPE_CREATE, REQUEST_TYPE_UPDATE,\
+    OVSDB_SCHEMA_CONFIG, REST_QUERY_PARAM_DEPTH,\
+    DEFAULT_USER_GRP
 
 
 class UserController(BaseController):
@@ -38,6 +41,7 @@ class UserController(BaseController):
     def __init__(self):
         self.schema_validator = SchemaValidator("user_schema")
         self.validator = UserValidator()
+        self.base_uri_path = "users"
 
     def __get_encrypted_password__(self, user):
         """
@@ -86,16 +90,11 @@ class UserController(BaseController):
         Returns result dictionary
         """
         # Validate json
-        validation_result = self.schema_validator.validate_json(data,
-                                                                OP_CREATE)
-        if validation_result is not None:
-            return {ERROR: validation_result}
+        self.schema_validator.validate_json(data, REQUEST_TYPE_CREATE)
 
-        # Validate user
+        # Validate user data
         user = RestObject.from_json(data)
-        validation_result = self.validator.validate_create(user, current_user)
-        if validation_result is not None:
-            return {ERROR: validation_result}
+        self.validator.validate_create(user, current_user)
 
         # Create user
         username = user.configuration.username
@@ -115,21 +114,18 @@ class UserController(BaseController):
                 else:
                     # Try to delete the added user
                     cmd_result_del = self.__call_user_del__(username)
-                    message_error = ""
+                    error = ""
                     if cmd_result_del == 0:
-                        message_error = "User password not set, user deleted."
+                        error = "User password not set, user deleted."
                     else:
-                        message_error = "User password not set, failed deleting "\
-                                        "user."
-                    error_json = to_json_error(message_error, None, None)
-                    result = {ERROR: error_json}
+                        error = "User password not set, failed deleting user."
+                    raise TransactionFailed(error)
             else:
-                error_json = to_json_error("User %s not added" % username,
-                                           None, None)
-                result = {ERROR: error_json}
+                error = "User %s not added" % username
+                raise TransactionFailed(error)
         except KeyError:
-            error_json = to_json_error("An error ocurred", None, None)
-            result = {ERROR: error_json}
+            error = "An error ocurred creating user."
+            raise TransactionFailed(error)
 
         return result
 
@@ -139,31 +135,24 @@ class UserController(BaseController):
         Returns result dictionary
         """
         # Validate json
-        validation_result = self.schema_validator.validate_json(data,
-                                                                OP_UPDATE)
-        if validation_result is not None:
-            return {ERROR: validation_result}
-        # Validate user
+        self.schema_validator.validate_json(data, REQUEST_TYPE_UPDATE)
+
+        # Validate user data
         data[OVSDB_SCHEMA_CONFIG]["username"] = item_id
         user = RestObject.from_json(data)
-        validation_result = self.validator.validate_update(user, current_user)
-        if validation_result is not None:
-            return {ERROR: validation_result}
+        self.validator.validate_update(user, current_user)
 
         # Update user
         username = user.configuration.username
         encoded_password = self.__get_encrypted_password__(user)
-        result = {}
         try:
             cmd_result = self.__call_user_mod__(username, encoded_password)
             if cmd_result != 0:
-                error_json = to_json_error("User %s not modified" % username,
-                                           None, None)
-                result = {ERROR: error_json}
+                error = "User %s not modified" % username
+                raise TransactionFailed(error)
         except KeyError:
-            error_json = to_json_error("An error ocurred", None, None)
-            result = {ERROR: error_json}
-        return result
+            error = "An error ocurred creating user"
+            raise TransactionFailed(error)
 
     def delete(self, item_id, current_user):
         """
@@ -171,29 +160,40 @@ class UserController(BaseController):
         Returns result dictionary
         """
         username = item_id
-        validation_result = self.validator.validate_delete(username,
-                                                           current_user)
-        if validation_result is not None:
-            return {ERROR: validation_result}
+        self.validator.validate_delete(username, current_user)
 
         cmd_result = self.__call_user_del__(username)
         result = {}
         if cmd_result != 0:
             if cmd_result == 8:
-                error_message = "User %s currently logged in." % username
-                error_json = to_json_error(error_message, None, None)
-                return {ERROR: error_json}
+                error = "User %s currently logged in." % username
+                raise TransactionFailed(error)
             else:
-                error_json = to_json_error("User %s not deleted." % username,
-                                           None, None)
-                return {ERROR: error_json}
+                error = "User %s not deleted." % username
+                raise TransactionFailed(error)
         return result
+
+    def get(self, item_id, current_user=None, selector=None, query_args=None):
+        """
+        Retrieve an specific user from ovsdb_users group
+        Return user json representation
+        """
+        username = item_id
+        if self.validator.check_user_exists(username):
+            user_data = pwd.getpwnam(username)
+            if user_data:
+                user_instance = self.__fill_user_data__(user_data, selector)
+                return user_instance.to_json()
+        else:
+            raise NotFound
+        return None
 
     def get_all(self, current_user, selector=None, query_args=None):
         """
         Retrieve all users from ovsdb_users group
         Return users dictionary list
         """
+        depth = REST_QUERY_PARAM_DEPTH in query_args
         group_id = user_utils.get_group_id(DEFAULT_USER_GRP)
         all_users = []
         users = pwd.getpwall()
@@ -201,7 +201,17 @@ class UserController(BaseController):
             if user_data.pw_gid == group_id:
                 user_instance = self.__fill_user_data__(user_data, selector)
                 if user_instance:
-                    all_users.append(user_instance)
-
-        result = RestObject.to_json_list(all_users)
-        return result
+                    if depth == 1:
+                        all_users.append(user_instance)
+                    elif depth == 0:
+                        username = user_instance.configuration.username
+                        all_users.append(self.create_uri(username))
+                    else:
+                        error = "Resource don't support depth "\
+                            "parameter greater than 1"
+                        raise DataValidationFailed(error)
+        # Convert to json
+        if depth:
+            return RestObject.to_json_list(all_users)
+        else:
+            return all_users

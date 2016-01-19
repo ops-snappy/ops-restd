@@ -1,4 +1,4 @@
-# Copyright (C) 2015 Hewlett Packard Enterprise Development LP
+# Copyright (C) 2015-2016 Hewlett Packard Enterprise Development LP
 #
 #  Licensed under the Apache License, Version 2.0 (the "License"); you may
 #  not use this file except in compliance with the License. You may obtain
@@ -20,9 +20,10 @@ from jsonschema import SchemaError
 from tornado.log import app_log
 
 from opsrest.settings import settings
-from opsrest.utils.utils import to_json_error
-from opsrest.constants import OVSDB_SCHEMA_CONFIG
-from opsrest.custom.base_controller import OP_CREATE, OP_UPDATE
+from opsrest.exceptions import DataValidationFailed
+from opsrest.constants import\
+    REQUEST_TYPE_CREATE, REQUEST_TYPE_UPDATE,\
+    OVSDB_SCHEMA_CONFIG
 
 
 class SchemaValidator():
@@ -41,8 +42,8 @@ class SchemaValidator():
 
     def __validate_category_keys__(self, json_data):
         if OVSDB_SCHEMA_CONFIG not in json_data:
-            error_json = to_json_error("Missing configuration key", None, None)
-            return error_json
+            error = "Missing configuration key"
+            raise DataValidationFailed(error)
 
     def validate_json(self, json_data, operation):
         # Validate Schema
@@ -53,12 +54,10 @@ class SchemaValidator():
             field = None
             if e.path:
                 field = e.path[-1]
-            error_json = to_json_error(e.message, None, field)
-            return error_json
+            error = "Json Schema Error % s. Field: %s" % (e.message, field)
+            raise DataValidationFailed(error)
 
         # Validate required categorization keys
-        if OP_CREATE == operation or OP_UPDATE == operation:
-            error_json = self.__validate_category_keys__(json_data)
-            return error_json
-
-        return None
+        if REQUEST_TYPE_CREATE == operation or\
+                REQUEST_TYPE_UPDATE == operation:
+            self.__validate_category_keys__(json_data)

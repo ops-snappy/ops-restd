@@ -1,4 +1,4 @@
-# Copyright (C) 2015 Hewlett Packard Enterprise Development LP
+# Copyright (C) 2015-2016 Hewlett Packard Enterprise Development LP
 #
 #  Licensed under the Apache License, Version 2.0 (the "License"); you may
 #  not use this file except in compliance with the License. You may obtain
@@ -17,10 +17,10 @@ import re
 
 # Local imports
 import opsrest.utils.user_utils as user_utils
-
-from opsrest.utils.utils import to_json_error
-from opsrest.constants import DEFAULT_USER_GRP
-from opsrest.custom.base_controller import OP_CREATE, OP_UPDATE
+from opsrest.constants import\
+    REQUEST_TYPE_CREATE, REQUEST_TYPE_UPDATE,\
+    DEFAULT_USER_GRP
+from opsrest.exceptions import DataValidationFailed, NotFound
 
 '''
 Constants
@@ -36,19 +36,16 @@ class UserValidator():
         Validate required user fields
         Returns None when valid else returns error json dict
         """
-        if operation == OP_CREATE and \
+        if operation == REQUEST_TYPE_CREATE and \
                 (not hasattr(user.configuration, "username") or
                  user.configuration.username is None):
-            validation_result = to_json_error(REQUIRED_FIELD_MESSAGE,
-                                              None, "username")
-            return validation_result
+            error = "Attribute username is required"
+            raise DataValidationFailed(error)
 
         if not hasattr(user.configuration, "password") or \
                 user.configuration.password is None:
-            validation_result = to_json_error(REQUIRED_FIELD_MESSAGE,
-                                              None, "password")
-            return validation_result
-        return None
+            error = "Attribute password is required"
+            raise DataValidationFailed(error)
 
     def __validate_username__(self, username):
         """
@@ -57,30 +54,22 @@ class UserValidator():
         """
         re_result = re.match(USERNAME_REGEX, username)
         if not re_result or username != re_result.group():
-            validation_result = to_json_error("Invalid username",
-                                              None, "username")
-            return validation_result
-
-        return None
+            error = "Invalid username"
+            raise DataValidationFailed(error)
 
     def validate_create(self, user, current_user):
         """
         Validate required fields, username and if the user exists
         Returns None when valid else returns error json dict
         """
-        validation_result = self.__validate_required_fields__(user, OP_CREATE)
-        if validation_result is not None:
-            return validation_result
+        self.__validate_required_fields__(user, REQUEST_TYPE_CREATE)
 
         username = user.configuration.username
-        validation_result = self.__validate_username__(username)
-        if validation_result is not None:
-            return validation_result
+        self.__validate_username__(username)
 
-        if user_utils.user_exists(username):
-            error_message = "User %s already exists" % username
-            validation_result = to_json_error(error_message, None, None)
-            return validation_result
+        if self.check_user_exists(username):
+            error = "User %s already exists" % username
+            raise DataValidationFailed(error)
 
     def validate_update(self, user, current_user):
         """
@@ -89,33 +78,19 @@ class UserValidator():
         ovsdb_user group
         Returns None when valid else returns error json dict
         """
-        validation_result = self.__validate_required_fields__(user, OP_UPDATE)
-        if validation_result is not None:
-            return validation_result
+        self.__validate_required_fields__(user, REQUEST_TYPE_UPDATE)
 
         username = user.configuration.username
-        validation_result = self.__validate_username__(username)
-        if validation_result is not None:
-            return validation_result
 
-        if user_utils.user_exists(username):
+        if self.check_user_exists(username):
+            # Validate Username
+            self.__validate_username__(username)
             # Avoid update a root user
             if username == "root":
-                error_message = "Permission denied."\
-                                "Cannot update the root user."
-                validation_result = to_json_error(error_message, None, None)
-                return validation_result
-            # Avoid update users from another group
-            if not user_utils.check_user_group(username, DEFAULT_USER_GRP):
-                error_message = "Unknown user %s" % username
-                validation_result = to_json_error(error_message, None, None)
-                return validation_result
+                error = "Permission denied. Cannot update the root user."
+                raise DataValidationFailed(error)
         else:
-            error_message = "User %s doesn't exists." % username
-            validation_result = to_json_error(error_message, None, None)
-            return validation_result
-
-        return None
+            raise NotFound
 
     def validate_delete(self, username, current_user):
         """
@@ -126,30 +101,26 @@ class UserValidator():
         User is not the last user at ovsdb_group
         Returns None when valid else returns error json dict
         """
-        # Avoid delete a root user
-        if username == "root":
-            error_message = "Permission denied." \
-                            "Cannot remove the root user."
-            validation_result = to_json_error(error_message, None, None)
-            return validation_result
+        if self.check_user_exists(username):
+            # Avoid delete a root user
+            if username == "root":
+                error = "Permission denied. Cannot remove the root user."
+                raise DataValidationFailed(error)
 
-        # Avoid to delete the current user
-        if username == current_user["username"]:
-            error_message = "Permission denied." \
-                            "Cannot remove the current user."
-            validation_result = to_json_error(error_message, None, None)
-            return validation_result
+            # Avoid to delete the current user
+            if username == current_user["username"]:
+                error = "Permission denied. Cannot remove the current user."
+                raise DataValidationFailed(error)
 
-        # Avoid delete system users.
-        if not user_utils.check_user_group(username, DEFAULT_USER_GRP):
-            validation_result = to_json_error("Unknown user %s" % username,
-                                              None, None)
-            return validation_result
+            # Check if deleting the last user from that group
+            if user_utils.get_group_user_count(DEFAULT_USER_GRP) <= 1:
+                error = "Cannot delete the last user %s" % username
+                raise DataValidationFailed(error)
+        else:
+            raise NotFound
 
-        # Check if deleting the last user from that group
-        if user_utils.get_group_user_count(DEFAULT_USER_GRP) <= 1:
-            validation_result = "Cannot delete the last user %s" % username
-            validation_result = to_json_error(error_message, None, None)
-            return validation_result
-
-        return None
+    def check_user_exists(self, username):
+        if username and user_utils.user_exists(username) and\
+                user_utils.check_user_group(username, DEFAULT_USER_GRP):
+            return True
+        return False

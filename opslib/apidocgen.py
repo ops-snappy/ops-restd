@@ -930,9 +930,9 @@ def genCustomAPI(resource_name, path, paths,
         schema["type"] = "array"
         item = {}
         item["description"] = "Resource URI"
-        item["$ref"] = "#/definitions/" + resource_name + "All"
+        item["$ref"] = "#/definitions/Resource"
         schema["items"] = item
-        schema["description"] = "A list of resources"
+        schema["description"] = "A list of URIs"
         response["schema"] = schema
         responses["200"] = response
 
@@ -1228,7 +1228,7 @@ def getFullAPI(schema):
     # Custom APIs
     genCustomDef("User", definitions)
     genCustomAPI("User", "/system/users", paths,
-                 ["get_all", "post", "put", "delete"])
+                 ["get_all", "get_id", "post", "put", "delete"])
 
     api["paths"] = paths
 
