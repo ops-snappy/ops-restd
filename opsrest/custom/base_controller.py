@@ -1,4 +1,4 @@
-# Copyright (C) 2015 Hewlett Packard Enterprise Development LP
+# Copyright (C) 2015-2016 Hewlett Packard Enterprise Development LP
 #
 #  Licensed under the Apache License, Version 2.0 (the "License"); you may
 #  not use this file except in compliance with the License. You may obtain
@@ -12,11 +12,9 @@
 #  License for the specific language governing permissions and limitations
 #  under the License.
 
-OP_CREATE = 1,
-OP_UPDATE = 2,
-OP_DELETE = 3,
-OP_GET = 4,
-OP_GET_ALL = 5
+from opsrest.constants import\
+    REST_VERSION_PATH, OVSDB_SCHEMA_SYSTEM_URI
+from opsrest.exceptions import MethodNotAllowed
 
 
 class BaseController():
@@ -25,17 +23,24 @@ class BaseController():
     CRUD operations.
     """
 
+    def __init__(self):
+        self.base_uri_path = ""
+
     def create(self, data, current_user=None):
-        pass
+        raise MethodNotAllowed
 
     def update(self, item_id, data, current_user=None):
-        pass
+        raise MethodNotAllowed
 
     def delete(self, item_id, current_user=None):
-        pass
+        raise MethodNotAllowed
 
     def get(self, item_id, current_user=None, selector=None, query_args=None):
-        pass
+        raise MethodNotAllowed
 
     def get_all(self, current_user=None, selector=None, query_args=None):
-        pass
+        raise MethodNotAllowed
+
+    def create_uri(self, item_id):
+        return REST_VERSION_PATH + OVSDB_SCHEMA_SYSTEM_URI + "/" +\
+            self.base_uri_path + "/" + item_id

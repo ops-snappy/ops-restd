@@ -1,4 +1,4 @@
-# Copyright (C) 2015 Hewlett Packard Enterprise Development LP
+# Copyright (C) 2015-2016 Hewlett Packard Enterprise Development LP
 #
 #  Licensed under the Apache License, Version 2.0 (the "License"); you may
 #  not use this file except in compliance with the License. You may obtain
@@ -24,12 +24,9 @@ from tornado.log import app_log
 # Local imports
 from opsrest.handlers.base import BaseHandler
 from opsrest.settings import settings
-from opsrest.utils.utils import to_json
-from opsrest.utils.utils import to_json_error
+from opsrest.exceptions import APIException, MethodNotAllowed
 from opsrest.constants import\
-    ERROR,\
-    HTTP_HEADER_CONTENT_TYPE,\
-    HTTP_CONTENT_TYPE_JSON,\
+    HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON,\
     REST_QUERY_PARAM_SELECTOR
 
 
@@ -66,94 +63,86 @@ class CustomRESTHandler(BaseHandler):
     @gen.coroutine
     def get(self, resource_id=None):
         try:
-            query_arguments = self.request.query_arguments
             selector = self.get_query_argument(REST_QUERY_PARAM_SELECTOR, None)
+            query_args = self.request.query_arguments
+            result = None
             if resource_id:
                 result = self.controller.get(resource_id, self.current_user,
-                                             selector, query_arguments)
+                                             selector, query_args)
             else:
                 result = self.controller.get_all(self.current_user,
-                                                 selector, query_arguments)
-            if result is None:
-                self.set_status(httplib.NOT_FOUND)
-            elif self.successful_request(result):
+                                                 selector, query_args)
+            if result is not None:
                 self.set_status(httplib.OK)
-                self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
+                self.set_header(HTTP_HEADER_CONTENT_TYPE,
+                                HTTP_CONTENT_TYPE_JSON)
                 self.write(json.dumps(result))
+        except APIException as e:
+            self.on_exception(e)
         except Exception, e:
-                app_log.debug("Unexpected exception: %s", e)
-                self.set_status(httplib.INTERNAL_SERVER_ERROR)
+            app_log.debug("Unexpected exception: %s", e)
+            self.set_status(httplib.INTERNAL_SERVER_ERROR)
         self.finish()
 
     @gen.coroutine
     def post(self, resource_id=None):
-        if resource_id:
-            self.set_status(httplib.NOT_FOUND)
-        else:
-            try:
-                data = json.loads(self.request.body)
-                result = self.controller.create(data, self.current_user)
-                if result is None:
-                    self.set_status(httplib.NOT_FOUND)
-                elif self.successful_request(result):
-                    self.set_status(httplib.CREATED)
-                    new_uri = self.request.path + "/" + result["key"]
-                    self.set_header("Location", new_uri)
-            except ValueError, e:
-                self.set_status(httplib.BAD_REQUEST)
-                self.set_header(HTTP_HEADER_CONTENT_TYPE,
-                                HTTP_CONTENT_TYPE_JSON)
-                self.write(to_json_error(e))
-            except Exception, e:
-                app_log.debug("Unexpected exception: %s", e)
-                self.set_status(httplib.INTERNAL_SERVER_ERROR)
+        try:
+            if resource_id:
+                raise MethodNotAllowed
+            data = json.loads(self.request.body)
+            result = self.controller.create(data, self.current_user)
+            self.set_status(httplib.CREATED)
+            if result is not None:
+                new_uri = self.request.path + "/" + result["key"]
+                self.set_header("Location", new_uri)
+
+        except APIException as e:
+            self.on_exception(e)
+
+        except Exception, e:
+            self.on_exception(e)
+
         self.finish()
 
     @gen.coroutine
     def put(self, resource_id):
-        if resource_id:
-            try:
-                data = json.loads(self.request.body)
-                result = self.controller.update(resource_id,
-                                                data,
-                                                self.current_user)
-                if result is None:
-                    self.set_status(httplib.NOT_FOUND)
-                elif self.successful_request(result):
-                    self.set_status(httplib.OK)
-            except ValueError, e:
-                self.set_status(httplib.BAD_REQUEST)
-                self.set_header(HTTP_HEADER_CONTENT_TYPE,
-                                HTTP_CONTENT_TYPE_JSON)
-                self.write(to_json_error(e))
-            except Exception, e:
-                app_log.debug("Unexpected exception: %s", e)
-                self.set_status(httplib.INTERNAL_SERVER_ERROR)
-        else:
-            self.set_status(httplib.NOT_FOUND)
+        try:
+            data = json.loads(self.request.body)
+            self.controller.update(resource_id, data,
+                                   self.current_user)
+            self.set_status(httplib.OK)
+
+        except APIException as e:
+            self.on_exception(e)
+
+        except Exception, e:
+            self.on_exception(e)
+
         self.finish()
 
     @gen.coroutine
     def delete(self, resource_id):
-        if resource_id:
-            try:
-                result = self.controller.delete(resource_id, self.current_user)
-                if result is None:
-                    self.set_status(httplib.NOT_FOUND)
-                elif self.successful_request(result):
-                    self.set_status(httplib.NO_CONTENT)
-            except Exception, e:
-                app_log.debug("Unexpected exception: %s", e)
-                self.set_status(httplib.INTERNAL_SERVER_ERROR)
-        else:
-            self.set_status(httplib.NOT_FOUND)
+        try:
+            self.controller.delete(resource_id, self.current_user)
+            self.set_status(httplib.NO_CONTENT)
+
+        except APIException as e:
+            self.on_exception(e)
+
+        except Exception, e:
+            self.on_exception(e)
+
         self.finish()
 
-    def successful_request(self, result):
-        if isinstance(result, dict) and ERROR in result:
-            self.set_status(httplib.BAD_REQUEST)
-            self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
-            self.write(to_json(result))
-            return False
+    def on_exception(self, e):
+
+        app_log.debug(e)
+
+        # uncaught exceptions
+        if not isinstance(e, APIException):
+            self.set_status(httplib.INTERNAL_SERVER_ERROR)
         else:
-            return True
+            self.set_status(e.status_code)
+
+        self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
+        self.write(str(e))
