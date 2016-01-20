@@ -1,4 +1,4 @@
-# Copyright (C) 2016 Hewlett Packard Enterprise Development LP
+# Copyright (C) 2015-2016 Hewlett Packard Enterprise Development LP
 #
 #  Licensed under the Apache License, Version 2.0 (the "License"); you may
 #  not use this file except in compliance with the License. You may obtain
@@ -25,6 +25,11 @@ class LoginHandler(base.BaseHandler):
 
     # pass the application reference to the handlers
     def initialize(self, ref_object):
+        pass
+
+    # Overwrite BaseHandler's prepare, as LoginHandler does not
+    # require authentication check prior to other operations
+    def prepare(self):
         pass
 
     @gen.coroutine

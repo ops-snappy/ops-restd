@@ -12,7 +12,7 @@
 #  License for the specific language governing permissions and limitations
 #  under the License.
 
-from opsrest.handlers import login, ovsdbapi, config, custom_rest
+from opsrest.handlers import login, ovsdbapi, config, customrest
 from custom import user_controller
 
 REGEX_RESOURCE_ID = '?(?P<resource_id>[A-Za-z0-9-_]+[$]?)?/?'
@@ -23,6 +23,6 @@ url_patterns = [(r'/login', login.LoginHandler),
                 ]
 
 custom_url_patterns = [(r'/rest/v1/system/users/%s' % REGEX_RESOURCE_ID,
-                        custom_rest.CustomRESTHandler,
+                        customrest.CustomRESTHandler,
                         user_controller.UserController),
                        ]
