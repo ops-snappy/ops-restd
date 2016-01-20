@@ -1,4 +1,4 @@
-# Copyright (C) 2015 Hewlett Packard Enterprise Development LP
+# Copyright (C) 2015-2016 Hewlett Packard Enterprise Development LP
 #
 #  Licensed under the Apache License, Version 2.0 (the "License"); you may
 #  not use this file except in compliance with the License. You may obtain
@@ -12,25 +12,17 @@
 #  License for the specific language governing permissions and limitations
 #  under the License.
 
-from tornado.ioloop import IOLoop
-from tornado import web, gen, locks
-from tornado.web import asynchronous
+from tornado import gen
 from tornado.concurrent import Future
 
 import json
 import httplib
-import re
 
-import userauth
 from runconfig import runconfig, startupconfig
 
-from opsrest.resource import Resource
-from opsrest.parse import parse_url_path
 from opsrest.constants import *
 from opsrest.utils.utils import *
-from opsrest import get, post, delete, put
 from opsrest.handlers.base import BaseHandler
-from opsrest.settings import settings
 
 from tornado.log import app_log
 
@@ -38,27 +30,21 @@ from tornado.log import app_log
 class ConfigHandler(BaseHandler):
 
     def prepare(self):
-        if settings['auth_enabled']:
-            is_authenticated = userauth.is_user_authenticated(self)
-        else:
-            is_authenticated = True
 
-        if not is_authenticated:
-            self.set_status(httplib.UNAUTHORIZED)
-            self.set_header("Link", "/login")
+        # Call parent's prepare to check authentication
+        super(ConfigHandler, self).prepare()
+
+        self.request_type = self.get_argument('type', 'running')
+        app_log.debug('request type: %s', self.request_type)
+
+        if self.request_type == 'running':
+            self.config_util = runconfig.RunConfigUtil(self.idl,
+                                                       self.schema)
+        elif self.request_type == 'startup':
+            self.config_util = startupconfig.StartupConfigUtil()
+        else:
+            self.set_status(httplib.BAD_REQUEST)
             self.finish()
-        else:
-            self.request_type = self.get_argument('type', 'running')
-            app_log.debug('request type: %s', self.request_type)
-
-            if self.request_type == 'running':
-                self.config_util = runconfig.RunConfigUtil(self.idl,
-                                                           self.schema)
-            elif self.request_type == 'startup':
-                self.config_util = startupconfig.StartupConfigUtil()
-            else:
-                self.set_status(httplib.BAD_REQUEST)
-                self.finish()
 
     @gen.coroutine
     def get(self):
