@@ -37,7 +37,9 @@ def patch_resource(data, resource, schema, txn, idl, uri):
     app_log.debug("Resource = Table: %s Relation: %s Column: %s" %
                   (resource.table, resource.relation, resource.column))
 
-    if not verify.verify_http_method(resource, schema, REQUEST_TYPE_PATCH):
+    if resource_update is None or resource_update.row is None or \
+            verify.verify_http_method(resource, schema,
+                                      REQUEST_TYPE_PATCH) is False:
         app_log.debug("Failed http_method verification")
         raise MethodNotAllowed
 
@@ -50,10 +52,6 @@ def patch_resource(data, resource, schema, txn, idl, uri):
                 break
             resource = resource.next
         resource_update = resource.next
-
-    if resource_update is not None:
-        app_log.debug("Resource to Update = Table: %s " %
-                      resource_update.table)
 
     needs_update = False
 
