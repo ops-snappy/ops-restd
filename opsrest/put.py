@@ -41,12 +41,9 @@ def put_resource(data, resource, schema, txn, idl):
     app_log.debug("Resource = Table: %s Relation: %s Column: %s"
                   % (resource.table, resource.relation, resource.column))
 
-    if resource_update is not None:
-        app_log.debug("Resource to Update = Table: %s "
-                      % resource_update.table)
-
-    if verify.verify_http_method(resource, schema,
-                                 REQUEST_TYPE_UPDATE) is False:
+    if resource_update is None or resource_update.row is None or\
+            verify.verify_http_method(resource,
+                                      schema, REQUEST_TYPE_UPDATE) is False:
         raise MethodNotAllowed
 
     # verify data
