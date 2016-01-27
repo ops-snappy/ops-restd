@@ -33,26 +33,33 @@ def split_path(path):
 def parse_url_path(path, schema, idl, http_method='GET'):
 
     if not path.startswith(REST_VERSION_PATH):
+        app_log.debug("[parse_url_path]: path does not start with %s" %
+                      REST_VERSION_PATH)
         return None
 
     # remove version and split path
     path = path[len(REST_VERSION_PATH):]
     path = split_path(path)
     if not path:
+        app_log.debug("[parse_url_path]: path is empty")
         return None
 
     # we only serve URIs that begin with '/system'
     if path[0] != OVSDB_SCHEMA_SYSTEM_URI:
+        app_log.debug("[parse_url_path]: path does not start with /%s" %
+                      OVSDB_SCHEMA_SYSTEM_URI)
         return None
 
     resource = Resource(OVSDB_SCHEMA_SYSTEM_TABLE)
 
     if resource.table not in idl.tables:
+        app_log.debug("[parse_url_path]: resource table not in idl tables")
         return None
 
     if idl.tables[resource.table].rows.keys():
         resource.row = idl.tables[resource.table].rows.keys()[0]
     else:
+        app_log.debug("[parse_url_path]: table has no rows")
         return None
 
     path = path[1:]
@@ -67,6 +74,7 @@ def parse_url_path(path, schema, idl, http_method='GET'):
         app_log.debug('resource not found')
         return None
 
+    app_log.debug("[parse_url_path]: default return")
     return None
 
 

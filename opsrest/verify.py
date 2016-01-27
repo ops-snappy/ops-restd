@@ -371,17 +371,20 @@ def convert_string_to_value_by_type(value, type_):
 
     converted_value = value
 
-    if type_ == ovs_types.IntegerType:
+    if type_ == ovs_types.IntegerType or \
+            type_ in ovs_types.IntegerType.python_types:
         try:
             converted_value = int(value)
-        except ValueError, e:
+        except ValueError:
             converted_value = None
-    elif type_ == ovs_types.RealType:
+    elif type_ == ovs_types.RealType or \
+            type_ in ovs_types.RealType.python_types:
         try:
             converted_value = float(value)
-        except ValueError, e:
+        except ValueError:
             converted_value = None
-    elif type_ == ovs_types.BooleanType:
+    elif type_ == ovs_types.BooleanType or \
+            type_ in ovs_types.BooleanType.python_types:
         if not (value == 'true' or value == 'false'):
             converted_value = None
 
