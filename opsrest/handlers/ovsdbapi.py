@@ -85,21 +85,27 @@ class OVSDBAPIHandler(base.BaseHandler):
 
     @gen.coroutine
     def get(self):
+        try:
+            selector = self.get_query_argument(REST_QUERY_PARAM_SELECTOR, None)
 
-        selector = self.get_query_argument(REST_QUERY_PARAM_SELECTOR, None)
+            app_log.debug("Query arguments %s" % self.request.query_arguments)
 
-        app_log.debug("Query arguments %s" % self.request.query_arguments)
+            result = get.get_resource(self.idl, self.resource_path,
+                                      self.schema, self.request.path,
+                                      selector, self.request.query_arguments)
 
-        result = get.get_resource(self.idl, self.resource_path,
-                                  self.schema, self.request.path,
-                                  selector, self.request.query_arguments)
+            if result is None:
+                self.set_status(httplib.NOT_FOUND)
+            elif self.successful_query(result):
+                self.set_status(httplib.OK)
+                self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
+                self.write(json.dumps(result))
 
-        if result is None:
-            self.set_status(httplib.NOT_FOUND)
-        elif self.successful_query(result):
-            self.set_status(httplib.OK)
-            self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
-            self.write(json.dumps(result))
+        except APIException as e:
+            self.on_exception(e)
+
+        except Exception as e:
+            self.on_exception(e)
 
         self.finish()
 

@@ -18,6 +18,7 @@ import crypt
 import os
 import base64
 
+from tornado.log import app_log
 from subprocess import call
 
 # Local imports
@@ -30,10 +31,11 @@ from opsrest.custom.schema_validator import SchemaValidator
 from opsrest.custom.base_controller import BaseController
 from opsrest.custom.rest_object import RestObject
 from opsrest.custom.user_validator import UserValidator
+from opsrest.utils import getutils
 from opsrest.constants import\
     REQUEST_TYPE_CREATE, REQUEST_TYPE_UPDATE,\
-    OVSDB_SCHEMA_CONFIG, REST_QUERY_PARAM_DEPTH,\
-    DEFAULT_USER_GRP
+    OVSDB_SCHEMA_CONFIG, DEFAULT_USER_GRP, ERROR, \
+    REST_QUERY_PARAM_OFFSET, REST_QUERY_PARAM_LIMIT
 
 
 class UserController(BaseController):
@@ -193,7 +195,41 @@ class UserController(BaseController):
         Retrieve all users from ovsdb_users group
         Return users dictionary list
         """
-        depth = REST_QUERY_PARAM_DEPTH in query_args
+
+        depth = getutils.get_depth_param(query_args)
+        if isinstance(depth, dict) and ERROR in depth:
+            raise DataValidationFailed(depth[ERROR]['message'])
+        elif depth > 1:
+            error = "Resource doesn't support depth parameter greater than 1"
+            raise DataValidationFailed(error)
+
+        sorting_args = []
+        filter_args = {}
+        pagination_args = {}
+        offset = None
+        limit = None
+
+        schema = self.schema_validator.validator.schema
+        validation_result = getutils.validate_query_args(sorting_args,
+                                                         filter_args,
+                                                         pagination_args,
+                                                         query_args,
+                                                         schema, None,
+                                                         selector, depth)
+
+        if ERROR in validation_result:
+            raise DataValidationFailed(validation_result[ERROR]['message'])
+
+        if REST_QUERY_PARAM_OFFSET in pagination_args:
+            offset = pagination_args[REST_QUERY_PARAM_OFFSET]
+        if REST_QUERY_PARAM_LIMIT in pagination_args:
+            limit = pagination_args[REST_QUERY_PARAM_LIMIT]
+
+        app_log.debug("Sorting args: %s" % sorting_args)
+        app_log.debug("Filter args: %s" % filter_args)
+        app_log.debug("Limit % s" % limit)
+        app_log.debug("Offset % s" % offset)
+
         group_id = user_utils.get_group_id(DEFAULT_USER_GRP)
         all_users = []
         users = pwd.getpwall()
@@ -201,17 +237,22 @@ class UserController(BaseController):
             if user_data.pw_gid == group_id:
                 user_instance = self.__fill_user_data__(user_data, selector)
                 if user_instance:
-                    if depth == 1:
+                    if depth:
                         all_users.append(user_instance)
-                    elif depth == 0:
+                    else:
                         username = user_instance.configuration.username
                         all_users.append(self.create_uri(username))
-                    else:
-                        error = "Resource don't support depth "\
-                            "parameter greater than 1"
-                        raise DataValidationFailed(error)
+
         # Convert to json
         if depth:
-            return RestObject.to_json_list(all_users)
+            user_list = RestObject.to_json_list(all_users)
+            data = getutils.post_process_get_data(user_list, sorting_args,
+                                                  filter_args, offset,
+                                                  limit, schema, selector,
+                                                  categorize=True)
+            if ERROR in data:
+                raise DataValidationFailed(data[ERROR]['message'])
+
+            return data
         else:
             return all_users
