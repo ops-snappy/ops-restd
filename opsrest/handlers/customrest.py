@@ -82,8 +82,7 @@ class CustomRESTHandler(BaseHandler):
         except APIException as e:
             self.on_exception(e)
         except Exception, e:
-            app_log.debug("Unexpected exception: %s", e)
-            self.set_status(httplib.INTERNAL_SERVER_ERROR)
+            self.on_exception(e)
         self.finish()
 
     @gen.coroutine
@@ -113,6 +112,21 @@ class CustomRESTHandler(BaseHandler):
             self.controller.update(resource_id, data,
                                    self.current_user)
             self.set_status(httplib.OK)
+
+        except APIException as e:
+            self.on_exception(e)
+
+        except Exception, e:
+            self.on_exception(e)
+
+        self.finish()
+
+    @gen.coroutine
+    def patch(self, resource_id):
+        try:
+            data = json.loads(self.request.body)
+            self.controller.patch(resource_id, data, self.current_user)
+            self.set_status(httplib.NO_CONTENT)
 
         except APIException as e:
             self.on_exception(e)

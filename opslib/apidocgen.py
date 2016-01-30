@@ -39,6 +39,10 @@ from restparser import RESTSchema
 from restparser import normalizeName
 from restparser import parseSchema
 
+CUSTOM_RESOURCE_OPS = ["get_all", "get_id",
+                       "post", "put", "patch",
+                       "delete"]
+
 
 def addCommonResponse(responses):
     response = {}
@@ -118,6 +122,29 @@ def addPostResponse(responses):
 
 
 def addPutResponse(responses):
+    response = {}
+    response["description"] = "OK"
+    responses["200"] = response
+
+    response = {}
+    response["description"] = "Bad request"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["400"] = response
+
+    response = {}
+    response["description"] = "Not acceptable"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["406"] = response
+
+    response = {}
+    response["description"] = "Unsupported media type"
+    response["schema"] = {'$ref': "#/definitions/Error"}
+    responses["415"] = response
+
+    addCommonResponse(responses)
+
+
+def addPatchResponse(responses):
     response = {}
     response["description"] = "OK"
     responses["200"] = response
@@ -400,6 +427,44 @@ def genPutInstance(table, parent_plurality, parents, resource_name, is_plural):
 
         responses = {}
         addPutResponse(responses)
+        op["responses"] = responses
+
+        return op
+
+
+def genPatchInstance(table, parent_plurality, parents, resource_name, is_plural):
+    if table.config:
+        op = {}
+        op["summary"] = "Patch operation"
+        op["description"] = "Update configuration"
+        op["tags"] = [table.name]
+
+        params = genCoreParams(table, parent_plurality, parents,
+                               resource_name, is_plural)
+        param = {}
+        param["name"] = "If-Match"
+        param["in"] = "header"
+        param["description"] = ("entity-tag value for representation " +
+                                "comparison (see RFC 7232 - Conditional " +
+                                "Requests - section 3.1)")
+        param["required"] = False
+        param["type"] = "string"
+        params.append(param)
+
+        param = {}
+        param["name"] = "data"
+        param["in"] = "body"
+        param["description"] = "JSON PATCH operations as defined at RFC 6902"
+        param["required"] = True
+        schema = {}
+        schema["type"] = "array"
+        schema["items"] = {'$ref': "#/definitions/PatchDocument"}
+        param["schema"] = schema
+        params.append(param)
+        op["parameters"] = params
+
+        responses = {}
+        addPatchResponse(responses)
         op["responses"] = responses
 
         return op
@@ -732,6 +797,38 @@ def getDefinition(schema, table, definitions):
                                                     "required": required}
 
 
+def genPatchDefinition(definitions):
+    patch_op = {}
+    patch_op["type"] = 'string'
+    patch_op["description"] = "PATCH operation to be performed."
+    patch_op["enum"] = ["add", "remove", "replace", "move", "copy", "test"]
+
+    patch_path = {}
+    patch_path["type"] = "string"
+    patch_path["description"] = "A JSON Pointer. "\
+        "Target location where the operation is performed."
+
+    patch_value = {}
+    patch_value["type"] = "object"
+    patch_value["description"] = "The value to be used within the operations."
+
+    patch_from = {}
+    patch_from["type"] = "string"
+    patch_from["description"] = "A JSON Pointer. "\
+        "Target location where the operation is performed."
+
+    properties = {
+                  "op" : patch_op,
+                  "path": patch_path,
+                  "value": patch_value,
+                  "from": patch_from
+                  }
+    description = "JSON Patch document (RFC 6902)."
+    definitions["PatchDocument"] = {"properties": properties,
+                                    "required": ["op", "path"],
+                                    "description": description}
+
+
 def genAPI(paths, definitions, schema, table, resource_name, parent,
            parents, parent_plurality):
     prefix = "/system"
@@ -774,10 +871,17 @@ def genAPI(paths, definitions, schema, table, resource_name, parent,
                             resource_name, is_plural)
         if op is not None:
             ops["get"] = op
+
         op = genPutInstance(table, parent_plurality, parents,
                             resource_name, is_plural)
         if op is not None:
             ops["put"] = op
+
+        op = genPatchInstance(table, parent_plurality, parents,
+                            resource_name, is_plural)
+        if op is not None:
+            ops["patch"] = op
+
     paths[path] = ops
 
     if is_plural:
@@ -787,14 +891,22 @@ def genAPI(paths, definitions, schema, table, resource_name, parent,
                             resource_name, is_plural)
         if op is not None:
             ops["get"] = op
+
         op = genPutInstance(table, parent_plurality, parents,
                             resource_name, is_plural)
         if op is not None:
             ops["put"] = op
+
+        op = genPatchInstance(table, parent_plurality, parents,
+                            resource_name, is_plural)
+        if op is not None:
+            ops["patch"] = op
+
         op = genDelInstance(table, parent_plurality, parents,
                             resource_name, is_plural)
         if op is not None:
             ops["delete"] = op
+
         paths[path] = ops
 
     getDefinition(schema, table, definitions)
@@ -906,8 +1018,7 @@ def genCustomDef(resource_name, definitions):
 
 
 def genCustomAPI(resource_name, path, paths,
-                 operations=["get_all", "get_id",
-                             "post", "put", "delete"]):
+                 operations=CUSTOM_RESOURCE_OPS):
     '''
     Creates Custom Resource API
     '''
@@ -1020,6 +1131,40 @@ def genCustomAPI(resource_name, path, paths,
         addPutResponse(responses)
         op["responses"] = responses
         ops_id["put"] = op
+
+    if "patch" in operations:
+        # Update Operation
+        op = {}
+        op["summary"] = "PATCH operation"
+        op["description"] = "Update configuration using JSON PATCH Specification"
+        op["tags"] = [resource_name]
+
+        params = []
+        param = {}
+        param["name"] = "id"
+        param["in"] = "path"
+        param["description"] = resource_name + " id"
+        param["required"] = True
+        param["type"] = "string"
+        params.append(param)
+
+        param = {}
+        param["name"] = "data"
+        param["in"] = "body"
+        param["description"] = "JSON PATCH operations as defined at RFC 6902"
+        param["required"] = True
+        schema = {}
+        schema["type"] = "array"
+        schema["items"] = {'$ref': "#/definitions/PatchDocument"}
+        param["schema"] = schema
+
+        params.append(param)
+        op["parameters"] = params
+
+        responses = {}
+        addPutResponse(responses)
+        op["responses"] = responses
+        ops_id["patch"] = op
 
     if "delete" in operations:
         # Delete Operation
@@ -1181,6 +1326,7 @@ def getFullAPI(schema):
 
     paths = {}
     definitions = {}
+    genPatchDefinition(definitions)
 
     # Special treat /system resource
     systemTable = schema.ovs_tables["System"]
@@ -1227,8 +1373,7 @@ def getFullAPI(schema):
 
     # Custom APIs
     genCustomDef("User", definitions)
-    genCustomAPI("User", "/system/users", paths,
-                 ["get_all", "get_id", "post", "put", "delete"])
+    genCustomAPI("User", "/system/users", paths)
 
     api["paths"] = paths
 

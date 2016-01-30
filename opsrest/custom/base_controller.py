@@ -13,9 +13,11 @@
 #  under the License.
 
 from opsrest.constants import\
-    REST_VERSION_PATH, OVSDB_SCHEMA_SYSTEM_URI
-from opsrest.exceptions import MethodNotAllowed
+    REST_VERSION_PATH, OVSDB_SCHEMA_SYSTEM_URI, OVSDB_SCHEMA_CONFIG
+from opsrest.exceptions import MethodNotAllowed, NotFound
+from opsrest.patch import create_patch, apply_patch
 
+from tornado.log import app_log
 
 class BaseController():
     """
@@ -44,3 +46,28 @@ class BaseController():
     def create_uri(self, item_id):
         return REST_VERSION_PATH + OVSDB_SCHEMA_SYSTEM_URI + "/" +\
             self.base_uri_path + "/" + item_id
+
+    def patch(self, item_id, data, current_user=None):
+        try:
+            # Get the resource's JSON to patch
+            resource_json = self.get(item_id, current_user,
+                                     OVSDB_SCHEMA_CONFIG)
+
+            if resource_json is None:
+                raise NotFound
+
+            # Create and verify patch
+            (patch, needs_update) = create_patch(data)
+
+            # Apply patch to the resource's JSON
+            patched_resource = apply_patch(patch, resource_json)
+
+            # Update resource only if needed, since a valid
+            # patch can contain PATCH_OP_TEST operations
+            # only, which do not modify the resource
+            if needs_update:
+                self.update(item_id, patched_resource, current_user)
+
+        # In case the resource doesn't implement GET/PUT
+        except MethodNotAllowed:
+            raise MethodNotAllowed("PATCH not allowed on resource")

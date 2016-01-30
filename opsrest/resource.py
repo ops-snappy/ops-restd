@@ -20,6 +20,7 @@
         this resource is found
 '''
 
+from constants import *
 
 class Resource(object):
     def __init__(self, table, row=None, column=None,
@@ -38,4 +39,6 @@ class Resource(object):
 
     def get_allowed_methods(self, schema):
         # TODO: Process schema to determine allowed methods
-        return ["DELETE", "GET", "OPTIONS", "POST", "PUT"]
+        return [REQUEST_TYPE_DELETE, REQUEST_TYPE_READ,
+                REQUEST_TYPE_OPTIONS, REQUEST_TYPE_CREATE,
+                REQUEST_TYPE_UPDATE, REQUEST_TYPE_PATCH]

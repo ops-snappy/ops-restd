@@ -77,5 +77,21 @@ REQUEST_TYPE_CREATE = 'POST'
 REQUEST_TYPE_READ = 'GET'
 REQUEST_TYPE_UPDATE = 'PUT'
 REQUEST_TYPE_DELETE = 'DELETE'
+REQUEST_TYPE_OPTIONS = 'OPTIONS'
+REQUEST_TYPE_PATCH = 'PATCH'
 
 OPSPLUGIN_DIR = '/usr/share/opsplugins'
+
+# PATCH operation's keys according to RFC 6902
+PATCH_KEY_OP = 'op'
+PATCH_KEY_PATH = 'path'
+PATCH_KEY_VALUE = 'value'
+PATCH_KEY_FROM = 'from'
+
+# PATCH operations according to RFC 6902
+PATCH_OP_TEST = 'test'
+PATCH_OP_REMOVE = 'remove'
+PATCH_OP_ADD = 'add'
+PATCH_OP_REPLACE = 'replace'
+PATCH_OP_MOVE = 'move'
+PATCH_OP_COPY = 'copy'

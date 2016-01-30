@@ -1,4 +1,4 @@
-# Copyright (C) 2015 Hewlett Packard Enterprise Development LP
+# Copyright (C) 2015-2016 Hewlett Packard Enterprise Development LP
 #
 #  Licensed under the Apache License, Version 2.0 (the "License"); you may
 #  not use this file except in compliance with the License. You may obtain
@@ -17,6 +17,7 @@ from opsrest.utils import utils
 from opsrest import verify
 from opsrest.transaction import OvsdbTransactionResult
 from opsrest.exceptions import MethodNotAllowed, DataValidationFailed
+from opsvalidator.error import ValidationError
 
 import httplib
 from tornado.log import app_log

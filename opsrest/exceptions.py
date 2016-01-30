@@ -63,3 +63,12 @@ class MethodNotAllowed(APIException):
 class TransactionFailed(APIException):
     status_code = httplib.INTERNAL_SERVER_ERROR
     status = httplib.responses[status_code]
+
+
+class PatchOperationFailed(APIException):
+    # TODO use proper code, currently httplib
+    # doesn't seem to support responses for
+    # UNPROCESSABLE_ENTITY, so exception
+    # handling breaks
+    status_code = httplib.BAD_REQUEST
+    status = httplib.responses[status_code]

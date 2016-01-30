@@ -151,42 +151,49 @@ def get_row_json(row, table, schema, idl, uri, selector=None,
     db_row = db_table.rows[row]
     schema_table = schema.ovs_tables[table]
 
-    config_keys = schema_table.config
-    stats_keys = schema_table.stats
-    status_keys = schema_table.status
+    config_keys = {}
+    config_data = {}
+    if selector is None or selector == OVSDB_SCHEMA_CONFIG:
+        config_keys = schema_table.config
+        config_data = utils.row_to_json(db_row, config_keys)
+
+    stats_keys = {}
+    stats_data = {}
+    if selector is None or selector == OVSDB_SCHEMA_STATS:
+        stats_keys = schema_table.stats
+        stats_data = utils.row_to_json(db_row, stats_keys)
+
+    status_keys = {}
+    status_data = {}
+    if selector is None or selector == OVSDB_SCHEMA_STATUS:
+        status_keys = schema_table.status
+        status_data = utils.row_to_json(db_row, status_keys)
+
     references = schema_table.references
-    reference_keys = references.keys()
-    for key in reference_keys:
-        if references[key].ref_table == schema_table.parent:
-            reference_keys.remove(key)
-            break
-
-    config_data = utils.row_to_json(db_row, config_keys)
-    stats_data = utils.row_to_json(db_row, stats_keys)
-    status_data = utils.row_to_json(db_row, status_keys)
-
-    reference_data = {}
-    # get all references
-    for key in reference_keys:
-
-        if (depth_counter >= depth):
-            depth = 0
-        reference_data[key] = get_column_json(key, row, table, schema,
-                                              idl, uri, selector, depth,
-                                              depth_counter)
-
-        # TODO Data categorization should be refactored as it
-        # is also executed when sorting and filtering results
+    for key in references:
+        # Don't consider back references
+        if references[key].ref_table != schema_table.parent:
+            if (depth_counter >= depth):
+                depth = 0
+            reference_data = get_column_json(key, row, table, schema,
+                                             idl, uri, selector, depth,
+                                             depth_counter)
 
         # depending upon the category of reference
         # pair them with the right data set
         category = references[key].category
-        if category == OVSDB_SCHEMA_CONFIG:
-            config_data.update({key: reference_data[key]})
-        elif category == OVSDB_SCHEMA_STATUS:
-            status_data.update({key: reference_data[key]})
-        elif category == OVSDB_SCHEMA_STATS:
-            stats_data.update({key: reference_data[key]})
+
+        if config_keys and category == OVSDB_SCHEMA_CONFIG:
+            config_data.update({key: reference_data})
+
+        elif stats_keys and category == OVSDB_SCHEMA_STATS:
+            stats_data.update({key: reference_data})
+
+        elif status_keys and category == OVSDB_SCHEMA_STATUS:
+            status_data.update({key: reference_data})
+
+    # TODO Data categorization should be refactored as it
+    # is also executed when sorting and filtering results
 
     data = getutils._categorize_by_selector(config_data, stats_data,
                                             status_data, selector)

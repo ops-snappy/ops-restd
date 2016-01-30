@@ -17,7 +17,6 @@ from tornado.log import app_log
 
 import json
 import httplib
-import hashlib
 
 from opsrest.handlers import base
 from opsrest.parse import parse_url_path
@@ -25,7 +24,7 @@ from opsrest.utils import utils
 from opsrest.constants import *
 from opsrest.exceptions import APIException
 
-from opsrest import get, post, delete, put
+from opsrest import get, post, delete, put, patch
 
 
 class OVSDBAPIHandler(base.BaseHandler):
@@ -197,6 +196,52 @@ class OVSDBAPIHandler(base.BaseHandler):
         self.finish()
 
     @gen.coroutine
+    def patch(self):
+        if HTTP_HEADER_CONTENT_LENGTH in self.request.headers:
+            try:
+                # get the PATCH body
+                update_data = json.loads(self.request.body)
+                # create a new ovsdb transaction
+                self.txn = self.ref_object.manager.get_new_transaction()
+
+                # patch_resource performs data verification, prepares and
+                # commits the ovsdb transaction
+                result = patch.patch_resource(update_data,
+                                              self.resource_path,
+                                              self.schema, self.txn,
+                                              self.idl, self.request.path)
+
+                status = result.status
+                if status == INCOMPLETE:
+                    self.ref_object.manager.monitor_transaction(self.txn)
+                    # on 'incomplete' state we wait until the transaction
+                    # completes with either success or failure
+                    yield self.txn.event.wait()
+                    status = self.txn.status
+
+                # complete transaction
+                self.transaction_complete(status)
+
+            except APIException as e:
+                app_log.debug("PATCH APIException")
+                self.on_exception(e)
+
+            except ValueError as e:
+                self.set_status(httplib.BAD_REQUEST)
+                self.set_header(HTTP_HEADER_CONTENT_TYPE,
+                                HTTP_CONTENT_TYPE_JSON)
+                self.write(utils.to_json_error(e))
+
+            except Exception as e:
+                app_log.debug("PATCH General Exception")
+                self.on_exception(e)
+
+        else:
+            self.set_status(httplib.LENGTH_REQUIRED)
+
+        self.finish()
+
+    @gen.coroutine
     def delete(self):
 
         try:
@@ -233,15 +278,27 @@ class OVSDBAPIHandler(base.BaseHandler):
 
         method = self.request.method
         if status == SUCCESS:
-            if method == 'POST':
+            if method == REQUEST_TYPE_CREATE:
                 self.set_status(httplib.CREATED)
-            elif method == 'PUT':
+            elif method == REQUEST_TYPE_UPDATE:
                 self.set_status(httplib.OK)
-            elif method == 'DELETE':
+            elif method == REQUEST_TYPE_DELETE:
+                self.set_status(httplib.NO_CONTENT)
+            elif method == REQUEST_TYPE_PATCH:
+                # TODO Change this to OK if the
+                # PATCH response ever contains
+                # data, as per RFC 5789
                 self.set_status(httplib.NO_CONTENT)
 
         elif status == UNCHANGED:
-            self.set_status(httplib.OK)
+            if method == REQUEST_TYPE_PATCH:
+                # PATCH can contain a single Test operation
+                # which doesn't modify the resource, per RFC
+                # 5789 PATCH's status code is NO_CONTENT if
+                # no message body is present
+                self.set_status(httplib.NO_CONTENT)
+            else:
+                self.set_status(httplib.OK)
 
         else:
             error = self.txn.get_error()
