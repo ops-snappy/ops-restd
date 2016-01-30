@@ -22,12 +22,17 @@ def main():
 
     app_log.debug("Creating OVSDB API Application!")
     app = OvsdbApiApplication(settings)
-    http_server = tornado.httpserver.HTTPServer(app, ssl_options={
+    HTTPS_server = tornado.httpserver.HTTPServer(app, ssl_options={
         "certfile":"/etc/ssl/certs/server.crt",
         "keyfile":"/etc/ssl/certs/server-private.key"})
 
-    app_log.debug("Server listening to port: %s" % options.https_port)
-    http_server.listen(options.https_port)
+    HTTP_server = tornado.httpserver.HTTPServer(app)
+
+    app_log.debug("Server listening to port: %s" % options.HTTPS_port)
+    HTTPS_server.listen(options.HTTPS_port)
+
+    app_log.debug("Server listening to port: %s" % options.HTTP_port)
+    HTTP_server.listen(options.HTTP_port)
 
     app_log.info("Starting server!")
     tornado.ioloop.IOLoop.instance().start()
