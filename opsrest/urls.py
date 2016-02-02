@@ -13,7 +13,7 @@
 #  under the License.
 
 from opsrest.handlers import login, ovsdbapi, config, customrest
-from custom import user_controller
+from custom import usercontroller
 
 REGEX_RESOURCE_ID = '?(?P<resource_id>[A-Za-z0-9-_]+[$]?)?/?'
 
@@ -24,5 +24,5 @@ url_patterns = [(r'/login', login.LoginHandler),
 
 custom_url_patterns = [(r'/rest/v1/system/users/%s' % REGEX_RESOURCE_ID,
                         customrest.CustomRESTHandler,
-                        user_controller.UserController),
+                        usercontroller.UserController),
                        ]

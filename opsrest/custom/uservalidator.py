@@ -16,7 +16,7 @@
 import re
 
 # Local imports
-import opsrest.utils.user_utils as user_utils
+import opsrest.utils.userutils as userutils
 from opsrest.constants import\
     REQUEST_TYPE_CREATE, REQUEST_TYPE_UPDATE,\
     DEFAULT_USER_GRP
@@ -113,14 +113,14 @@ class UserValidator():
                 raise DataValidationFailed(error)
 
             # Check if deleting the last user from that group
-            if user_utils.get_group_user_count(DEFAULT_USER_GRP) <= 1:
+            if userutils.get_group_user_count(DEFAULT_USER_GRP) <= 1:
                 error = "Cannot delete the last user %s" % username
                 raise DataValidationFailed(error)
         else:
             raise NotFound
 
     def check_user_exists(self, username):
-        if username and user_utils.user_exists(username) and\
-                user_utils.check_user_group(username, DEFAULT_USER_GRP):
+        if username and userutils.user_exists(username) and\
+                userutils.check_user_group(username, DEFAULT_USER_GRP):
             return True
         return False

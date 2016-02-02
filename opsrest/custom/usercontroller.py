@@ -22,15 +22,15 @@ from tornado.log import app_log
 from subprocess import call
 
 # Local imports
-import opsrest.utils.user_utils as user_utils
+import opsrest.utils.userutils as userutils
 
 from opsrest.exceptions import\
     TransactionFailed, DataValidationFailed,\
     NotFound
-from opsrest.custom.schema_validator import SchemaValidator
-from opsrest.custom.base_controller import BaseController
-from opsrest.custom.rest_object import RestObject
-from opsrest.custom.user_validator import UserValidator
+from opsrest.custom.schemavalidator import SchemaValidator
+from opsrest.custom.basecontroller import BaseController
+from opsrest.custom.restobject import RestObject
+from opsrest.custom.uservalidator import UserValidator
 from opsrest.utils import getutils
 from opsrest.constants import\
     REQUEST_TYPE_CREATE, REQUEST_TYPE_UPDATE,\
@@ -41,7 +41,7 @@ from opsrest.constants import\
 class UserController(BaseController):
 
     def __init__(self):
-        self.schema_validator = SchemaValidator("user_schema")
+        self.schemavalidator = SchemaValidator("user_schema")
         self.validator = UserValidator()
         self.base_uri_path = "users"
 
@@ -52,7 +52,7 @@ class UserController(BaseController):
         Returns encrypted password
         $6$somesalt$someveryverylongencryptedpasswd
         """
-        user_id = user_utils.get_user_id(user.configuration.username)
+        user_id = userutils.get_user_id(user.configuration.username)
         salt_data = str(user_id) + os.urandom(16)
         salt = base64.b64encode(salt_data)
         encoded_password = crypt.crypt(user.configuration.password,
@@ -92,7 +92,7 @@ class UserController(BaseController):
         Returns result dictionary
         """
         # Validate json
-        self.schema_validator.validate_json(data, REQUEST_TYPE_CREATE)
+        self.schemavalidator.validate_json(data, REQUEST_TYPE_CREATE)
 
         # Validate user data
         user = RestObject.from_json(data)
@@ -137,7 +137,7 @@ class UserController(BaseController):
         Returns result dictionary
         """
         # Validate json
-        self.schema_validator.validate_json(data, REQUEST_TYPE_UPDATE)
+        self.schemavalidator.validate_json(data, REQUEST_TYPE_UPDATE)
 
         # Validate user data
         data[OVSDB_SCHEMA_CONFIG]["username"] = item_id
@@ -209,7 +209,7 @@ class UserController(BaseController):
         offset = None
         limit = None
 
-        schema = self.schema_validator.validator.schema
+        schema = self.schemavalidator.validator.schema
         validation_result = getutils.validate_query_args(sorting_args,
                                                          filter_args,
                                                          pagination_args,
@@ -230,7 +230,7 @@ class UserController(BaseController):
         app_log.debug("Limit % s" % limit)
         app_log.debug("Offset % s" % offset)
 
-        group_id = user_utils.get_group_id(DEFAULT_USER_GRP)
+        group_id = userutils.get_group_id(DEFAULT_USER_GRP)
         all_users = []
         users = pwd.getpwall()
         for user_data in users:
