@@ -72,3 +72,8 @@ class PatchOperationFailed(APIException):
     # handling breaks
     status_code = httplib.BAD_REQUEST
     status = httplib.responses[status_code]
+
+
+class ParameterNotAllowed(APIException):
+    status_code = httplib.BAD_REQUEST
+    status = httplib.responses[status_code]

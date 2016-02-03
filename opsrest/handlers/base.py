@@ -20,9 +20,11 @@ import json
 
 from tornado import web
 from opsrest.constants import *
-from opsrest.exceptions import APIException, TransactionFailed
+from opsrest.exceptions import APIException, TransactionFailed, \
+    ParameterNotAllowed, NotAuthenticated
 from opsrest.settings import settings
 from opsrest.utils.auditlogutils import audit_log_user_msg
+from opsrest.utils.getutils import get_query_arg
 
 from tornado.log import app_log
 
@@ -55,19 +57,32 @@ class BaseHandler(web.RequestHandler):
                             self.request.headers[HTTP_HEADER_ORIGIN])
 
     def prepare(self):
+        try:
+            app_log.debug("Incoming request from %s: %s",
+                          self.request.remote_ip,
+                          self.request)
 
-        app_log.debug("Incoming request from %s: %s",
-                      self.request.remote_ip,
-                      self.request)
+            if settings['auth_enabled'] and self.request.method != "OPTIONS":
+                is_authenticated = userauth.is_user_authenticated(self)
+            else:
+                is_authenticated = True
 
-        if settings['auth_enabled'] and self.request.method != "OPTIONS":
-            is_authenticated = userauth.is_user_authenticated(self)
-        else:
-            is_authenticated = True
+            if not is_authenticated:
+                self.set_header("Link", "/login")
+                raise NotAuthenticated
 
-        if not is_authenticated:
-            self.set_status(httplib.UNAUTHORIZED)
-            self.set_header("Link", "/login")
+            depth = get_query_arg(REST_QUERY_PARAM_DEPTH,
+                                  self.request.query_arguments)
+            if self.request.method != REQUEST_TYPE_READ and depth is not None:
+                raise ParameterNotAllowed("depth is only allowed in %s" %
+                                          REQUEST_TYPE_READ)
+
+        except APIException as e:
+            self.on_exception(e)
+            self.finish()
+
+        except Exception, e:
+            self.on_exception(e)
             self.finish()
 
     def get_current_user(self):
@@ -124,11 +139,12 @@ class BaseHandler(web.RequestHandler):
 
                 app_log.debug("Using resource_id=%s" % item_id)
                 if item_id:
-                    result = self.controller.get(item_id, self.get_current_user(),
+                    result = self.controller.get(item_id,
+                                                 self.get_current_user(),
                                                  selector, query_arguments)
                 else:
                     result = self.controller.get_all(self.get_current_user(),
-                                                 selector, query_arguments)
+                                                     selector, query_arguments)
 
             else:
                 raise TransactionFailed("Resource cannot handle If-Match")
