@@ -509,7 +509,7 @@ def getDataType(type):
     elif type == types.StringType:
         return "string"
     else:
-        raise error.Error("Unexpected attribute type " + type)
+        raise error.Error("Unexpected attribute type %s" % type)
 
 
 # Generate definition for a given base type
