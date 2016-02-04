@@ -13,6 +13,8 @@
 #  under the License.
 
 import audit
+import os
+import pwd
 
 aufd = None
 
@@ -49,7 +51,7 @@ def audit_log_user_msg(op, cfgdata, user, hostname, addr, result):
         raise RequiredParameter("Missing operation text!")
 
     if (user == None):
-        raise RequiredParameter("Missing user name!")
+        user = pwd.getpwuid(os.getuid()).pw_name
 
     msg = str("op=RESTD:%s %s  user=%s" % (op, cfg, user))
     res = audit.audit_log_user_message(aufd, audit.AUDIT_USYS_CONFIG,

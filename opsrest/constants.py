@@ -31,6 +31,7 @@ ERROR = Transaction.ERROR
 
 # REST URIs
 REST_VERSION_PATH = '/rest/v1/'
+REST_LOGIN_PATH = '/login'
 REST_QUERY_PARAM_SELECTOR = 'selector'
 
 REST_QUERY_PARAM_SORTING = 'sort'
@@ -71,6 +72,7 @@ HTTP_CONTENT_TYPE_JSON = 'application/json; charset=UTF-8'
 
 # User Management
 DEFAULT_USER_GRP = "ovsdb_users"
+USER_KEY_NAME = 'username'
 
 # HTTP Request Types
 REQUEST_TYPE_CREATE = 'POST'
@@ -79,6 +81,10 @@ REQUEST_TYPE_UPDATE = 'PUT'
 REQUEST_TYPE_DELETE = 'DELETE'
 REQUEST_TYPE_OPTIONS = 'OPTIONS'
 REQUEST_TYPE_PATCH = 'PATCH'
+
+# Audit Log for Configuration changes only
+AUDIT_LOG_ACCEPTED_REQUESTS = {REQUEST_TYPE_CREATE, REQUEST_TYPE_UPDATE,
+                               REQUEST_TYPE_DELETE, REQUEST_TYPE_PATCH}
 
 OPSPLUGIN_DIR = '/usr/share/opsplugins'
 

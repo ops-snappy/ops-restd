@@ -58,10 +58,6 @@ class CustomRESTHandler(BaseHandler):
             self.on_exception(e)
             self.finish()
 
-    def on_finish(self):
-        app_log.debug("Finished handling of request from %s",
-                      self.request.remote_ip)
-
     @gen.coroutine
     def get(self, resource_id=None):
         try:
