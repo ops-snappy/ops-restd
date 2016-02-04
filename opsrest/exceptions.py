@@ -79,3 +79,8 @@ class PatchOperationFailed(APIException):
 class ParameterNotAllowed(APIException):
     status_code = httplib.BAD_REQUEST
     status = httplib.responses[status_code]
+
+
+class LengthRequired(APIException):
+    status_code = httplib.LENGTH_REQUIRED
+    status = httplib.responses[status_code]

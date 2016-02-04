@@ -22,7 +22,7 @@ from opsrest.handlers import base
 from opsrest.parse import parse_url_path
 from opsrest.utils import utils
 from opsrest.constants import *
-from opsrest.exceptions import APIException
+from opsrest.exceptions import APIException, LengthRequired
 
 from opsrest import get, post, delete, put, patch
 
@@ -93,7 +93,8 @@ class OVSDBAPIHandler(base.BaseHandler):
                 self.set_status(httplib.NOT_FOUND)
             elif self.successful_query(result):
                 self.set_status(httplib.OK)
-                self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
+                self.set_header(HTTP_HEADER_CONTENT_TYPE,
+                                HTTP_CONTENT_TYPE_JSON)
                 self.write(json.dumps(result))
 
         except APIException as e:
@@ -106,134 +107,133 @@ class OVSDBAPIHandler(base.BaseHandler):
 
     @gen.coroutine
     def post(self):
+        try:
 
-        if HTTP_HEADER_CONTENT_LENGTH in self.request.headers:
-            try:
-                # get the POST body
-                post_data = json.loads(self.request.body)
+            if HTTP_HEADER_CONTENT_LENGTH not in self.request.headers:
+                raise LengthRequired
 
-                # create a new ovsdb transaction
-                self.txn = self.ref_object.manager.get_new_transaction()
+            # get the POST body
+            post_data = json.loads(self.request.body)
 
-                # post_resource performs data verficiation, prepares and
-                # commits the ovsdb transaction
-                result = post.post_resource(post_data, self.resource_path,
-                                            self.schema, self.txn,
-                                            self.idl)
+            # create a new ovsdb transaction
+            self.txn = self.ref_object.manager.get_new_transaction()
 
-                status = result.status
-                if status == INCOMPLETE:
-                    self.ref_object.manager.monitor_transaction(self.txn)
-                    # on 'incomplete' state we wait until the transaction
-                    # completes with either success or failure
-                    yield self.txn.event.wait()
-                    status = self.txn.status
+            # post_resource performs data verficiation, prepares and
+            # commits the ovsdb transaction
+            result = post.post_resource(post_data, self.resource_path,
+                                        self.schema, self.txn,
+                                        self.idl)
 
-                # complete transaction
-                self.transaction_complete(status)
+            status = result.status
+            if status == INCOMPLETE:
+                self.ref_object.manager.monitor_transaction(self.txn)
+                # on 'incomplete' state we wait until the transaction
+                # completes with either success or failure
+                yield self.txn.event.wait()
+                status = self.txn.status
 
-            except APIException as e:
-                self.on_exception(e)
+            # complete transaction
+            self.transaction_complete(status)
 
-            except ValueError as e:
-                self.set_status(httplib.BAD_REQUEST)
-                self.set_header(HTTP_HEADER_CONTENT_TYPE,
-                                HTTP_CONTENT_TYPE_JSON)
-                self.write(utils.to_json_error(e))
+        except APIException as e:
+            self.on_exception(e)
 
-            except Exception as e:
-                self.on_exception(e)
+        except ValueError as e:
+            self.set_status(httplib.BAD_REQUEST)
+            self.set_header(HTTP_HEADER_CONTENT_TYPE,
+                            HTTP_CONTENT_TYPE_JSON)
+            self.write(utils.to_json_error(e))
 
-        else:
-            self.set_status(httplib.LENGTH_REQUIRED)
+        except Exception as e:
+            self.on_exception(e)
 
         self.finish()
 
     @gen.coroutine
     def put(self):
-        if HTTP_HEADER_CONTENT_LENGTH in self.request.headers:
-            try:
-                # get the PUT body
-                update_data = json.loads(self.request.body)
-                # create a new ovsdb transaction
-                self.txn = self.ref_object.manager.get_new_transaction()
+        try:
 
-                # put_resource performs data verfication, prepares and
-                # commits the ovsdb transaction
-                result = put.put_resource(update_data, self.resource_path,
-                                          self.schema, self.txn, self.idl)
+            if HTTP_HEADER_CONTENT_LENGTH not in self.request.headers:
+                raise LengthRequired
 
-                status = result.status
-                if status == INCOMPLETE:
-                    self.ref_object.manager.monitor_transaction(self.txn)
-                    # on 'incomplete' state we wait until the transaction
-                    # completes with either success or failure
-                    yield self.txn.event.wait()
-                    status = self.txn.status
+            # get the PUT body
+            update_data = json.loads(self.request.body)
+            # create a new ovsdb transaction
+            self.txn = self.ref_object.manager.get_new_transaction()
 
-                # complete transaction
-                self.transaction_complete(status)
+            # put_resource performs data verfication, prepares and
+            # commits the ovsdb transaction
+            result = put.put_resource(update_data, self.resource_path,
+                                      self.schema, self.txn, self.idl)
 
-            except APIException as e:
-                self.on_exception(e)
+            status = result.status
+            if status == INCOMPLETE:
+                self.ref_object.manager.monitor_transaction(self.txn)
+                # on 'incomplete' state we wait until the transaction
+                # completes with either success or failure
+                yield self.txn.event.wait()
+                status = self.txn.status
 
-            except ValueError as e:
-                self.set_status(httplib.BAD_REQUEST)
-                self.set_header(HTTP_HEADER_CONTENT_TYPE,
-                                HTTP_CONTENT_TYPE_JSON)
-                self.write(utils.to_json_error(e))
+            # complete transaction
+            self.transaction_complete(status)
 
-            except Exception as e:
-                self.on_exception(e)
+        except APIException as e:
+            self.on_exception(e)
 
-        else:
-            self.set_status(httplib.LENGTH_REQUIRED)
+        except ValueError as e:
+            self.set_status(httplib.BAD_REQUEST)
+            self.set_header(HTTP_HEADER_CONTENT_TYPE,
+                            HTTP_CONTENT_TYPE_JSON)
+            self.write(utils.to_json_error(e))
+
+        except Exception as e:
+            self.on_exception(e)
 
         self.finish()
 
     @gen.coroutine
     def patch(self):
-        if HTTP_HEADER_CONTENT_LENGTH in self.request.headers:
-            try:
-                # get the PATCH body
-                update_data = json.loads(self.request.body)
-                # create a new ovsdb transaction
-                self.txn = self.ref_object.manager.get_new_transaction()
+        try:
 
-                # patch_resource performs data verification, prepares and
-                # commits the ovsdb transaction
-                result = patch.patch_resource(update_data,
-                                              self.resource_path,
-                                              self.schema, self.txn,
-                                              self.idl, self.request.path)
+            if HTTP_HEADER_CONTENT_LENGTH not in self.request.headers:
+                raise LengthRequired
 
-                status = result.status
-                if status == INCOMPLETE:
-                    self.ref_object.manager.monitor_transaction(self.txn)
-                    # on 'incomplete' state we wait until the transaction
-                    # completes with either success or failure
-                    yield self.txn.event.wait()
-                    status = self.txn.status
+            # get the PATCH body
+            update_data = json.loads(self.request.body)
+            # create a new ovsdb transaction
+            self.txn = self.ref_object.manager.get_new_transaction()
 
-                # complete transaction
-                self.transaction_complete(status)
+            # patch_resource performs data verification, prepares and
+            # commits the ovsdb transaction
+            result = patch.patch_resource(update_data,
+                                          self.resource_path,
+                                          self.schema, self.txn,
+                                          self.idl, self.request.path)
 
-            except APIException as e:
-                app_log.debug("PATCH APIException")
-                self.on_exception(e)
+            status = result.status
+            if status == INCOMPLETE:
+                self.ref_object.manager.monitor_transaction(self.txn)
+                # on 'incomplete' state we wait until the transaction
+                # completes with either success or failure
+                yield self.txn.event.wait()
+                status = self.txn.status
 
-            except ValueError as e:
-                self.set_status(httplib.BAD_REQUEST)
-                self.set_header(HTTP_HEADER_CONTENT_TYPE,
-                                HTTP_CONTENT_TYPE_JSON)
-                self.write(utils.to_json_error(e))
+            # complete transaction
+            self.transaction_complete(status)
 
-            except Exception as e:
-                app_log.debug("PATCH General Exception")
-                self.on_exception(e)
+        except APIException as e:
+            app_log.debug("PATCH APIException")
+            self.on_exception(e)
 
-        else:
-            self.set_status(httplib.LENGTH_REQUIRED)
+        except ValueError as e:
+            self.set_status(httplib.BAD_REQUEST)
+            self.set_header(HTTP_HEADER_CONTENT_TYPE,
+                            HTTP_CONTENT_TYPE_JSON)
+            self.write(utils.to_json_error(e))
+
+        except Exception as e:
+            app_log.debug("PATCH General Exception")
+            self.on_exception(e)
 
         self.finish()
 

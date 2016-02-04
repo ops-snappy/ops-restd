@@ -22,11 +22,10 @@ from tornado.log import app_log
 
 # Local imports
 from opsrest.handlers.base import BaseHandler
-from opsrest.settings import settings
-from opsrest.exceptions import APIException, MethodNotAllowed
+from opsrest.exceptions import APIException, MethodNotAllowed, LengthRequired
 from opsrest.constants import\
     HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON,\
-    REST_QUERY_PARAM_SELECTOR
+    REST_QUERY_PARAM_SELECTOR, HTTP_HEADER_CONTENT_LENGTH
 
 
 class CustomRESTHandler(BaseHandler):
@@ -84,6 +83,10 @@ class CustomRESTHandler(BaseHandler):
     @gen.coroutine
     def post(self, resource_id=None):
         try:
+
+            if HTTP_HEADER_CONTENT_LENGTH not in self.request.headers:
+                raise LengthRequired
+
             if resource_id:
                 raise MethodNotAllowed
             data = json.loads(self.request.body)
@@ -104,6 +107,10 @@ class CustomRESTHandler(BaseHandler):
     @gen.coroutine
     def put(self, resource_id):
         try:
+
+            if HTTP_HEADER_CONTENT_LENGTH not in self.request.headers:
+                raise LengthRequired
+
             data = json.loads(self.request.body)
             self.controller.update(resource_id, data,
                                    self.current_user)
@@ -120,6 +127,10 @@ class CustomRESTHandler(BaseHandler):
     @gen.coroutine
     def patch(self, resource_id):
         try:
+
+            if HTTP_HEADER_CONTENT_LENGTH not in self.request.headers:
+                raise LengthRequired
+
             data = json.loads(self.request.body)
             self.controller.patch(resource_id, data, self.current_user)
             self.set_status(httplib.NO_CONTENT)
