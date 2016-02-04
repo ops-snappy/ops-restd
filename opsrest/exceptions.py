@@ -27,7 +27,9 @@ class APIException(Exception):
         self.detail = detail
 
     def __str__(self):
-        return json.dumps(self.detail)
+        error_json = {}
+        error_json['message'] = self.detail
+        return json.dumps(error_json)
 
 
 class DataValidationFailed(APIException):
