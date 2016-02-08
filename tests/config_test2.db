@@ -1,310 +1,761 @@
-{
-    "Interface": {
-        "1": {
-            "name": "1",
-            "type": "system"
-        },
-        "2": {
-            "name": "2",
-            "type": "system"
-        },
-        "49": {
-            "name": "49",
-            "split_children": [
-                "49-3",
-                "49-4",
-                "49-2",
-                "49-1"
-            ],
-            "type": "system"
-        },
-        "49-1": {
-            "name": "49-1",
-            "split_parent": [
-                "49"
-            ],
-            "type": "system"
-        },
-        "49-2": {
-            "name": "49-2",
-            "split_parent": [
-                "49"
-            ],
-            "type": "system"
-        },
-        "49-3": {
-            "name": "49-3",
-            "split_parent": [
-                "49"
-            ],
-            "type": "system"
-        },
-        "49-4": {
-            "name": "49-4",
-            "split_parent": [
-                "49"
-            ],
-            "type": "system"
-        },
-        "50": {
-            "name": "50",
-            "split_children": [
-                "50-4",
-                "50-2",
-                "50-3",
-                "50-1"
-            ],
-            "type": "system"
-        },
-        "50-1": {
-            "name": "50-1",
-            "split_parent": [
-                "50"
-            ],
-            "type": "system"
-        },
-        "50-2": {
-            "name": "50-2",
-            "split_parent": [
-                "50"
-            ],
-            "type": "system"
-        },
-        "50-3": {
-            "name": "50-3",
-            "split_parent": [
-                "50"
-            ],
-            "type": "system"
-        },
-        "50-4": {
-            "name": "50-4",
-            "split_parent": [
-                "50"
-            ],
-            "type": "system"
-        },
-        "51": {
-            "name": "51",
-            "split_children": [
-                "51-2",
-                "51-1",
-                "51-4",
-                "51-3"
-            ],
-            "type": "system"
-        },
-        "51-1": {
-            "name": "51-1",
-            "split_parent": [
-                "51"
-            ],
-            "type": "system"
-        },
-        "51-2": {
-            "name": "51-2",
-            "split_parent": [
-                "51"
-            ],
-            "type": "system"
-        },
-        "51-3": {
-            "name": "51-3",
-            "split_parent": [
-                "51"
-            ],
-            "type": "system"
-        },
-        "51-4": {
-            "name": "51-4",
-            "split_parent": [
-                "51"
-            ],
-            "type": "system"
-        },
-        "52": {
-            "name": "52",
-            "split_children": [
-                "52-4",
-                "52-2",
-                "52-3",
-                "52-1"
-            ],
-            "type": "system"
-        },
-        "52-1": {
-            "name": "52-1",
-            "split_parent": [
-                "52"
-            ],
-            "type": "system"
-        },
-        "52-2": {
-            "name": "52-2",
-            "split_parent": [
-                "52"
-            ],
-            "type": "system"
-        },
-        "52-3": {
-            "name": "52-3",
-            "split_parent": [
-                "52"
-            ],
-            "type": "system"
-        },
-        "52-4": {
-            "name": "52-4",
-            "split_parent": [
-                "52"
-            ],
-            "type": "system"
-        },
-        "53": {
-            "name": "53",
-            "split_children": [
-                "53-2",
-                "53-1",
-                "53-4",
-                "53-3"
-            ],
-            "type": "system"
-        },
-        "53-1": {
-            "name": "53-1",
-            "split_parent": [
-                "53"
-            ],
-            "type": "system"
-        },
-        "53-2": {
-            "name": "53-2",
-            "split_parent": [
-                "53"
-            ],
-            "type": "system"
-        },
-        "53-3": {
-            "name": "53-3",
-            "split_parent": [
-                "53"
-            ],
-            "type": "system"
-        },
-        "53-4": {
-            "name": "53-4",
-            "split_parent": [
-                "53"
-            ],
-            "type": "system"
-        },
-        "54": {
-            "name": "54",
-            "split_children": [
-                "54-3",
-                "54-4",
-                "54-1",
-                "54-2"
-            ],
-            "type": "system"
-        },
-        "54-1": {
-            "name": "54-1",
-            "split_parent": [
-                "54"
-            ],
-            "type": "system"
-        },
-        "54-2": {
-            "name": "54-2",
-            "split_parent": [
-                "54"
-            ],
-            "type": "system"
-        },
-        "54-3": {
-            "name": "54-3",
-            "split_parent": [
-                "54"
-            ],
-            "type": "system"
-        },
-        "54-4": {
-            "name": "54-4",
-            "split_parent": [
-                "54"
-            ],
-            "type": "system"
-        }
-    },
-    "Port": {
-        "1": {
-            "admin": [
-                "up"
-            ],
-            "interfaces": [
-                "1"
-            ],
-            "ip4_address": [
-                "11.11.11.11/5"
-            ],
-            "name": "1"
-        },
-        "2": {
-            "admin": [
-                "up"
-            ],
-            "interfaces": [
-                "2"
-            ],
-            "ip4_address": [
-                "22.22.22.22/6"
-            ],
-            "name": "2"
-        }
-    },
-    "System": {
-        "aaa": {
-            "fallback": "true",
-            "radius": "false"
-        },
-        "asset_tag_number": "",
-        "bridges": {
-            "bridge_normal": {
-                "datapath_type": "",
-                "name": "bridge_normal"
+    {
+        "Interface":
+        {
+            "1":
+            {
+                "type": "system",
+                "name": "1"
+            },
+            "2":
+            {
+                "type": "system",
+                "name": "2"
+            },
+            "3":
+            {
+                "type": "system",
+                "name": "3"
+            },
+            "4":
+            {
+                "type": "system",
+                "name": "4"
+            },
+            "5":
+            {
+                "type": "system",
+                "name": "5"
+            },
+            "6":
+            {
+                "type": "system",
+                "name": "6"
+            },
+            "7":
+            {
+                "type": "system",
+                "name": "7"
+            },
+            "8":
+            {
+                "type": "system",
+                "name": "8"
+            },
+            "9":
+            {
+                "type": "system",
+                "name": "9"
+            },
+            "10":
+            {
+                "type": "system",
+                "name": "10"
+            },
+            "11":
+            {
+                "type": "system",
+                "name": "11"
+            },
+            "12":
+            {
+                "type": "system",
+                "name": "12"
+            },
+            "13":
+            {
+                "type": "system",
+                "name": "13"
+            },
+            "14":
+            {
+                "type": "system",
+                "name": "14"
+            },
+            "15":
+            {
+                "type": "system",
+                "name": "15"
+            },
+            "16":
+            {
+                "type": "system",
+                "name": "16"
+            },
+            "17":
+            {
+                "type": "system",
+                "name": "17"
+            },
+            "18":
+            {
+                "type": "system",
+                "name": "18"
+            },
+            "19":
+            {
+                "type": "system",
+                "name": "19"
+            },
+            "20":
+            {
+                "type": "system",
+                "name": "20"
+            },
+            "21":
+            {
+                "type": "system",
+                "name": "21"
+            },
+            "22":
+            {
+                "type": "system",
+                "name": "22"
+            },
+            "23":
+            {
+                "type": "system",
+                "name": "23"
+            },
+            "24":
+            {
+                "type": "system",
+                "name": "24"
+            },
+            "25":
+            {
+                "type": "system",
+                "name": "25"
+            },
+            "26":
+            {
+                "type": "system",
+                "name": "26"
+            },
+            "27":
+            {
+                "type": "system",
+                "name": "27"
+            },
+            "28":
+            {
+                "type": "system",
+                "name": "28"
+            },
+            "29":
+            {
+                "type": "system",
+                "name": "29"
+            },
+            "30":
+            {
+                "type": "system",
+                "name": "30"
+            },
+            "31":
+            {
+                "type": "system",
+                "name": "31"
+            },
+            "32":
+            {
+                "type": "system",
+                "name": "32"
+            },
+            "33":
+            {
+                "type": "system",
+                "name": "33"
+            },
+            "34":
+            {
+                "type": "system",
+                "name": "34"
+            },
+            "35":
+            {
+                "type": "system",
+                "name": "35"
+            },
+            "36":
+            {
+                "type": "system",
+                "name": "36"
+            },
+            "37":
+            {
+                "type": "system",
+                "name": "37"
+            },
+            "38":
+            {
+                "type": "system",
+                "name": "38"
+            },
+            "39":
+            {
+                "type": "system",
+                "name": "39"
+            },
+            "40":
+            {
+                "type": "system",
+                "name": "40"
+            },
+            "41":
+            {
+                "type": "system",
+                "name": "41"
+            },
+            "42":
+            {
+                "type": "system",
+                "name": "42"
+            },
+            "43":
+            {
+                "type": "system",
+                "name": "43"
+            },
+            "44":
+            {
+                "type": "system",
+                "name": "44"
+            },
+            "45":
+            {
+                "type": "system",
+                "name": "45"
+            },
+            "46":
+            {
+                "type": "system",
+                "name": "46"
+            },
+            "47":
+            {
+                "type": "system",
+                "name": "47"
+            },
+            "48":
+            {
+                "type": "system",
+                "name": "48"
+            },
+            "49":
+            {
+                "split_children":
+                [
+                    "49-1",
+                    "49-4",
+                    "49-2",
+                    "49-3"
+                ],
+                "type": "system",
+                "name": "49"
+            },
+            "50":
+            {
+                "split_children":
+                [
+                    "50-3",
+                    "50-2",
+                    "50-1",
+                    "50-4"
+                ],
+                "type": "system",
+                "name": "50"
+            },
+            "51":
+            {
+                "split_children":
+                [
+                    "51-1",
+                    "51-4",
+                    "51-3",
+                    "51-2"
+                ],
+                "type": "system",
+                "name": "51"
+            },
+            "52":
+            {
+                "split_children":
+                [
+                    "52-2",
+                    "52-4",
+                    "52-1",
+                    "52-3"
+                ],
+                "type": "system",
+                "name": "52"
+            },
+            "53":
+            {
+                "split_children":
+                [
+                    "53-3",
+                    "53-2",
+                    "53-1",
+                    "53-4"
+                ],
+                "type": "system",
+                "name": "53"
+            },
+            "54":
+            {
+                "split_children":
+                [
+                    "54-2",
+                    "54-4",
+                    "54-3",
+                    "54-1"
+                ],
+                "type": "system",
+                "name": "54"
+            },
+            "bridge_normal":
+            {
+                "type": "internal",
+                "name": "bridge_normal",
+                "user_config":
+                {
+                    "admin": "up"
+                }
+            },
+            "49-1":
+            {
+                "split_parent":
+                [
+                    "49"
+                ],
+                "type": "system",
+                "name": "49-1"
+            },
+            "54-4":
+            {
+                "split_parent":
+                [
+                    "54"
+                ],
+                "type": "system",
+                "name": "54-4"
+            },
+            "49-3":
+            {
+                "split_parent":
+                [
+                    "49"
+                ],
+                "type": "system",
+                "name": "49-3"
+            },
+            "54-1":
+            {
+                "split_parent":
+                [
+                    "54"
+                ],
+                "type": "system",
+                "name": "54-1"
+            },
+            "54-2":
+            {
+                "split_parent":
+                [
+                    "54"
+                ],
+                "type": "system",
+                "name": "54-2"
+            },
+            "54-3":
+            {
+                "split_parent":
+                [
+                    "54"
+                ],
+                "type": "system",
+                "name": "54-3"
+            },
+            "49-4":
+            {
+                "split_parent":
+                [
+                    "49"
+                ],
+                "type": "system",
+                "name": "49-4"
+            },
+            "51-1":
+            {
+                "split_parent":
+                [
+                    "51"
+                ],
+                "type": "system",
+                "name": "51-1"
+            },
+            "51-3":
+            {
+                "split_parent":
+                [
+                    "51"
+                ],
+                "type": "system",
+                "name": "51-3"
+            },
+            "51-2":
+            {
+                "split_parent":
+                [
+                    "51"
+                ],
+                "type": "system",
+                "name": "51-2"
+            },
+            "51-4":
+            {
+                "split_parent":
+                [
+                    "51"
+                ],
+                "type": "system",
+                "name": "51-4"
+            },
+            "52-2":
+            {
+                "split_parent":
+                [
+                    "52"
+                ],
+                "type": "system",
+                "name": "52-2"
+            },
+            "52-3":
+            {
+                "split_parent":
+                [
+                    "52"
+                ],
+                "type": "system",
+                "name": "52-3"
+            },
+            "53-4":
+            {
+                "split_parent":
+                [
+                    "53"
+                ],
+                "type": "system",
+                "name": "53-4"
+            },
+            "52-1":
+            {
+                "split_parent":
+                [
+                    "52"
+                ],
+                "type": "system",
+                "name": "52-1"
+            },
+            "53-3":
+            {
+                "split_parent":
+                [
+                    "53"
+                ],
+                "type": "system",
+                "name": "53-3"
+            },
+            "53-2":
+            {
+                "split_parent":
+                [
+                    "53"
+                ],
+                "type": "system",
+                "name": "53-2"
+            },
+            "53-1":
+            {
+                "split_parent":
+                [
+                    "53"
+                ],
+                "type": "system",
+                "name": "53-1"
+            },
+            "50-4":
+            {
+                "split_parent":
+                [
+                    "50"
+                ],
+                "type": "system",
+                "name": "50-4"
+            },
+            "52-4":
+            {
+                "split_parent":
+                [
+                    "52"
+                ],
+                "type": "system",
+                "name": "52-4"
+            },
+            "50-2":
+            {
+                "split_parent":
+                [
+                    "50"
+                ],
+                "type": "system",
+                "name": "50-2"
+            },
+            "50-3":
+            {
+                "split_parent":
+                [
+                    "50"
+                ],
+                "type": "system",
+                "name": "50-3"
+            },
+            "49-2":
+            {
+                "split_parent":
+                [
+                    "49"
+                ],
+                "type": "system",
+                "name": "49-2"
+            },
+            "50-1":
+            {
+                "split_parent":
+                [
+                    "50"
+                ],
+                "type": "system",
+                "name": "50-1"
             }
         },
-        "hostname": "switch",
-        "mgmt_intf": {
-            "name": "eth0"
-        },
-        "vrfs": {
-            "vrf_default": {
-
-                "bgp_routers": {
-                    "1": {
-                        "bgp_neighbors": {
-                            "1.1.1.1": {
-                                "description": [
-                                    "router1"
-                                ],
-                                "remote_as": [
-                                    2
-                                ],
-                                "weight": [
-                                    0
-                                ]
+        "System":
+        {
+            "bridges":
+            {
+                "bridge_normal":
+                {
+                    "ports":
+                    [
+                        "bridge_normal"
+                    ],
+                    "vlans":
+                    {
+                        "DEFAULT_VLAN_1":
+                        {
+                            "admin":
+                            [
+                                "up"
+                            ],
+                            "id": 1,
+                            "name": "DEFAULT_VLAN_1"
+                        }
+                    },
+                    "datapath_type": "",
+                    "name": "bridge_normal"
+                }
+            },
+            "subsystems":
+            {
+                "base":
+                {
+                    "interfaces":
+                    [
+                        "53-3",
+                        "29",
+                        "40",
+                        "49-1",
+                        "8",
+                        "44",
+                        "38",
+                        "13",
+                        "51-1",
+                        "49",
+                        "47",
+                        "11",
+                        "54",
+                        "52-2",
+                        "1",
+                        "32",
+                        "42",
+                        "30",
+                        "49-4",
+                        "6",
+                        "48",
+                        "50-3",
+                        "35",
+                        "21",
+                        "28",
+                        "24",
+                        "50-2",
+                        "51-4",
+                        "54-2",
+                        "50-1",
+                        "53-2",
+                        "54-4",
+                        "22",
+                        "43",
+                        "52-4",
+                        "39",
+                        "26",
+                        "33",
+                        "14",
+                        "46",
+                        "53",
+                        "16",
+                        "53-1",
+                        "31",
+                        "54-3",
+                        "51-3",
+                        "52-1",
+                        "10",
+                        "51-2",
+                        "27",
+                        "3",
+                        "5",
+                        "51",
+                        "45",
+                        "19",
+                        "25",
+                        "17",
+                        "2",
+                        "50",
+                        "15",
+                        "7",
+                        "18",
+                        "49-2",
+                        "23",
+                        "52-3",
+                        "54-1",
+                        "41",
+                        "4",
+                        "9",
+                        "50-4",
+                        "52",
+                        "37",
+                        "12",
+                        "34",
+                        "36",
+                        "20",
+                        "53-4",
+                        "49-3"
+                    ],
+                    "asset_tag_number": "OpenSwitch asset tag"
+                }
+            },
+            "aaa":
+            {
+                "fallback": "true",
+                "radius": "false",
+                "ssh_publickeyauthentication_enable": "true",
+                "ssh_passkeyauthentication_enable": "true"
+            },
+            "hostname": "switch",
+            "asset_tag_number": "",
+            "mgmt_intf":
+            {
+                "name": "eth0"
+            },
+            "vrfs":
+            {
+                "vrf_default":
+                {
+                    "Route":
+                    {
+                        "static/10.0.0.0%2F8":
+                        {
+                            "distance":
+                            [
+                                1
+                            ],
+                            "prefix": "10.0.0.0/8",
+                            "sub_address_family":
+                            [
+                                "unicast"
+                            ],
+                            "address_family":
+                            [
+                                "ipv4"
+                            ],
+                            "nexthops":
+                            {
+                                "Nexthop1":
+                                {
+                                    "ip_address":
+                                    [
+                                        "10.0.0.1"
+                                    ]
+                                }
                             }
                         }
-                    }
-                },
-                "name": "vrf_default",
-                "ports": [
-                    "1",
-                    "2"
-                ]
+                    },
+                    "bgp_routers":
+                    {
+                        "1":
+                        {
+                            "bgp_neighbors":
+                            {
+                                "1.1.1.1":
+                                {
+                                    "remote_as":
+                                    [
+                                        2
+                                    ],
+                                    "description":
+                                    [
+                                        "router1"
+                                    ],
+                                    "weight":
+                                    [
+                                        0
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "name": "vrf_default",
+                    "ports":
+                    [
+                        "p1"
+                    ]
+                }
+            }
+        },
+        "Port":
+        {
+            "bridge_normal":
+            {
+                "interfaces":
+                [
+                    "bridge_normal"
+                ],
+                "name": "bridge_normal"
+            },
+            "p1":
+            {
+                "admin":
+                [
+                    "up"
+                ],
+                "interfaces":
+                [
+                    "1"
+                ],
+                "ip4_address":
+                [
+                    "11.11.11.11/5"
+                ],
+                "name": "p1"
             }
         }
     }
-}
