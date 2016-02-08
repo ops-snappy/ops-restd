@@ -1371,10 +1371,6 @@ def getFullAPI(schema):
     # Creating the login URL
     genUserLogin(paths)
 
-    # Custom APIs
-    genCustomDef("User", definitions)
-    genCustomAPI("User", "/system/users", paths)
-
     api["paths"] = paths
 
     properties = {}
