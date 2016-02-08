@@ -136,11 +136,14 @@ def test_write_read_compare(fname):
 
 
 if __name__ == "__main__":
-    result = test_empty_config(CONFIG_FILENAME_2, CONFIG_FILENAME_3)
+    result = test_write_read_compare(CONFIG_FILENAME_1)
     if result:
-        result = test_write_read_compare(CONFIG_FILENAME_1)
+        result = test_write_read_compare(CONFIG_FILENAME_2)
         if result:
-            result = test_write_read_compare(CONFIG_FILENAME_2)
+            # Commenting out the empty test case until restrictions on deletion
+            # are enforced from schema (eg. for VLAN table).
+            #result = test_empty_config(CONFIG_FILENAME_2, CONFIG_FILENAME_3)
+            pass
         else:
             print "Test Failure"
     else:

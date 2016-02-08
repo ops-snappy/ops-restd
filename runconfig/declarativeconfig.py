@@ -28,7 +28,7 @@ def _get_row_data(row, table_name, schema, idl, index=None):
 
     # Routes are special case - only static routes are returned
     if table_name == 'Route' and row.__getattr__('from') != 'static':
-        return
+        return None
 
     # Iterate over all columns in the row
     table_schema = schema.ovs_tables[table_name]
@@ -52,12 +52,6 @@ def _get_row_data(row, table_name, schema, idl, index=None):
         children_data = {}
         indexer = 0
         if child_name in table_schema.references:
-
-            # Only include configurable children
-            if (table_schema.references[child_name].category
-                    != OVSDB_SCHEMA_CONFIG):
-                continue
-
             column_data = row.__getattr__(child_name)
             child_table_name = table_schema.references[child_name].ref_table
 
@@ -76,10 +70,16 @@ def _get_row_data(row, table_name, schema, idl, index=None):
                     data = _get_row_data(
                         item, child_table_name, schema,
                         idl, kv_index)
+                    if data is None:
+                        continue
+
                     children_data.update({keys[count]: data.values()[0]})
                     count = count + 1
                 else:
                     data = _get_row_data(item, child_table_name, schema, idl)
+                    if data is None:
+                        continue
+
                     _indexes = schema.ovs_tables[child_table_name].indexes
                     if len(_indexes) == 1 and _indexes[0] == 'uuid':
                         indexer = indexer + 1
@@ -135,6 +135,9 @@ def _get_row_data(row, table_name, schema, idl, index=None):
 
             row_data[refname] = refdata
 
+    if not row_data:
+        return None
+
     return {index: row_data}
 
 
@@ -152,7 +155,7 @@ def _get_table_data(table_name, schema, idl):
 
     for row in table.rows.itervalues():
         row_data = _get_row_data(row, table_name, schema, idl)
-        if row_data is None or row_data == [] or row_data == {}:
+        if row_data is None:
             continue
         table_data[table_name].update(row_data)
 
