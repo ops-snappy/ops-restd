@@ -22,7 +22,10 @@ from opsrest.handlers import base
 from opsrest.parse import parse_url_path
 from opsrest.utils import utils
 from opsrest.constants import *
-from opsrest.exceptions import APIException, LengthRequired
+from opsrest.exceptions import APIException, LengthRequired, \
+    ParameterNotAllowed
+from opsrest.utils.getutils import get_filters_args
+
 
 from opsrest import get, post, delete, put, patch
 
@@ -44,6 +47,13 @@ class OVSDBAPIHandler(base.BaseHandler):
                 self.set_status(httplib.NOT_FOUND)
                 self.finish()
             else:
+                filters = get_filters_args(self.request.query_arguments,
+                                           self.schema, self.resource_path)
+                if self.request.method != \
+                        REQUEST_TYPE_READ and len(filters) > 0:
+                    raise ParameterNotAllowed("argument filter is only "
+                                              "allowed in %s"
+                                              % REQUEST_TYPE_READ)
                 # If Match support
                 match = self.process_if_match()
                 if not match:
