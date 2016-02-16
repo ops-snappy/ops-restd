@@ -1,0 +1,43 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "object",
+    "title": "Account",
+    "description": "User account json representation",
+    "properties": {
+        "configuration": {
+            "type": "object",
+            "properties": {
+                "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Unix user's current password"
+                },
+                "new_password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Unix user's new password"
+
+                }
+            },
+            "additionalProperties": false,
+            "required": [
+                "password",
+                "new_password"
+            ]
+        },
+        "status": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+        },
+        "statistics": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "configuration"
+    ]
+}

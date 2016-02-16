@@ -105,7 +105,7 @@ class CustomRESTHandler(BaseHandler):
         self.finish()
 
     @gen.coroutine
-    def put(self, resource_id):
+    def put(self, resource_id=None):
         try:
 
             if HTTP_HEADER_CONTENT_LENGTH not in self.request.headers:

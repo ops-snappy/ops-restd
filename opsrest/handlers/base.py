@@ -95,10 +95,10 @@ class BaseHandler(web.RequestHandler):
 
         # uncaught exceptions
         if not isinstance(e, APIException):
-            app_log.debug("Caught APIException:\n%s" % e)
+            app_log.debug("Caught unexpected exception:\n%s" % e)
             self.set_status(httplib.INTERNAL_SERVER_ERROR)
         else:
-            app_log.debug("Caught unexpected exception:\n%s" % e)
+            app_log.debug("Caught APIException:\n%s" % e)
             self.set_status(e.status_code)
 
         self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
@@ -192,8 +192,8 @@ class BaseHandler(web.RequestHandler):
             user = None
             cfgdata = self.request.body
             if path == REST_LOGIN_PATH and \
-               USER_KEY_NAME in self.request.arguments:
-                user = self.request.arguments['username'][0]
+               USERNAME_KEY in self.request.arguments:
+                user = self.request.arguments[USERNAME_KEY][0]
             if not user and self.get_current_user():
                 user = self.get_current_user()
             hostname = self.request.host
