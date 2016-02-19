@@ -74,9 +74,6 @@ class BaseHandler(web.RequestHandler):
             sort = get_query_arg(REST_QUERY_PARAM_SORTING,
                                  self.request.query_arguments)
 
-            selector = get_query_arg(REST_QUERY_PARAM_SELECTOR,
-                                     self.request.query_arguments)
-
             depth = get_query_arg(REST_QUERY_PARAM_DEPTH,
                                   self.request.query_arguments)
 
@@ -85,11 +82,10 @@ class BaseHandler(web.RequestHandler):
 
             if self.request.method != REQUEST_TYPE_READ \
                and (depth is not None or columns is not None or
-                    sort is not None or selector is not None):
-                raise ParameterNotAllowed("arguments %s, %s, %s and %s "
+                    sort is not None):
+                raise ParameterNotAllowed("Arguments %s, %s and %s "
                                           "are only allowed in %s" %
                                           (REST_QUERY_PARAM_SORTING,
-                                           REST_QUERY_PARAM_SELECTOR,
                                            REST_QUERY_PARAM_DEPTH,
                                            REST_QUERY_PARAM_COLUMNS,
                                            REQUEST_TYPE_READ))
