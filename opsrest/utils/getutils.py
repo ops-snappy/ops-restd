@@ -205,9 +205,11 @@ def _get_valid_keys(schema, resource=None, selector=None):
 
         if selector == OVSDB_SCHEMA_CONFIG or selector is None:
             valid_keys.extend(schema.ovs_tables[resource.table].config.keys())
-        elif selector == OVSDB_SCHEMA_STATUS or selector is None:
+
+        if selector == OVSDB_SCHEMA_STATUS or selector is None:
             valid_keys.extend(schema.ovs_tables[resource.table].status.keys())
-        elif selector == OVSDB_SCHEMA_STATS or selector is None:
+
+        if selector == OVSDB_SCHEMA_STATS or selector is None:
             valid_keys.extend(schema.ovs_tables[resource.table].stats.keys())
 
         references = schema.ovs_tables[resource.table].references

@@ -176,7 +176,7 @@ def verify_back_reference(resource, new_resource, schema,
     '''
         Some resources have the same parent. BGP_Routers can share the same
         VRF and hence will have the same reference pointer under the 'vrf'
-        column. If bgp_routers for a a particular VRF is desired, we search
+        column. If bgp_routers for a particular VRF is desired, we search
         in the entire BGP_Router table to find those BGP Routers that have
         the same VRF under the 'vrf' column and return a list of UUIDs
         of those BGP_Router entries.
@@ -214,9 +214,6 @@ def verify_back_reference(resource, new_resource, schema,
 
             if reference.uuid == resource.row:
                 row_list.append(item.uuid)
-
-        if not row_list:
-            return False
 
         new_resource.row = row_list
         return True

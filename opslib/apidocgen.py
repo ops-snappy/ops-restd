@@ -959,11 +959,8 @@ def genCustomDef(resource_name, definitions):
     schema_path = os.path.join(os.path.dirname("../opsrest/custom/"),
                                'schemas/%s.json' % resource_name)
     json_schema = None
-    try:
-        with open(schema_path, 'r') as data_file:
-            json_schema = json.load(data_file)
-    except IOError:
-        print "Cannot read %s json schema file" % schema_path
+    with open(schema_path, 'r') as data_file:
+        json_schema = json.load(data_file)
 
     # Create swagger definitions structure
     # Step 3: Create ResourceConfig, ResourceStatus, ResourceStats definitions
@@ -1461,6 +1458,9 @@ if __name__ == "__main__":
         print s
 
     except error.Error, e:
+        sys.stderr.write("%s\n" % e.msg)
+        sys.exit(1)
+    except Exception, e:
         sys.stderr.write("%s\n" % e.msg)
         sys.exit(1)
 
