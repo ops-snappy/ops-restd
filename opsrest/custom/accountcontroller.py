@@ -17,6 +17,7 @@ import crypt
 import os
 import base64
 import userauth
+import rbac
 
 from tornado.log import app_log
 from subprocess import call
@@ -31,7 +32,8 @@ from opsrest.custom.basecontroller import BaseController
 from opsrest.custom.restobject import RestObject
 from opsrest.custom.accountvalidator import AccountValidator
 from opsrest.constants import REQUEST_TYPE_UPDATE, \
-    USERNAME_KEY, OLD_PASSWORD_KEY
+    USERNAME_KEY, OLD_PASSWORD_KEY, USER_ROLE_KEY, \
+    USER_PERMISSIONS_KEY, OVSDB_SCHEMA_STATUS
 
 
 class AccountController(BaseController):
@@ -58,7 +60,8 @@ class AccountController(BaseController):
 
         return encoded_password
 
-    def __call_user_mod__(self, username, encoded_new_passwd):
+    def __change_user_password__(self, username, encoded_new_passwd):
+        # TODO change password using a different method after hardening
         cmd_result = call(["sudo", "usermod", "-p",
                            encoded_new_passwd, username])
         return cmd_result
@@ -81,14 +84,16 @@ class AccountController(BaseController):
 
         app_log.info("Updating account info...")
 
-        if current_user[USERNAME_KEY] is None:
+        if USERNAME_KEY in current_user and \
+                current_user[USERNAME_KEY] is not None:
+            username = current_user[USERNAME_KEY]
+        else:
             raise MethodNotAllowed("No user currently logged in")
 
         # Validate json
         self.schemavalidator.validate_json(data, REQUEST_TYPE_UPDATE)
 
         # Validate user data
-        username = current_user[USERNAME_KEY]
         account_info = RestObject.from_json(data)
         self.validator.validate_update(username, account_info)
 
@@ -101,13 +106,37 @@ class AccountController(BaseController):
         encoded_new_passwd = self.__get_encrypted_password__(username,
                                                              unencoded_passwd)
         try:
-            cmd_result = self.__call_user_mod__(username, encoded_new_passwd)
+            cmd_result = self.__change_user_password__(username,
+                                                       encoded_new_passwd)
             if cmd_result != 0:
                 error = "Unable to change password for user '%s'" % username
                 raise TransactionFailed(error)
         except KeyError:
             error = "An error occurred while updating account information"
             raise TransactionFailed(error)
+
+    def get_all(self, current_user, selector=None, query_args=None):
+        """
+        Get current user's information
+        Returns dictionary with user's role and permissions
+        """
+
+        app_log.info("Querying account info...")
+
+        if USERNAME_KEY in current_user and \
+                current_user[USERNAME_KEY] is not None:
+            username = current_user[USERNAME_KEY]
+        else:
+            raise MethodNotAllowed("No user currently logged in")
+
+        role = rbac.get_user_role(username)
+        permissions = rbac.get_user_permissions(username)
+
+        account_info = RestObject.create_empty_json()
+        account_info[OVSDB_SCHEMA_STATUS][USER_ROLE_KEY] = role
+        account_info[OVSDB_SCHEMA_STATUS][USER_PERMISSIONS_KEY] = permissions
+
+        return account_info
 
 
 class DummyRequestHandler:

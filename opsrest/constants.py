@@ -75,6 +75,8 @@ DEFAULT_USER_GRP = "ops_netop"
 USERNAME_KEY = 'username'
 OLD_PASSWORD_KEY = 'password'
 NEW_PASSWORD_KEY = 'new_password'
+USER_ROLE_KEY = "role"
+USER_PERMISSIONS_KEY = "permissions"
 
 # HTTP Request Types
 REQUEST_TYPE_CREATE = 'POST'
