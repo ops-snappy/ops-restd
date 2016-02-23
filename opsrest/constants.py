@@ -56,6 +56,7 @@ OVSDB_SCHEMA_REFERENCED_BY = 'referenced_by'
 OVSDB_COMMON_COLUMNS = ['other_config', 'external_ids']
 
 # HTTP headers
+HTTP_HEADER_LINK = 'Link'
 HTTP_HEADER_CONTENT_TYPE = 'Content-Type'
 HTTP_HEADER_CONTENT_LENGTH = 'Content-Length'
 HTTP_HEADER_ALLOW = 'Allow'

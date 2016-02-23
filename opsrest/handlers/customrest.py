@@ -22,7 +22,8 @@ from tornado.log import app_log
 
 # Local imports
 from opsrest.handlers.base import BaseHandler
-from opsrest.exceptions import APIException, MethodNotAllowed, LengthRequired
+from opsrest.exceptions import APIException, MethodNotAllowed, \
+    LengthRequired, ParseError
 from opsrest.constants import\
     HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON,\
     REST_QUERY_PARAM_SELECTOR, HTTP_HEADER_CONTENT_LENGTH
@@ -89,7 +90,13 @@ class CustomRESTHandler(BaseHandler):
 
             if resource_id:
                 raise MethodNotAllowed
-            data = json.loads(self.request.body)
+
+            try:
+                if self.request.body != "":
+                    data = json.loads(self.request.body)
+            except:
+                raise ParseError("Malformed JSON request body")
+
             result = self.controller.create(data, self.current_user)
             self.set_status(httplib.CREATED)
             if result is not None:
@@ -111,7 +118,11 @@ class CustomRESTHandler(BaseHandler):
             if HTTP_HEADER_CONTENT_LENGTH not in self.request.headers:
                 raise LengthRequired
 
-            data = json.loads(self.request.body)
+            try:
+                data = json.loads(self.request.body)
+            except:
+                raise ParseError("Malformed JSON request body")
+
             self.controller.update(resource_id, data,
                                    self.current_user)
             self.set_status(httplib.OK)
@@ -131,7 +142,11 @@ class CustomRESTHandler(BaseHandler):
             if HTTP_HEADER_CONTENT_LENGTH not in self.request.headers:
                 raise LengthRequired
 
-            data = json.loads(self.request.body)
+            try:
+                data = json.loads(self.request.body)
+            except:
+                raise ParseError("Malformed JSON request body")
+
             self.controller.patch(resource_id, data, self.current_user)
             self.set_status(httplib.NO_CONTENT)
 

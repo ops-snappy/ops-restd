@@ -60,7 +60,8 @@ class AccountValidator():
         else:
             raise NotFound("Username '%s' not found" % username)
 
-    def check_user_exists(self, username):
+    @staticmethod
+    def check_user_exists(username):
         if username and userutils.user_exists(username) and \
                 userutils.check_user_group(username, DEFAULT_USER_GRP):
             return True

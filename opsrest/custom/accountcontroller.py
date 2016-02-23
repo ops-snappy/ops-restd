@@ -26,7 +26,7 @@ from subprocess import call
 import opsrest.utils.userutils as userutils
 
 from opsrest.exceptions import TransactionFailed, \
-    MethodNotAllowed, AuthenticationFailed
+    AuthenticationFailed, NotAuthenticated
 from opsrest.custom.schemavalidator import SchemaValidator
 from opsrest.custom.basecontroller import BaseController
 from opsrest.custom.restobject import RestObject
@@ -66,6 +66,13 @@ class AccountController(BaseController):
                            encoded_new_passwd, username])
         return cmd_result
 
+    def __get_username__(self, current_user):
+        if USERNAME_KEY in current_user and \
+                current_user[USERNAME_KEY] is not None:
+            return current_user[USERNAME_KEY]
+        else:
+            raise NotAuthenticated("No user currently logged in")
+
     def __verify_old_password__(self, username, password):
         req = DummyRequestHandler()
         req.set_argument(USERNAME_KEY, username)
@@ -84,11 +91,7 @@ class AccountController(BaseController):
 
         app_log.info("Updating account info...")
 
-        if USERNAME_KEY in current_user and \
-                current_user[USERNAME_KEY] is not None:
-            username = current_user[USERNAME_KEY]
-        else:
-            raise MethodNotAllowed("No user currently logged in")
+        username = self.__get_username__(current_user)
 
         # Validate json
         self.schemavalidator.validate_json(data, REQUEST_TYPE_UPDATE)
@@ -123,11 +126,7 @@ class AccountController(BaseController):
 
         app_log.info("Querying account info...")
 
-        if USERNAME_KEY in current_user and \
-                current_user[USERNAME_KEY] is not None:
-            username = current_user[USERNAME_KEY]
-        else:
-            raise MethodNotAllowed("No user currently logged in")
+        username = self.__get_username__(current_user)
 
         role = rbac.get_user_role(username)
         permissions = rbac.get_user_permissions(username)
