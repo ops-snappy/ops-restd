@@ -71,11 +71,24 @@ class BaseHandler(web.RequestHandler):
                 self.set_header("Link", "/login")
                 raise NotAuthenticated
 
+            sort = get_query_arg(REST_QUERY_PARAM_SORTING,
+                                 self.request.query_arguments)
+
             depth = get_query_arg(REST_QUERY_PARAM_DEPTH,
                                   self.request.query_arguments)
-            if self.request.method != REQUEST_TYPE_READ and depth is not None:
-                raise ParameterNotAllowed("depth is only allowed in %s" %
-                                          REQUEST_TYPE_READ)
+
+            columns = get_query_arg(REST_QUERY_PARAM_COLUMNS,
+                                    self.request.query_arguments)
+
+            if self.request.method != REQUEST_TYPE_READ \
+               and (depth is not None or columns is not None or
+                    sort is not None):
+                raise ParameterNotAllowed("Arguments %s, %s and %s "
+                                          "are only allowed in %s" %
+                                          (REST_QUERY_PARAM_SORTING,
+                                           REST_QUERY_PARAM_DEPTH,
+                                           REST_QUERY_PARAM_COLUMNS,
+                                           REQUEST_TYPE_READ))
 
         except APIException as e:
             self.on_exception(e)
