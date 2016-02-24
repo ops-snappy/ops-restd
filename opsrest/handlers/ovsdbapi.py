@@ -35,6 +35,9 @@ class OVSDBAPIHandler(base.BaseHandler):
             # Call parent's prepare to check authentication
             super(OVSDBAPIHandler, self).prepare()
 
+            # Check user's permissions
+            self.check_method_permission()
+
             self.resource_path = parse_url_path(self.request.path,
                                                 self.schema,
                                                 self.idl,

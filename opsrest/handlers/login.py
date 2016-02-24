@@ -21,7 +21,7 @@ import userauth
 from opsrest.handlers import base
 from opsrest.custom.accountvalidator import AccountValidator
 from opsrest.exceptions import APIException, AuthenticationFailed
-from opsrest.constants import REST_LOGIN_PATH, USERNAME_KEY, HTTP_HEADER_LINK
+from opsrest.constants import USERNAME_KEY
 
 
 class LoginHandler(base.BaseHandler):
@@ -42,7 +42,6 @@ class LoginHandler(base.BaseHandler):
 
             is_authenticated = userauth.is_user_authenticated(self)
             if not is_authenticated:
-                self.set_header(HTTP_HEADER_LINK, REST_LOGIN_PATH)
                 raise AuthenticationFailed
             else:
                 self.set_status(httplib.OK)
@@ -63,12 +62,10 @@ class LoginHandler(base.BaseHandler):
             username = self.get_argument(USERNAME_KEY)
 
             if not AccountValidator.check_user_exists(username):
-                self.set_header(HTTP_HEADER_LINK, REST_LOGIN_PATH)
                 raise AuthenticationFailed
 
             login_success = userauth.handle_user_login(self)
             if not login_success:
-                self.set_header(HTTP_HEADER_LINK, REST_LOGIN_PATH)
                 raise AuthenticationFailed
             else:
                 self.set_status(httplib.OK)
