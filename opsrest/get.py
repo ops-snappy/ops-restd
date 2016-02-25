@@ -80,11 +80,13 @@ def get_resource_from_db(resource, schema, idl, uri=None,
     sorting_args = []
     filter_args = {}
     pagination_args = {}
+    columns_args = []
     offset = None
     limit = None
 
     validation_result = getutils.validate_query_args(sorting_args, filter_args,
                                                      pagination_args,
+                                                     columns_args,
                                                      query_arguments,
                                                      schema, resource.next,
                                                      selector, depth,
@@ -101,6 +103,7 @@ def get_resource_from_db(resource, schema, idl, uri=None,
     app_log.debug("Filter args: %s" % filter_args)
     app_log.debug("Limit % s" % limit)
     app_log.debug("Offset % s" % offset)
+    app_log.debug("Columns % s" % columns_args)
 
     # Get the resource result according to result type
     if is_collection:
@@ -116,7 +119,8 @@ def get_resource_from_db(resource, schema, idl, uri=None,
         resource_result = getutils.post_process_get_data(resource_result,
                                                          sorting_args,
                                                          filter_args, offset,
-                                                         limit, schema, table,
+                                                         limit, columns_args,
+                                                         schema, table,
                                                          selector,
                                                          categorize=True)
 
