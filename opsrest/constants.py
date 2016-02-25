@@ -12,7 +12,7 @@
 #  License for the specific language governing permissions and limitations
 #  under the License.
 
-from rbac import READ_SWITCH_CONFIG, WRITE_SWITCH_CONFIG, ROLE_NETOP
+from rbac import READ_SWITCH_CONFIG, WRITE_SWITCH_CONFIG
 from ovs.db.idl import Transaction
 
 # Ovsdb connection states and defaults
@@ -81,8 +81,7 @@ REQUEST_TYPE_OPTIONS = 'OPTIONS'
 REQUEST_TYPE_PATCH = 'PATCH'
 
 # RBAC
-DEFAULT_USER_GRP = ROLE_NETOP
-ALLOWED_LOGIN_GRPS = [DEFAULT_USER_GRP]
+ALLOWED_LOGIN_PERMISSIONS = set([READ_SWITCH_CONFIG, WRITE_SWITCH_CONFIG])
 USERNAME_KEY = 'username'
 OLD_PASSWORD_KEY = 'password'
 NEW_PASSWORD_KEY = 'new_password'

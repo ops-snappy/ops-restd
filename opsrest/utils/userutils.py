@@ -15,8 +15,11 @@
 # Third party imports
 import pwd
 import grp
+import rbac
 
 from subprocess import PIPE, Popen
+
+from opsrest.constants import ALLOWED_LOGIN_PERMISSIONS
 
 
 def get_group_id(group_name):
@@ -65,3 +68,11 @@ def get_group_members(group_name):
 
 def get_group_user_count(group_name):
     return len(get_group_members(group_name))
+
+
+def is_user_login_authorized(username):
+    if username and user_exists(username):
+        permissions = set(rbac.get_user_permissions(username))
+        # isdisjoint is True if user's permissions and
+        # allowed permissions intersection is empty
+        return not permissions.isdisjoint(ALLOWED_LOGIN_PERMISSIONS)
