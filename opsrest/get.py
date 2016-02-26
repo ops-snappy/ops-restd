@@ -80,11 +80,13 @@ def get_resource_from_db(resource, schema, idl, uri=None,
     sorting_args = []
     filter_args = {}
     pagination_args = {}
+    columns_args = []
     offset = None
     limit = None
 
     validation_result = getutils.validate_query_args(sorting_args, filter_args,
                                                      pagination_args,
+                                                     columns_args,
                                                      query_arguments,
                                                      schema, resource.next,
                                                      selector, depth,
@@ -101,6 +103,7 @@ def get_resource_from_db(resource, schema, idl, uri=None,
     app_log.debug("Filter args: %s" % filter_args)
     app_log.debug("Limit % s" % limit)
     app_log.debug("Offset % s" % offset)
+    app_log.debug("Columns % s" % columns_args)
 
     # Get the resource result according to result type
     if is_collection:
@@ -116,7 +119,8 @@ def get_resource_from_db(resource, schema, idl, uri=None,
         resource_result = getutils.post_process_get_data(resource_result,
                                                          sorting_args,
                                                          filter_args, offset,
-                                                         limit, schema, table,
+                                                         limit, columns_args,
+                                                         schema, table,
                                                          selector,
                                                          categorize=True)
 
@@ -157,7 +161,7 @@ def get_row_json(row, table, schema, idl, uri, selector=None,
         config_keys = schema_table.config
         config_data = utils.row_to_json(db_row, config_keys)
     # To remove the unnecessary empty values from the config data
-    config_data = {key:config_data[key] for key in config_keys
+    config_data = {key: config_data[key] for key in config_keys
                    if not(config_data[key] == None or
                    config_data[key] == {} or config_data[key] == [])}
 
@@ -182,14 +186,17 @@ def get_row_json(row, table, schema, idl, uri, selector=None,
     references = schema_table.references
     reference_data = []
     for key in references:
-        # Don't consider back references
-        if references[key].ref_table != schema_table.parent:
-            if (depth_counter >= depth):
-                depth = 0
+        # Ignore parent column in case of back references as we
+        # already are in the child table whose row we need to fetch
+        if references[key].ref_table == schema_table.parent:
+            continue
+
+        if (depth_counter >= depth):
+            depth = 0
 
         temp = get_column_json(key, row, table, schema,
-               idl, uri, selector, depth,
-               depth_counter)
+                               idl, uri, selector, depth,
+                               depth_counter)
 
         # The condition below is used to discard the empty list of references
         # in the data returned for get requests
@@ -197,7 +204,7 @@ def get_row_json(row, table, schema, idl, uri, selector=None,
             continue
 
         reference_data = temp
-   
+
         # depending upon the category of reference
         # pair them with the right data set
         category = references[key].category
@@ -338,7 +345,7 @@ def get_back_references_json(parent_row, parent_table, table,
         for row in idl.tables[table].rows.itervalues():
             ref = row.__getattr__(_refCol)
             if ref.uuid == parent_row:
-                tmp = utils.get_table_key(row, table, schema, idl)
+                tmp = utils.get_table_key(row, table, schema, idl, False)
                 _uri = _create_uri(uri, tmp)
                 resources_list.append(_uri)
     else:

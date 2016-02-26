@@ -39,6 +39,7 @@ REST_QUERY_PARAM_SORTING = 'sort'
 REST_QUERY_PARAM_OFFSET = 'offset'
 REST_QUERY_PARAM_LIMIT = 'limit'
 REST_QUERY_PARAM_DEPTH = "depth"
+REST_QUERY_PARAM_COLUMNS = 'columns'
 
 # Ovsdb schema constants
 OVSDB_SCHEMA_SYSTEM_TABLE = 'System'

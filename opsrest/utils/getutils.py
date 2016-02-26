@@ -15,6 +15,7 @@
 from opsrest.constants import *
 from opsrest.utils import utils
 from opsrest.verify import convert_string_to_value_by_type
+from opsrest.exceptions import DataValidationFailed
 
 import re
 
@@ -47,8 +48,37 @@ def get_query_arg(name, query_arguments):
     return arg
 
 
+def get_param_list(query_arguments, query_param_name):
+    arguments = []
+    if query_arguments is not None and \
+            query_param_name in query_arguments:
+        arguments = query_arguments[query_param_name]
+
+    values = []
+
+    for arg in arguments:
+        split_args = arg.split(",")
+        values.extend(split_args)
+
+    return values
+
+
+def get_valid_key_values(key_values, schema, resource, selector):
+    # Validate schema keys
+    valid_key_values = []
+    valid_keys = _get_valid_keys(schema, resource, selector)
+
+    for value in key_values:
+        if value in valid_keys:
+            valid_key_values.append(value)
+        else:
+            raise DataValidationFailed("Invalid key: %s" % value)
+
+    return valid_key_values
+
+
 def validate_query_args(sorting_args, filter_args, pagination_args,
-                        query_arguments, schema,resource=None,
+                        columns_args, query_arguments, schema, resource=None,
                         selector=None, depth=0, is_collection=True):
 
     # Non-plural resources only required to validate if
@@ -68,6 +98,17 @@ def validate_query_args(sorting_args, filter_args, pagination_args,
         return staging_sort_data
     else:
         sorting_args.extend(staging_sort_data)
+
+    # specific column retrieval
+    staging_columns_data = get_columns_args(query_arguments, schema,
+                                            resource, selector)
+
+    # get_columns_args returns a list of column
+    # names to show or an ERROR dictionary
+    if ERROR in staging_columns_data:
+        return staging_columns_data
+    else:
+        columns_args.extend(staging_columns_data)
 
     # get_filters_args returns a dictionary with
     # either filter->value pairs or an ERROR
@@ -97,11 +138,11 @@ def validate_query_args(sorting_args, filter_args, pagination_args,
         error_json = utils.to_json_error("Pagination indexes must be numbers")
         return {ERROR: error_json}
 
-    if depth == 0 and (sorting_args or filter_args or
+    if depth == 0 and (sorting_args or filter_args or columns_args or
                        offset is not None or limit is not None):
-        error_json = utils.to_json_error("Sort, filter, and pagination " +
-                                         "parameters are only supported " +
-                                         "for depth > 0")
+        error_json = utils.to_json_error("Sort, filter, columns and " +
+                                         "pagination parameters are only " +
+                                         "supported for depth > 0")
         return {ERROR: error_json}
 
     return {}
@@ -109,7 +150,7 @@ def validate_query_args(sorting_args, filter_args, pagination_args,
 
 def validate_non_plural_query_args(query_arguments):
 
-    error_json = utils.to_json_error("Sort, filter, and pagination " +
+    error_json = utils.to_json_error("Sort, filter, pagination and columns " +
                                      "parameters are only supported " +
                                      "for resource collections")
     error_json = {ERROR: error_json}
@@ -119,7 +160,8 @@ def validate_non_plural_query_args(query_arguments):
     # NOTE any new query keys should be added to this condition
     if REST_QUERY_PARAM_SORTING in query_arguments or \
             REST_QUERY_PARAM_OFFSET in query_arguments or \
-            REST_QUERY_PARAM_LIMIT in query_arguments:
+            REST_QUERY_PARAM_LIMIT in query_arguments or \
+            REST_QUERY_PARAM_COLUMNS in query_arguments:
         return error_json
 
     # To detect if filter arguments (valid or not) are present,
@@ -145,17 +187,20 @@ def validate_non_plural_query_args(query_arguments):
         return {}
 
 
+def get_columns_args(query_arguments, schema, resource=None, selector=None):
+    columns_values = get_param_list(query_arguments, REST_QUERY_PARAM_COLUMNS)
+
+    valid_columns_values = []
+
+    if columns_values:
+        valid_columns_values = get_valid_key_values(columns_values, schema,
+                                                    resource, selector)
+
+    return valid_columns_values
+
+
 def get_sorting_args(query_arguments, schema, resource=None, selector=None):
-    sorting_args = []
-    if query_arguments is not None and \
-            REST_QUERY_PARAM_SORTING in query_arguments:
-        sorting_args = query_arguments[REST_QUERY_PARAM_SORTING]
-
-    sorting_values = []
-
-    for arg in sorting_args:
-        split_args = arg.split(",")
-        sorting_values.extend(split_args)
+    sorting_values = get_param_list(query_arguments, REST_QUERY_PARAM_SORTING)
 
     valid_sorting_values = []
 
@@ -179,17 +224,8 @@ def get_sorting_args(query_arguments, schema, resource=None, selector=None):
                 order = False
             sorting_values[0] = value
 
-            # Validate sorting keys
-            valid_keys = _get_valid_keys(schema, resource, selector)
-
-            for value in sorting_values:
-                if value in valid_keys:
-                    valid_sorting_values.append(value)
-                else:
-                    error_json = \
-                        utils.to_json_error("Invalid sort column: %s" %
-                                            value)
-                    return {ERROR: error_json}
+            valid_sorting_values = get_valid_key_values(sorting_values, schema,
+                                                        resource, selector)
 
             if valid_sorting_values:
                 valid_sorting_values.append(order)
@@ -205,9 +241,11 @@ def _get_valid_keys(schema, resource=None, selector=None):
 
         if selector == OVSDB_SCHEMA_CONFIG or selector is None:
             valid_keys.extend(schema.ovs_tables[resource.table].config.keys())
-        elif selector == OVSDB_SCHEMA_STATUS or selector is None:
+
+        if selector == OVSDB_SCHEMA_STATUS or selector is None:
             valid_keys.extend(schema.ovs_tables[resource.table].status.keys())
-        elif selector == OVSDB_SCHEMA_STATS or selector is None:
+
+        if selector == OVSDB_SCHEMA_STATS or selector is None:
             valid_keys.extend(schema.ovs_tables[resource.table].stats.keys())
 
         references = schema.ovs_tables[resource.table].references
@@ -242,7 +280,7 @@ def get_filters_args(query_arguments, schema, resource=None, selector=None):
             # NOTE any new query keys should be added to this condition
             if key in (REST_QUERY_PARAM_LIMIT, REST_QUERY_PARAM_OFFSET,
                        REST_QUERY_PARAM_DEPTH, REST_QUERY_PARAM_SORTING,
-                       REST_QUERY_PARAM_SELECTOR):
+                       REST_QUERY_PARAM_SELECTOR, REST_QUERY_PARAM_COLUMNS):
                 continue
             elif key in valid_keys:
                 filters[key] = []
@@ -257,7 +295,7 @@ def get_filters_args(query_arguments, schema, resource=None, selector=None):
 
 
 def post_process_get_data(get_data, sorting_args, filter_args, offset, limit,
-                          schema, table=None, selector=None,
+                          columns_args, schema, table=None, selector=None,
                           categorize=False):
 
     if categorize:
@@ -282,6 +320,11 @@ def post_process_get_data(get_data, sorting_args, filter_args, offset, limit,
         reverse_sort = sorting_args.pop()
         processed_get_data = sort_get_results(processed_get_data,
                                               sorting_args, reverse_sort)
+
+    # Specific column retrieval results if necessary
+    if columns_args:
+        processed_get_data = remove_unwanted_columns(processed_get_data,
+                                                     columns_args)
 
     if categorize:
         # Now that keys have been processed, re-groupped
@@ -491,6 +534,14 @@ def sort_get_results(get_data, sort_by_columns, reverse_=False):
         reverse=reverse_)
 
     return sorted_data
+
+
+def remove_unwanted_columns(get_data, retrieve_by_columns):
+    for row in get_data:
+        keys_to_remove = list(set(row) - set(retrieve_by_columns))
+        for key in keys_to_remove:
+            row.pop(key)
+    return get_data
 
 
 def paginate_get_results(get_data, offset=None, limit=None):
