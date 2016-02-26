@@ -73,6 +73,9 @@ class BaseHandler(web.RequestHandler):
             if not is_authenticated:
                 raise NotAuthenticated
 
+            # Check user's permissions
+            self.check_method_permission()
+
             sort = get_query_arg(REST_QUERY_PARAM_SORTING,
                                  self.request.query_arguments)
 

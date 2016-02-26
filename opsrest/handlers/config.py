@@ -35,9 +35,6 @@ class ConfigHandler(BaseHandler):
             # Call parent's prepare to check authentication
             super(ConfigHandler, self).prepare()
 
-            # Check user's permissions
-            self.check_method_permission()
-
             self.request_type = self.get_argument('type', 'running')
             app_log.debug('request type: %s', self.request_type)
 
