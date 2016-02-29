@@ -183,6 +183,8 @@ class LogController(BaseController):
         return log_cmd_options
 
     def get_all(self, current_user, selector=None, query_args=None):
+        offset = None
+        limit = None
         self.validate_keywords(query_args)
         self.validate_args_data(query_args)
         log_cmd_options = self.get_log_cmd_options(query_args)
@@ -196,10 +198,12 @@ class LogController(BaseController):
 
         if response:
             response = jsonutils.convert_string_to_json(response)
-            if REST_QUERY_PARAM_OFFSET in query_args and \
-                    REST_QUERY_PARAM_LIMIT in query_args:
+            if REST_QUERY_PARAM_OFFSET in query_args:
                 offset = int(query_args[REST_QUERY_PARAM_OFFSET][0])
+            if REST_QUERY_PARAM_LIMIT in query_args:
                 limit = int(query_args[REST_QUERY_PARAM_LIMIT][0])
+
+            if offset is not None or limit is not None:
                 response = getutils.paginate_get_results(response,
                                                          offset,
                                                          limit)
