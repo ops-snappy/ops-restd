@@ -231,12 +231,12 @@ class BaseHandler(web.RequestHandler):
 
         # Check permissions only if authentication is enabled
         # Plus, OPTIONS is allowed for unauthenticated users
-        if settings['auth_enabled'] and method != REQUEST_TYPE_OPTIONS:
+        if method != REQUEST_TYPE_OPTIONS:
             username = self.get_current_user()
             if username is None:
-                raise NotAuthenticated
-
-            permissions = rbac.get_user_permissions(username)
-
-            if METHOD_PERMISSION_MAP[method] not in permissions:
-                raise ForbiddenMethod
+                if settings['auth_enabled']:
+                    raise NotAuthenticated
+            else:
+                permissions = rbac.get_user_permissions(username)
+                if METHOD_PERMISSION_MAP[method] not in permissions:
+                    raise ForbiddenMethod
