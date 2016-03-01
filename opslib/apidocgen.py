@@ -1342,7 +1342,12 @@ def genLogsAPI(paths, definitions):
     param["name"] = "since"
     param["in"] = "query"
     param["description"] = ("Fetch logs since the time specified. " +
-                            "Valid format: YYYY-MM-DD hh:mm:ss")
+                            "Valid format: YYYY-MM-DD hh:mm:ss. " +
+                            "Relative words like yesterday, today, now," +
+                            "1 day ago, 10 hours ago, 12 minutes ago are " +
+                            "accepted. Words like hour ago, minute ago " +
+                            "and day ago must precede with a positive " +
+                            "integer and can be in plural form too.")
     param["required"] = False
     param["type"] = "string"
     params.append(param)
@@ -1351,7 +1356,12 @@ def genLogsAPI(paths, definitions):
     param["name"] = "until"
     param["in"] = "query"
     param["description"] = ("Fetch logs until the time specified. " +
-                            "Valid format: YYYY-MM-DD hh:mm:ss")
+                            "Valid format: YYYY-MM-DD hh:mm:ss. " +
+                            "Relative words like yesterday, today, now," +
+                            "1 day ago, 10 hours ago, 12 minutes ago are " +
+                            "accepted. Words like hour ago, minute ago " +
+                            "and day ago must precede with a positive " +
+                            "integer and can be in plural form too.")
     param["required"] = False
     param["type"] = "string"
     params.append(param)
