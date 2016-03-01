@@ -38,6 +38,11 @@ class OVSDBAPIHandler(base.BaseHandler):
             # Call parent's prepare to check authentication
             super(OVSDBAPIHandler, self).prepare()
 
+            # Check ovsdb connection before each request
+            if not self.ref_object.manager.connected:
+                self.set_status(httplib.SERVICE_UNAVAILABLE)
+                self.finish()
+
             self.resource_path = parse_url_path(self.request.path,
                                                 self.schema,
                                                 self.idl,

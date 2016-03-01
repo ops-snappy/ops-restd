@@ -1,4 +1,4 @@
-# Copyright (C) 2015 Hewlett Packard Enterprise Development LP
+# Copyright (C) 2015-2016 Hewlett Packard Enterprise Development LP
 #
 #  Licensed under the Apache License, Version 2.0 (the "License"); you may
 #  not use this file except in compliance with the License. You may obtain
@@ -13,16 +13,16 @@
 #  under the License.
 
 import time
-import re
-import json
 from tornado.ioloop import IOLoop
 from tornado.log import app_log
 
 from ovs.db.idl import Idl, SchemaHelper
-from ovs.poller import Poller
+from ovs.db import error
 
 from opsrest.transaction import OvsdbTransactionList, OvsdbTransaction
-from opsrest.constants import *
+from opsrest.constants import \
+    OVSDB_DEFAULT_CONNECTION_TIMEOUT,\
+    INCOMPLETE
 
 
 class OvsdbConnectionManager:
@@ -33,91 +33,94 @@ class OvsdbConnectionManager:
         self.schema_helper = None
         self.idl = None
         self.transactions = None
-
         self.curr_seqno = 0
+        self.connected = False
 
     def start(self):
-        # reset all connections
         try:
             app_log.info("Starting Connection Manager!")
             if self.idl is not None:
                 self.idl.close()
-
-            # set up the schema and register all tables
             self.schema_helper = SchemaHelper(self.schema)
             self.schema_helper.register_all()
             self.idl = Idl(self.remote, self.schema_helper)
             self.curr_seqno = self.idl.change_seqno
 
-            #  we do not reset transactions when the DB connection goes down
+            # We do not reset transactions when the DB connection goes down
             if self.transactions is None:
                 self.transactions = OvsdbTransactionList()
 
-            self.idl_run()
-            self.monitor_connection()
+            self.idl_init()
 
         except Exception as e:
-            # TODO: log this exception
-            # attempt again in the next IOLoop iteration
             app_log.info("Connection Manager failed! Reason: %s" % e)
             IOLoop.current().add_timeout(time.time() + self.timeout,
                                          self.start)
 
-    def monitor_connection(self):
+    def idl_init(self):
         try:
-            self.poller = Poller()
-            self.idl.wait(self.poller)
-            self.timeout = self.poller.timeout / 1000.0
-            self.add_fd_callbacks()
-        except:
-            self.idl_run()
-            IOLoop.current().add_timeout(time.time() + self.timeout,
-                                         self.monitor_connection)
-
-    def add_fd_callbacks(self):
-        # add handlers to file descriptors from poll
-        if len(self.poller.poll.rlist) is 0:
-            self.rlist = []
-            self.wlist = []
-            self.xlist = []
-            raise Exception('ovsdb read unavailable')
-
-        for fd in self.poller.poll.rlist:
-            if fd not in self.rlist:
-                IOLoop.current().add_handler(fd, self.read_handler,
-                                             IOLoop.READ | IOLoop.ERROR)
-                self.rlist.append(fd)
+            self.idl.run()
+            if not self.idl.has_ever_connected():
+                app_log.debug("ovsdb unavailable retrying")
                 IOLoop.current().add_timeout(time.time() + self.timeout,
-                                             self.read_handler)
+                                             self.idl_init)
+            else:
+                self.idl_establish_connection()
+        except error.Error as e:
+            # idl will raise an error exception if cannot connect
+            app_log.debug("Failed to connect, retrying. Reason: %s" % e)
+            IOLoop.current().add_timeout(time.time() + self.timeout,
+                                         self.idl_init)
 
-    def read_handler(self, fd=None, events=None):
-        if fd is not None:
-            IOLoop.current().remove_handler(fd)
-            self.rlist.remove(fd)
+    def idl_reconnect(self):
+        try:
+            app_log.debug("Trying to reconnect to ovsdb")
+            # Idl run will do the reconnection
+            self.idl.run()
+            # If the seqno change the ovsdb connection is restablished.
+            if self.curr_seqno == self.idl.change_seqno:
+                app_log.debug("ovsdb unavailable retrying")
+                self.connected = False
+                IOLoop.current().add_timeout(time.time() + self.timeout,
+                                             self.idl_reconnect)
+            else:
+                self.idl_establish_connection()
+        except error.Error as e:
+            # idl will raise an error exception if cannot reconnect
+            app_log.debug("Failed to connect, retrying. Reason: %s" % e)
+            IOLoop.current().add_timeout(time.time() + self.timeout,
+                                         self.idl_reconnect)
 
-        self.idl_run()
-        IOLoop.current().add_callback(self.monitor_connection)
-
-    def idl_run(self):
-        self.idl.run()
+    def idl_establish_connection(self):
+        app_log.info("ovsdb connection ready")
+        self.connected = True
         self.curr_seqno = self.idl.change_seqno
-        if len(self.transactions.txn_list):
-            self.check_transactions()
+        self.ovs_socket = self.idl._session.rpc.stream.socket
+        IOLoop.current().add_handler(self.ovs_socket.fileno(),
+                                     self.idl_run,
+                                     IOLoop.READ | IOLoop.ERROR)
+
+    def idl_run(self, fd=None, events=None):
+        if events & IOLoop.ERROR:
+            app_log.debug("Socket fd %s error" % fd)
+            if fd is not None:
+                IOLoop.current().remove_handler(fd)
+                self.idl_reconnect()
+        elif events & IOLoop.READ:
+            app_log.debug("Updating idl replica")
+            self.idl.run()
+            if self.curr_seqno != self.idl.change_seqno and \
+               len(self.transactions.txn_list):
+                self.check_transactions()
+            self.curr_seqno = self.idl.change_seqno
 
     def check_transactions(self):
-
-        for item in self.transactions.txn_list:
-            item.commit()
-
-        count = 0
-        for item in self.transactions.txn_list:
-
+        for index, tx in enumerate(self.transactions.txn_list):
+            tx.commit()
             # TODO: Handle all states
-            if item.status is not INCOMPLETE:
-                self.transactions.txn_list.pop(count)
-                item.event.set()
-            else:
-                count += 1
+            if tx.status is not INCOMPLETE:
+                self.transactions.txn_list.pop(index)
+                tx.event.set()
 
     def get_new_transaction(self):
         return OvsdbTransaction(self.idl)
