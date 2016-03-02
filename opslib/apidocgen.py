@@ -1378,7 +1378,8 @@ def genLogsAPI(paths, definitions):
     param = {}
     param["name"] = "limit"
     param["in"] = "query"
-    param["description"] = "Number of log entries in the response."
+    param["description"] = ("Number of log entries in the response." +
+                            "Valid range is 1-1000")
     param["required"] = False
     param["type"] = "integer"
     params.append(param)
