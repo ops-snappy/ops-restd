@@ -1,4 +1,4 @@
-# Copyright (C) 2015 Hewlett Packard Enterprise Development LP
+# Copyright (C) 2015-2016 Hewlett Packard Enterprise Development LP
 #
 #  Licensed under the Apache License, Version 2.0 (the "License"); you may
 #  not use this file except in compliance with the License. You may obtain
@@ -12,18 +12,14 @@
 #  License for the specific language governing permissions and limitations
 #  under the License.
 
-from tornado.web import Application, RequestHandler, StaticFileHandler
-from tornado.ioloop import IOLoop
-
-from ovs.db.idl import Idl
-from ovs.db.idl import SchemaHelper
-from ovs.poller import Poller
+from tornado.web import Application, StaticFileHandler
 
 from opsrest.manager import OvsdbConnectionManager
 from opslib import restparser
 from opsrest import constants
 from opsvalidator import validator
 import cookiesecret
+
 
 class OvsdbApiApplication(Application):
     def __init__(self, settings):
@@ -36,8 +32,9 @@ class OvsdbApiApplication(Application):
         self._url_patterns = self._get_url_patterns()
         Application.__init__(self, self._url_patterns, **self.settings)
 
-        # connect to OVSDB using a callback
-        IOLoop.current().add_callback(self.manager.start)
+        # We must block the application start until idl connection
+        # and replica is ready
+        self.manager.start()
 
         # Load all custom validators
         validator.init_plugins(constants.OPSPLUGIN_DIR)
