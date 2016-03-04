@@ -31,6 +31,9 @@
                 },
                 "permissions": {
                     "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
                     "minItems": 0,
                     "description": "User's permissions list"
 
