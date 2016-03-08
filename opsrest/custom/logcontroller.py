@@ -44,6 +44,10 @@ REST_LOGS_PARAM_SYSLOG_IDENTIFIER = "SYSLOG_IDENTIFIER"
 JOURNALCTL_CMD = "journalctl"
 OUTPUT_FORMAT = "--output=json"
 RECENT_ENTRIES = "-n1000"
+MAXLIMIT = 1000
+DATETIME_REGEX = '\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d'
+MAXPRIORITY = 7
+MINPRIORITY = 0
 
 
 class LogController(BaseController):
@@ -87,9 +91,10 @@ class LogController(BaseController):
         if not(since_until_arg[0] in time_relative_keywords):
             if len(since_until_arg) == 2:
                 if not((since_until_arg[1] in time_keywords and
-                       (since_until_arg[0].isdigit())) or
-                       (re.search(r'\d\d\d\d-\d\d-\d\d \d\d:\d:\d\d',
-                        since_until_arg[0]) is not None)):
+                       (since_until_arg[0].isdigit() and
+                        since_until_arg[0] > 0)) or
+                       ("0000-00-00 00:00:00" not in arg and
+                        re.search(DATETIME_REGEX, arg) is not None)):
                     error_messages.append("Invalid timestamp value used" +
                                           " % s" % arg)
             else:
@@ -100,10 +105,10 @@ class LogController(BaseController):
 
     @staticmethod
     def validate_priority(priority, error_messages):
-        if int(priority) > 7:
-                error_messages.append("Invalid log level. Priority should be" +
-                                      "less than or equal to 7: % s" %
-                                      priority)
+        if int(priority) > MAXPRIORITY or int(priority) < MINPRIORITY:
+            msg = ("Invalid log level. Priority should be greater than % s and less than or equal to %s: % s"
+                   % (MINPRIORITY, MAXPRIORITY, priority))
+            error_messages.append(msg)
 
         return error_messages
 
@@ -117,13 +122,16 @@ class LogController(BaseController):
 
         offset = getutils.get_query_arg(REST_QUERY_PARAM_OFFSET, query_args)
         if offset is not None:
-            if not(offset.isdigit()):
-                error_messages.append("Only integers are allowed for offset")
+            if not(offset.isdigit() and int(offset) >= 0):
+                error_messages.append("Only positive integers are allowed" +
+                                      " for offset")
 
         limit = getutils.get_query_arg(REST_QUERY_PARAM_LIMIT, query_args)
         if limit is not None:
-            if not(limit.isdigit()):
-                error_messages.append("Only integers are allowed for limit")
+            if not(limit.isdigit() and int(limit) > 0 and
+                   int(limit) <= MAXLIMIT):
+                error_messages.append("Valid range for limit is from 1 to" +
+                                      "1000")
 
         priority = getutils.get_query_arg(REST_LOGS_PARAM_PRIORITY_OPTION,
                                           query_args)
@@ -150,15 +158,6 @@ class LogController(BaseController):
                                                        time_keywords,
                                                        time_relative_keywords)
 
-        syslog_identifier_arg = \
-            getutils.get_query_arg(REST_LOGS_PARAM_SYSLOG_IDENTIFIER,
-                                   query_args)
-        if syslog_identifier_arg is not None:
-            if re.search(r'\d', str(syslog_identifier_arg)):
-                error_messages.append("Daemon name % s can only contain" +
-                                      "string literals" %
-                                      syslog_identifier_arg)
-
         if error_messages:
             raise DataValidationFailed("Incorrect data for arguments: %s" %
                                        error_messages)
@@ -182,9 +181,26 @@ class LogController(BaseController):
 
         return log_cmd_options
 
+    # This function is to handle the after-cursor filter. Since the data for
+    # after cursor consists of ';' which is a delimiter for the web queries,
+    # this function is required to merge the query arguments for this filter
+    @staticmethod
+    def handle_after_cursor(query_args):
+        params = ['i', 'b', 'm', 't', 'x']
+        for p in params:
+            arg = ';' + p + '=' + str(getutils.get_query_arg(p, query_args))
+            del query_args[p]
+            query_args[REST_LOGS_PARAM_AFTER_CURSOR][0] += arg
+
+        return query_args
+
     def get_all(self, current_user, selector=None, query_args=None):
         offset = None
         limit = None
+
+        if REST_LOGS_PARAM_AFTER_CURSOR in query_args:
+            query_args = self.handle_after_cursor(query_args)
+
         self.validate_keywords(query_args)
         self.validate_args_data(query_args)
         log_cmd_options = self.get_log_cmd_options(query_args)
@@ -199,9 +215,11 @@ class LogController(BaseController):
         if response:
             response = jsonutils.convert_string_to_json(response)
             if REST_QUERY_PARAM_OFFSET in query_args:
-                offset = int(query_args[REST_QUERY_PARAM_OFFSET][0])
+                offset = int(getutils.get_query_arg(REST_QUERY_PARAM_OFFSET,
+                             query_args))
             if REST_QUERY_PARAM_LIMIT in query_args:
-                limit = int(query_args[REST_QUERY_PARAM_LIMIT][0])
+                limit = int(getutils.get_query_arg(REST_QUERY_PARAM_LIMIT,
+                            query_args))
 
             if offset is not None or limit is not None:
                 response = getutils.paginate_get_results(response,
