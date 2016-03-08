@@ -324,20 +324,22 @@ class OVSTable(object):
             # For now, we are using only one tag.
             if relationship == "1:m":
                 table.references[column_name] = OVSReference(type_, "child",
-                                                             True, category)
+                                                             mutable, category)
                 table.references[column_name].column = OVSColumn(table,
                                                                  column_name,
                                                                  type_,
                                                                  True,
-                                                                 True,
+                                                                 mutable,
                                                                  category)
             elif relationship == "m:1":
                 table.references[column_name] = OVSReference(type_, "parent",
-                                                             True, category)
+                                                             mutable, category)
             elif relationship == "reference":
+                _mutable = mutable if category == 'configuration' else False
                 table.references[column_name] = OVSReference(type_,
                                                              "reference",
-                                                             True, category)
+                                                             _mutable,
+                                                             category)
             elif category == "configuration":
                 table.config[column_name] = OVSColumn(table, column_name,
                                                       type_, is_optional,
