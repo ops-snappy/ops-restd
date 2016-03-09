@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2015 Hewlett-Packard Enterprise Development Company, L.P.
+# Copyright (C) 2015-2016 Hewlett-Packard Enterprise Development Company, L.P.
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -1312,6 +1312,173 @@ def genUserLogin(paths):
     paths[path] = ops
 
 
+def genLogsAPI(paths, definitions):
+    path = "/logs"
+    ops = {}
+    op = {}
+    op["summary"] = "Log entries"
+    op["description"] = "Get log entries"
+    op["tags"] = ["Logs"]
+
+    params = []
+    param = {}
+    param["name"] = "priority"
+    param["in"] = "query"
+    param["description"] = "Log priority levels. Valid values 0-7."
+    param["required"] = False
+    param["type"] = "integer"
+    params.append(param)
+
+    param = {}
+    param["name"] = "after-cursor"
+    param["in"] = "query"
+    param["description"] = ("Cursor string from the previous response " +
+                            "last log entry.")
+    param["required"] = False
+    param["type"] = "string"
+    params.append(param)
+
+    param = {}
+    param["name"] = "since"
+    param["in"] = "query"
+    param["description"] = ("Fetch logs since the time specified. " +
+                            "Valid format: YYYY-MM-DD hh:mm:ss. " +
+                            "Relative words like yesterday, today, now," +
+                            "1 day ago, 10 hours ago, 12 minutes ago are " +
+                            "accepted. Words like hour ago, minute ago " +
+                            "and day ago must precede with a positive " +
+                            "integer and can be in plural form too.")
+    param["required"] = False
+    param["type"] = "string"
+    params.append(param)
+
+    param = {}
+    param["name"] = "until"
+    param["in"] = "query"
+    param["description"] = ("Fetch logs until the time specified. " +
+                            "Valid format: YYYY-MM-DD hh:mm:ss. " +
+                            "Relative words like yesterday, today, now," +
+                            "1 day ago, 10 hours ago, 12 minutes ago are " +
+                            "accepted. Words like hour ago, minute ago " +
+                            "and day ago must precede with a positive " +
+                            "integer and can be in plural form too.")
+    param["required"] = False
+    param["type"] = "string"
+    params.append(param)
+    param = {}
+    param["name"] = "offset"
+    param["in"] = "query"
+    param["description"] = ("Offset is the starting log entry, starts " +
+                            "with 0. Offset will be the previous " +
+                            "offset + limit on the next request.")
+    param["required"] = False
+    param["type"] = "integer"
+    params.append(param)
+
+    param = {}
+    param["name"] = "limit"
+    param["in"] = "query"
+    param["description"] = ("Number of log entries in the response." +
+                            "Valid range is 1-1000")
+    param["required"] = False
+    param["type"] = "integer"
+    params.append(param)
+
+    param = {}
+    param["name"] = "MESSAGE"
+    param["in"] = "query"
+    param["description"] = "Exact log message that is expected to be matched."
+    param["required"] = False
+    param["type"] = "string"
+    params.append(param)
+
+    param = {}
+    param["name"] = "MESSAGE_ID"
+    param["in"] = "query"
+    param["description"] = ("A 128-bit message identifier for recognizing " +
+                            "certain message types. All openswitch events " +
+                            "are stored with the message ID " +
+                            "50c0fa81c2a545ec982a54293f1b1945 in the " +
+                            "systemd journal. Use this MESSAGE_ID to " +
+                            "query all of the OPS events.")
+    param["required"] = False
+    param["type"] = "string"
+    params.append(param)
+
+    param = {}
+    param["name"] = "PRIORITY"
+    param["in"] = "query"
+    param["description"] = "Log priority level."
+    param["required"] = False
+    param["type"] = "integer"
+    params.append(param)
+
+    param = {}
+    param["name"] = "SYSLOG_IDENTIFIER"
+    param["in"] = "query"
+    param["description"] = ("This is the module generating the log message. " +
+                            "Use this field to filter logs by a specific " +
+                            "module.")
+    param["required"] = False
+    param["type"] = "string"
+    params.append(param)
+
+    param = {}
+    param["name"] = "_PID"
+    param["in"] = "query"
+    param["description"] = ("The Process ID of the process that is " +
+                            "generating the log entry.")
+    param["required"] = False
+    param["type"] = "integer"
+    params.append(param)
+
+    param = {}
+    param["name"] = "_GID"
+    param["in"] = "query"
+    param["description"] = ("The Group ID of the process that is " +
+                            "generating the log entry.")
+    param["required"] = False
+    param["type"] = "integer"
+    params.append(param)
+
+    param = {}
+    param["name"] = "_UID"
+    param["in"] = "query"
+    param["description"] = ("The User ID of the process that is " +
+                            "generating the log entry.")
+    param["required"] = False
+    param["type"] = "integer"
+    params.append(param)
+
+    op["parameters"] = params
+
+    responses = {}
+    response = {}
+    schema = {}
+    schema["type"] = "array"
+    item = {}
+    item["description"] = "List of log entries"
+    item["$ref"] = "#/definitions/LogEntry"
+    schema["items"] = item
+    schema["description"] = "A list of KV pairs"
+
+    response["description"] = "Get a list of log entries"
+    response["schema"] = schema
+    responses["200"] = response
+    addGetResponse(responses)
+    op["responses"] = responses
+
+    ops["get"] = op
+    paths[path] = ops
+    # Generate logs definitions
+    item = {}
+    properties = {}
+    item["type"] = "string"
+    item["description"] = "Key-Value pairs for log entry"
+    properties["string"] = item
+    definitions["LogEntry"] = {"properties": properties}
+
+
 def getFullAPI(schema):
     api = {}
     api["swagger"] = "2.0"
@@ -1376,6 +1543,9 @@ def getFullAPI(schema):
 
     # Creating the login URL
     genUserLogin(paths)
+
+    # Creating the logs URL
+    genLogsAPI(paths, definitions)
 
     api["paths"] = paths
 
