@@ -84,3 +84,8 @@ class ParameterNotAllowed(APIException):
 class LengthRequired(APIException):
     status_code = httplib.LENGTH_REQUIRED
     status = httplib.responses[status_code]
+
+
+class ForbiddenMethod(APIException):
+    status_code = httplib.FORBIDDEN
+    status = httplib.responses[status_code]

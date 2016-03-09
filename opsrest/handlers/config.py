@@ -31,19 +31,28 @@ class ConfigHandler(BaseHandler):
 
     def prepare(self):
 
-        # Call parent's prepare to check authentication
-        super(ConfigHandler, self).prepare()
+        try:
+            # Call parent's prepare to check authentication
+            super(ConfigHandler, self).prepare()
 
-        self.request_type = self.get_argument('type', 'running')
-        app_log.debug('request type: %s', self.request_type)
+            self.request_type = self.get_argument('type', 'running')
+            app_log.debug('request type: %s', self.request_type)
 
-        if self.request_type == 'running':
-            self.config_util = runconfig.RunConfigUtil(self.idl,
-                                                       self.schema)
-        elif self.request_type == 'startup':
-            self.config_util = startupconfig.StartupConfigUtil()
-        else:
-            self.set_status(httplib.BAD_REQUEST)
+            if self.request_type == 'running':
+                self.config_util = runconfig.RunConfigUtil(self.idl,
+                                                           self.schema)
+            elif self.request_type == 'startup':
+                self.config_util = startupconfig.StartupConfigUtil()
+            else:
+                self.set_status(httplib.BAD_REQUEST)
+                self.finish()
+
+        except APIException as e:
+            self.on_exception(e)
+            self.finish()
+
+        except Exception, e:
+            self.on_exception(e)
             self.finish()
 
     @gen.coroutine

@@ -39,9 +39,17 @@ from restparser import RESTSchema
 from restparser import normalizeName
 from restparser import parseSchema
 
-CUSTOM_RESOURCE_OPS = ["get_all", "get_id",
-                       "post", "put", "patch",
-                       "delete"]
+OP_GET_ALL = 0
+OP_GET_ID = 1
+OP_GET_OBJ = 2
+OP_POST = 3
+OP_PUT = 4
+OP_PUT_OBJ = 5
+OP_PATCH = 6
+OP_DELETE = 7
+
+DEFAULT_CUSTOM_OPS = [OP_GET_ALL, OP_GET_ID, OP_POST,
+                      OP_PUT, OP_PATCH, OP_DELETE]
 
 
 def addCommonResponse(responses):
@@ -1022,15 +1030,24 @@ def genCustomDef(resource_name, definitions):
     definitions[resource_name + "ConfigOnly"] = {"properties": properties,
                                                  "required": ["configuration"]}
 
+    properties = {}
+    sub = {}
+    sub["$ref"] = "#/definitions/" + resource_name + "Status"
+    sub["description"] = "Status of " + resource_name
+    properties["status"] = sub
+
+    definitions[resource_name + "StatusOnly"] = {"properties": properties,
+                                                 "required": ["status"]}
+
 
 def genCustomAPI(resource_name, path, paths,
-                 operations=CUSTOM_RESOURCE_OPS):
+                 operations=DEFAULT_CUSTOM_OPS, get_only='All'):
     '''
     Creates Custom Resource API
     '''
     ops_id = {}
     ops = {}
-    if "get_all" in operations:
+    if OP_GET_ALL in operations:
         # Get All Operation
         op = {}
         op["summary"] = "Get operation"
@@ -1057,7 +1074,7 @@ def genCustomAPI(resource_name, path, paths,
         op["responses"] = responses
         ops["get"] = op
 
-    if "get_id" in operations:
+    if OP_GET_ID in operations:
         # Get by id Operation
         op = {}
         op["summary"] = "Get operation"
@@ -1077,14 +1094,33 @@ def genCustomAPI(resource_name, path, paths,
         responses = {}
         response = {}
         response["description"] = "OK"
-        response["schema"] = {'$ref': "#/definitions/" + resource_name + "All"}
+        response["schema"] = {'$ref': "#/definitions/" +
+                              resource_name + get_only}
         responses["200"] = response
 
         addGetResponse(responses)
         op["responses"] = responses
         ops_id["get"] = op
 
-    if "post" in operations:
+    if OP_GET_OBJ in operations:
+        # Get object Operation
+        op = {}
+        op["summary"] = "Get operation"
+        op["description"] = "Get a set of attributes"
+        op["tags"] = [resource_name]
+
+        responses = {}
+        response = {}
+        response["description"] = "OK"
+        response["schema"] = {'$ref': "#/definitions/" +
+                              resource_name + get_only}
+        responses["200"] = response
+
+        addGetResponse(responses)
+        op["responses"] = responses
+        ops["get"] = op
+
+    if OP_POST in operations:
         # Post Operation
         op = {}
         op["summary"] = "Post operation"
@@ -1107,7 +1143,7 @@ def genCustomAPI(resource_name, path, paths,
         op["responses"] = responses
         ops["post"] = op
 
-    if "put" in operations:
+    if OP_PUT in operations:
         # Update Operation
         op = {}
         op["summary"] = "Put operation"
@@ -1138,7 +1174,30 @@ def genCustomAPI(resource_name, path, paths,
         op["responses"] = responses
         ops_id["put"] = op
 
-    if "patch" in operations:
+    if OP_PUT_OBJ in operations:
+        # Update Operation
+        op = {}
+        op["summary"] = "Put operation"
+        op["description"] = "Update configuration"
+        op["tags"] = [resource_name]
+
+        params = []
+        param = {}
+        param["name"] = "data"
+        param["in"] = "body"
+        param["description"] = "configuration"
+        param["required"] = True
+        param["schema"] = {'$ref': "#/definitions/" +
+                           resource_name + "ConfigOnly"}
+        params.append(param)
+        op["parameters"] = params
+
+        responses = {}
+        addPutResponse(responses)
+        op["responses"] = responses
+        ops["put"] = op
+
+    if OP_PATCH in operations:
         # Update Operation
         op = {}
         op["summary"] = "PATCH operation"
@@ -1172,7 +1231,7 @@ def genCustomAPI(resource_name, path, paths,
         op["responses"] = responses
         ops_id["patch"] = op
 
-    if "delete" in operations:
+    if OP_DELETE in operations:
         # Delete Operation
         op = {}
         op["summary"] = "Delete operation"
@@ -1547,6 +1606,11 @@ def getFullAPI(schema):
     # Creating the logs URL
     genLogsAPI(paths, definitions)
 
+    # Custom APIs
+    genCustomDef("Account", definitions)
+    genCustomAPI("Account", "/account", paths,
+                 [OP_GET_OBJ, OP_PUT_OBJ], get_only='StatusOnly')
+
     api["paths"] = paths
 
     properties = {}
@@ -1640,7 +1704,7 @@ if __name__ == "__main__":
         sys.stderr.write("%s\n" % e.msg)
         sys.exit(1)
     except Exception, e:
-        sys.stderr.write("%s\n" % e.msg)
+        sys.stderr.write("%s\n" % e)
         sys.exit(1)
 
 # Local variables:
