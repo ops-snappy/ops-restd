@@ -20,6 +20,7 @@ import userauth
 import rbac
 
 from tornado.log import app_log
+from tornado import gen
 from subprocess import call
 
 # Local imports
@@ -38,7 +39,7 @@ from opsrest.constants import REQUEST_TYPE_UPDATE, \
 
 class AccountController(BaseController):
 
-    def __init__(self):
+    def initialize(self):
         self.schemavalidator = SchemaValidator("account_schema")
         self.validator = AccountValidator()
         self.base_uri_path = "account"
@@ -83,7 +84,8 @@ class AccountController(BaseController):
         if not userauth.handle_user_login(req):
             raise AuthenticationFailed("Wrong username or password")
 
-    def update(self, item_id, data, current_user):
+    @gen.coroutine
+    def update(self, item_id, data, current_user, query_args):
         """
         Update user from ops_netop group
         Returns result dictionary
@@ -118,6 +120,7 @@ class AccountController(BaseController):
             error = "An error occurred while updating account information"
             raise TransactionFailed(error)
 
+    @gen.coroutine
     def get_all(self, current_user, selector=None, query_args=None):
         """
         Get current user's information

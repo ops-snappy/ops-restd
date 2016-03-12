@@ -57,6 +57,11 @@ class NotFound(APIException):
     status = httplib.responses[status_code]
 
 
+class NotModified(APIException):
+    status_code = httplib.NOT_MODIFIED
+    status = httplib.responses[status_code]
+
+
 class MethodNotAllowed(APIException):
     status_code = httplib.METHOD_NOT_ALLOWED
     status = httplib.responses[status_code]
@@ -88,4 +93,9 @@ class LengthRequired(APIException):
 
 class ForbiddenMethod(APIException):
     status_code = httplib.FORBIDDEN
+    status = httplib.responses[status_code]
+
+
+class InternalError(APIException):
+    status_code = httplib.INTERNAL_SERVER_ERROR
     status = httplib.responses[status_code]

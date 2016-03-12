@@ -12,22 +12,27 @@
 #  License for the specific language governing permissions and limitations
 #  under the License.
 
-from opsrest.handlers import login, ovsdbapi, config, customrest
 from opsrest.handlers.staticcontent import StaticContentHandler
+from opsrest.handlers.login import LoginHandler
+from opsrest.handlers.ovsdbapi import OVSDBAPIHandler
+from opsrest.handlers.customrest import CustomRESTHandler
 from custom.logcontroller import LogController
 from custom.accountcontroller import AccountController
+from custom.configcontroller import ConfigController
 
 REGEX_RESOURCE_ID = '?(?P<resource_id>[A-Za-z0-9-_]+[$]?)?/?'
 
+
 url_patterns =\
-    [(r'/login', login.LoginHandler),
-     (r'/rest/v1/system/full-configuration', config.ConfigHandler),
-     (r'/rest/v1/system', ovsdbapi.OVSDBAPIHandler),
-     (r'/rest/v1/system/.*', ovsdbapi.OVSDBAPIHandler)]
+    [(r'/login', LoginHandler),
+     (r'/rest/v1/system', OVSDBAPIHandler),
+     (r'/rest/v1/system/.*', OVSDBAPIHandler)]
 
 custom_url_patterns =\
-    [(r'/rest/v1/logs', customrest.CustomRESTHandler, LogController),
-     (r'/account', customrest.CustomRESTHandler, AccountController)]
+    [(r'/rest/v1/logs', CustomRESTHandler, LogController),
+     (r'/account', CustomRESTHandler, AccountController),
+     (r'/rest/v1/system/full-configuration', CustomRESTHandler,
+      ConfigController)]
 
 static_url_patterns =\
     [(r"/api/(.*)", StaticContentHandler,

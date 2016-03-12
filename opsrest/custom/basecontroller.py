@@ -16,8 +16,8 @@ from opsrest.constants import\
     REST_VERSION_PATH, OVSDB_SCHEMA_SYSTEM_URI, OVSDB_SCHEMA_CONFIG
 from opsrest.exceptions import MethodNotAllowed, NotFound
 from opsrest.patch import create_patch, apply_patch
+from tornado import gen
 
-from tornado.log import app_log
 
 class BaseController():
     """
@@ -25,29 +25,41 @@ class BaseController():
     CRUD operations.
     """
 
-    def __init__(self):
+    def __init__(self, context=None):
         self.base_uri_path = ""
+        self.context = context
+        self.initialize()
 
-    def create(self, data, current_user=None):
+    def initialize(self):
+        pass
+
+    @gen.coroutine
+    def create(self, data, current_user=None, query_args=None):
         raise MethodNotAllowed
 
-    def update(self, item_id, data, current_user=None):
+    @gen.coroutine
+    def update(self, item_id, data, current_user=None, query_args=None):
         raise MethodNotAllowed
 
-    def delete(self, item_id, current_user=None):
+    @gen.coroutine
+    def delete(self, item_id, current_user=None, query_args=None):
         raise MethodNotAllowed
 
+    @gen.coroutine
     def get(self, item_id, current_user=None, selector=None, query_args=None):
         raise MethodNotAllowed
 
+    @gen.coroutine
     def get_all(self, current_user=None, selector=None, query_args=None):
         raise MethodNotAllowed
 
+    @gen.coroutine
     def create_uri(self, item_id):
         return REST_VERSION_PATH + OVSDB_SCHEMA_SYSTEM_URI + "/" +\
             self.base_uri_path + "/" + item_id
 
-    def patch(self, item_id, data, current_user=None):
+    @gen.coroutine
+    def patch(self, item_id, data, current_user=None, query_args=None):
         try:
             # Get the resource's JSON to patch
             resource_json = self.get(item_id, current_user,

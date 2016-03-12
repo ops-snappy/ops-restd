@@ -33,7 +33,8 @@ class CustomRESTHandler(BaseHandler):
 
     # Pass the application reference and controller reference to the handlers
     def initialize(self, ref_object, controller_class):
-        self.controller = controller_class()
+        self.ref_object = ref_object
+        self.controller = controller_class(ref_object)
         self.request.path = re.sub("/{2,}", "/", self.request.path).rstrip('/')
 
     # Parse the url and http params.
@@ -65,11 +66,14 @@ class CustomRESTHandler(BaseHandler):
             query_args = self.request.query_arguments
             result = None
             if resource_id:
-                result = self.controller.get(resource_id, self.current_user,
-                                             selector, query_args)
+                result = yield self.controller.get(resource_id,
+                                                   self.current_user,
+                                                   selector,
+                                                   query_args)
             else:
-                result = self.controller.get_all(self.current_user,
-                                                 selector, query_args)
+                result = yield self.controller.get_all(self.current_user,
+                                                       selector,
+                                                       query_args)
             if result is not None:
                 self.set_status(httplib.OK)
                 self.set_header(HTTP_HEADER_CONTENT_TYPE,
@@ -96,12 +100,14 @@ class CustomRESTHandler(BaseHandler):
                     data = json.loads(self.request.body)
             except:
                 raise ParseError("Malformed JSON request body")
-
-            result = self.controller.create(data, self.current_user)
-            self.set_status(httplib.CREATED)
+            query_args = self.request.query_arguments
+            result = yield self.controller.create(data,
+                                                  self.current_user,
+                                                  query_args)
             if result is not None:
                 new_uri = self.request.path + "/" + result["key"]
                 self.set_header("Location", new_uri)
+            self.set_status(httplib.CREATED)
 
         except APIException as e:
             self.on_exception(e)
@@ -113,8 +119,8 @@ class CustomRESTHandler(BaseHandler):
 
     @gen.coroutine
     def put(self, resource_id=None):
+        app_log.debug('PUT request custom')
         try:
-
             if HTTP_HEADER_CONTENT_LENGTH not in self.request.headers:
                 raise LengthRequired
 
@@ -122,11 +128,11 @@ class CustomRESTHandler(BaseHandler):
                 data = json.loads(self.request.body)
             except:
                 raise ParseError("Malformed JSON request body")
-
-            self.controller.update(resource_id, data,
-                                   self.current_user)
+            query_args = self.request.query_arguments
+            yield self.controller.update(resource_id, data,
+                                         self.current_user,
+                                         query_args)
             self.set_status(httplib.OK)
-
         except APIException as e:
             self.on_exception(e)
 
@@ -146,8 +152,10 @@ class CustomRESTHandler(BaseHandler):
                 data = json.loads(self.request.body)
             except:
                 raise ParseError("Malformed JSON request body")
-
-            self.controller.patch(resource_id, data, self.current_user)
+            query_args = self.request.query_arguments
+            yield self.controller.patch(resource_id, data,
+                                        self.current_user,
+                                        query_args)
             self.set_status(httplib.NO_CONTENT)
 
         except APIException as e:
@@ -161,7 +169,10 @@ class CustomRESTHandler(BaseHandler):
     @gen.coroutine
     def delete(self, resource_id):
         try:
-            self.controller.delete(resource_id, self.current_user)
+            query_args = self.request.query_arguments
+            yield self.controller.delete(resource_id,
+                                         self.current_user,
+                                         query_args)
             self.set_status(httplib.NO_CONTENT)
 
         except APIException as e:

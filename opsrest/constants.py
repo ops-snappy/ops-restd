@@ -101,6 +101,10 @@ AUDIT_LOG_ACCEPTED_REQUESTS = {REQUEST_TYPE_CREATE, REQUEST_TYPE_UPDATE,
 
 OPSPLUGIN_DIR = '/usr/share/opsplugins'
 
+# Declarative Config
+CONFIG_TYPE_RUNNING = "running"
+CONFIG_TYPE_STARTUP = "startup"
+
 # PATCH operation's keys according to RFC 6902
 PATCH_KEY_OP = 'op'
 PATCH_KEY_PATH = 'path'
