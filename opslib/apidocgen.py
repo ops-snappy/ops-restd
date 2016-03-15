@@ -1346,7 +1346,7 @@ def genUserLogin(paths):
     params.append(param)
     param = {}
     param["name"] = "password"
-    param["in"] = "body"
+    param["in"] = "query"
     param["description"] = "Password"
     param["required"] = True
     param["type"] = "string"
