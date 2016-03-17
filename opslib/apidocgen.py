@@ -301,7 +301,7 @@ def genGetParams(table, is_instance=False):
 
 def genGetResource(table, parent_plurality, parents, resource_name, is_plural):
     op = {}
-    op["summary"] = "Get operation"
+    op["summary"] = "Get a list of resources"
     op["description"] = "Get a list of resources"
     op["tags"] = [table.name]
 
@@ -343,7 +343,7 @@ def genGetResource(table, parent_plurality, parents, resource_name, is_plural):
 def genPostResource(table, parent_plurality,
                     parents, resource_name, is_plural):
     op = {}
-    op["summary"] = "Post operation"
+    op["summary"] = "Create a new resource instance"
     op["description"] = "Create a new resource instance"
     op["tags"] = [table.name]
 
@@ -375,7 +375,7 @@ def genPostResource(table, parent_plurality,
 def genGetInstance(table, parent_plurality, parents, resource_name, is_plural):
     if table.config or table.status or table.stats:
         op = {}
-        op["summary"] = "Get operation"
+        op["summary"] = "Get a set of attributes"
         op["description"] = "Get a set of attributes"
         op["tags"] = [table.name]
 
@@ -417,7 +417,7 @@ def genGetInstance(table, parent_plurality, parents, resource_name, is_plural):
 def genPutInstance(table, parent_plurality, parents, resource_name, is_plural):
     if table.config:
         op = {}
-        op["summary"] = "Put operation"
+        op["summary"] = "Update configuration"
         op["description"] = "Update configuration"
         op["tags"] = [table.name]
 
@@ -452,7 +452,7 @@ def genPutInstance(table, parent_plurality, parents, resource_name, is_plural):
 def genPatchInstance(table, parent_plurality, parents, resource_name, is_plural):
     if table.config:
         op = {}
-        op["summary"] = "Patch operation"
+        op["summary"] = "Update configuration"
         op["description"] = "Update configuration"
         op["tags"] = [table.name]
 
@@ -489,7 +489,7 @@ def genPatchInstance(table, parent_plurality, parents, resource_name, is_plural)
 
 def genDelInstance(table, parent_plurality, parents, resource_name, is_plural):
     op = {}
-    op["summary"] = "Delete operation"
+    op["summary"] = "Delete a resource instance"
     op["description"] = "Delete a resource instance"
     op["tags"] = [table.name]
 
@@ -1050,7 +1050,7 @@ def genCustomAPI(resource_name, path, paths,
     if OP_GET_ALL in operations:
         # Get All Operation
         op = {}
-        op["summary"] = "Get operation"
+        op["summary"] = "Get a list of resources"
         op["description"] = "Get a list of resources"
         op["tags"] = [resource_name]
 
@@ -1077,7 +1077,7 @@ def genCustomAPI(resource_name, path, paths,
     if OP_GET_ID in operations:
         # Get by id Operation
         op = {}
-        op["summary"] = "Get operation"
+        op["summary"] = "Get a set of attributes"
         op["description"] = "Get a set of attributes"
         op["tags"] = [resource_name]
 
@@ -1105,7 +1105,7 @@ def genCustomAPI(resource_name, path, paths,
     if OP_GET_OBJ in operations:
         # Get object Operation
         op = {}
-        op["summary"] = "Get operation"
+        op["summary"] = "Get a set of attributes"
         op["description"] = "Get a set of attributes"
         op["tags"] = [resource_name]
 
@@ -1123,7 +1123,7 @@ def genCustomAPI(resource_name, path, paths,
     if OP_POST in operations:
         # Post Operation
         op = {}
-        op["summary"] = "Post operation"
+        op["summary"] = "Create a new resource instance"
         op["description"] = "Create a new resource instance"
         op["tags"] = [resource_name]
 
@@ -1146,7 +1146,7 @@ def genCustomAPI(resource_name, path, paths,
     if OP_PUT in operations:
         # Update Operation
         op = {}
-        op["summary"] = "Put operation"
+        op["summary"] = "Update configuration"
         op["description"] = "Update configuration"
         op["tags"] = [resource_name]
 
@@ -1177,7 +1177,7 @@ def genCustomAPI(resource_name, path, paths,
     if OP_PUT_OBJ in operations:
         # Update Operation
         op = {}
-        op["summary"] = "Put operation"
+        op["summary"] = "Update configuration"
         op["description"] = "Update configuration"
         op["tags"] = [resource_name]
 
@@ -1200,7 +1200,7 @@ def genCustomAPI(resource_name, path, paths,
     if OP_PATCH in operations:
         # Update Operation
         op = {}
-        op["summary"] = "PATCH operation"
+        op["summary"] = "Update configuration"
         op["description"] = "Update configuration using JSON PATCH Specification"
         op["tags"] = [resource_name]
 
@@ -1234,7 +1234,7 @@ def genCustomAPI(resource_name, path, paths,
     if OP_DELETE in operations:
         # Delete Operation
         op = {}
-        op["summary"] = "Delete operation"
+        op["summary"] = "Delete a resource instance"
         op["description"] = "Delete a resource instance"
         op["tags"] = [resource_name]
 
@@ -1268,7 +1268,7 @@ def genFullConfigAPI(paths):
 
     ops = {}
     op = {}
-    op["summary"] = "Get full configuration"
+    op["summary"] = "Get full declarative configuration"
     op["description"] = "Fetch full declarative configuration"
     op["tags"] = ["FullConfiguration"]
 
@@ -1295,7 +1295,7 @@ def genFullConfigAPI(paths):
     ops["get"] = op
 
     op = {}
-    op["summary"] = "Update full configuration"
+    op["summary"] = "Update full declarative configuration"
     op["description"] = "Update full declarative configuration"
     op["tags"] = ["FullConfiguration"]
 
