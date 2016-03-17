@@ -19,7 +19,7 @@ from tornado.options import define
 
 
 define("HTTPS_port", default=443, help="run on the given port", type=int)
-define("HTTP_port", default=8091, help="run on the given port", type=int)
+define("HTTP_port", default=80, help="run on the given port", type=int)
 define("config", default=None, help="tornado config file")
 define("debug", default=False, help="debug mode")
 

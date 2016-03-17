@@ -57,15 +57,15 @@ OVSDB_SCHEMA_REFERENCED_BY = 'referenced_by'
 # schema common columns which do not require keys to be validated
 OVSDB_COMMON_COLUMNS = ['other_config', 'external_ids']
 
+# HTTP Protocol and Secure HTTP protocol
+HTTP = 'http'
+HTTPS = 'https'
+
 # HTTP headers
 HTTP_HEADER_LINK = 'Link'
 HTTP_HEADER_CONTENT_TYPE = 'Content-Type'
 HTTP_HEADER_CONTENT_LENGTH = 'Content-Length'
 HTTP_HEADER_ALLOW = 'Allow'
-HTTP_HEADER_ORIGIN = 'Origin'
-HTTP_HEADER_ACCESS_CONTROL_ALLOW_METHODS = 'Access-Control-Allow-Methods'
-HTTP_HEADER_ACCESS_CONTROL_ALLOW_HEADERS = 'Access-Control-Allow-Headers'
-HTTP_HEADER_ACCESS_CONTROL_REQUEST_HEADERS = 'Access-Control-Request-Headers'
 
 HTTP_HEADER_CONDITIONAL_IF_MATCH = 'If-Match'
 HTTP_HEADER_ETAG = 'Etag'

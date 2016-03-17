@@ -15,6 +15,7 @@
 from tornado import gen
 from tornado.log import app_log
 
+import re
 import httplib
 import userauth
 
@@ -22,6 +23,7 @@ from opsrest.handlers import base
 from opsrest.exceptions import APIException, AuthenticationFailed
 from opsrest.constants import USERNAME_KEY
 from opsrest.utils.userutils import is_user_login_authorized
+from opsrest.utils.utils import redirect_http_to_https
 
 
 class LoginHandler(base.BaseHandler):
@@ -33,7 +35,11 @@ class LoginHandler(base.BaseHandler):
     # Overwrite BaseHandler's prepare, as LoginHandler does not
     # require authentication check prior to other operations
     def prepare(self):
-        pass
+        try:
+            redirect_http_to_https(self)
+
+        except Exception as e:
+            self.on_exception(e)
 
     @gen.coroutine
     def get(self):

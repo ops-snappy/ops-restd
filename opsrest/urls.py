@@ -13,20 +13,24 @@
 #  under the License.
 
 from opsrest.handlers import login, ovsdbapi, config, customrest
-from custom import logcontroller
-from custom import accountcontroller
+from opsrest.handlers.staticcontent import StaticContentHandler
+from custom.logcontroller import LogController
+from custom.accountcontroller import AccountController
 
 REGEX_RESOURCE_ID = '?(?P<resource_id>[A-Za-z0-9-_]+[$]?)?/?'
 
-url_patterns = [(r'/login', login.LoginHandler),
-                (r'/rest/v1/system/full-configuration', config.ConfigHandler),
-                (r'/.*', ovsdbapi.OVSDBAPIHandler),
-                ]
+url_patterns =\
+    [(r'/login', login.LoginHandler),
+     (r'/rest/v1/system/full-configuration', config.ConfigHandler),
+     (r'/rest/v1/system', ovsdbapi.OVSDBAPIHandler),
+     (r'/rest/v1/system/.*', ovsdbapi.OVSDBAPIHandler)]
 
-custom_url_patterns = [(r'/rest/v1/logs',
-                        customrest.CustomRESTHandler,
-                        logcontroller.LogController),
-                       (r'/account',
-                        customrest.CustomRESTHandler,
-                        accountcontroller.AccountController),
-                       ]
+custom_url_patterns =\
+    [(r'/rest/v1/logs', customrest.CustomRESTHandler, LogController),
+     (r'/account', customrest.CustomRESTHandler, AccountController)]
+
+static_url_patterns =\
+    [(r"/api/(.*)", StaticContentHandler,
+     {"path": "/srv/www/api", "default_filename": "index.html"}),
+     (r"/(.*)", StaticContentHandler,
+     {"path": "/srv/www/static", "default_filename": "index.html"})]

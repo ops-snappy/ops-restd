@@ -28,6 +28,7 @@ from opsrest.exceptions import APIException, TransactionFailed, \
 from opsrest.settings import settings
 from opsrest.utils.auditlogutils import audit_log_user_msg
 from opsrest.utils.getutils import get_query_arg
+from opsrest.utils.utils import redirect_http_to_https
 
 from tornado.log import app_log
 
@@ -42,25 +43,12 @@ class BaseHandler(web.RequestHandler):
         self.request.path = re.sub("/{2,}", "/", self.request.path).rstrip('/')
 
     def set_default_headers(self):
-        # CORS
-        allow_origin = self.request.protocol + "://"
-        # removing port if present
-        allow_origin += self.request.host.split(":")[0]
         self.set_header("Cache-control", "no-cache")
-        self.set_header("Access-Control-Allow-Origin", allow_origin)
-        self.set_header("Access-Control-Allow-Credentials", "true")
-        self.set_header("Access-Control-Expose-Headers", "Date,%s" %
-                        HTTP_HEADER_ETAG)
-        self.set_header("Access-Control-Request-Headers",
-                        HTTP_HEADER_CONDITIONAL_IF_MATCH)
-
-        # TODO - remove next line before release - needed for testing
-        if HTTP_HEADER_ORIGIN in self.request.headers:
-            self.set_header("Access-Control-Allow-Origin",
-                            self.request.headers[HTTP_HEADER_ORIGIN])
 
     def prepare(self):
         try:
+            redirect_http_to_https(self)
+
             app_log.debug("Incoming request from %s: %s",
                           self.request.remote_ip,
                           self.request)
