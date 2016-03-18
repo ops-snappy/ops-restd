@@ -13,28 +13,36 @@
 #  under the License.
 
 # Third party imports
-import crypt
-import os
-import base64
-import userauth
+import httplib
+import socket
 import rbac
+
+from struct import pack, unpack, calcsize
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
 
 from tornado.log import app_log
 from tornado import gen
-from subprocess import call
 
 # Local imports
-import opsrest.utils.userutils as userutils
-
-from opsrest.exceptions import TransactionFailed, \
-    AuthenticationFailed, NotAuthenticated
+from opsrest.exceptions import NotAuthenticated, PasswordChangeError
 from opsrest.custom.schemavalidator import SchemaValidator
 from opsrest.custom.basecontroller import BaseController
 from opsrest.custom.restobject import RestObject
 from opsrest.custom.accountvalidator import AccountValidator
-from opsrest.constants import REQUEST_TYPE_UPDATE, \
-    USERNAME_KEY, OLD_PASSWORD_KEY, USER_ROLE_KEY, \
-    USER_PERMISSIONS_KEY, OVSDB_SCHEMA_STATUS
+from opsrest.constants import (REQUEST_TYPE_UPDATE, USERNAME_KEY,
+                               USER_ROLE_KEY, USER_PERMISSIONS_KEY,
+                               OVSDB_SCHEMA_STATUS, PASSWD_SRV_SOCK_FD,
+                               PASSWD_SRV_PUB_KEY_LOC, PASSWD_MSG_CHG_PASSWORD,
+                               PASSWD_USERNAME_SIZE, PASSWD_PASSWORD_SIZE,
+                               PASSWD_SRV_GENERIC_ERR, PASSWD_SRV_SOCK_TIMEOUT)
+
+# Password Server Error codes
+from opsrest.constants import (PASSWD_ERR_FATAL,
+                               PASSWD_ERR_SUCCESS,
+                               PASSWD_ERR_USER_NOT_FOUND,
+                               PASSWD_ERR_PASSWORD_NOT_MATCH,
+                               PASSWD_ERR_INVALID_USER)
 
 
 class AccountController(BaseController):
@@ -44,28 +52,129 @@ class AccountController(BaseController):
         self.validator = AccountValidator()
         self.base_uri_path = "account"
 
-    def __get_encrypted_password__(self, username, password):
+    def __pad_nul__(self, data, size):
         """
-        Encrypts the user passwords using SHA-512 and
-        base 64 salt (userid + random value)
-        Returns encrypted password
-        $6$somesalt$someveryverylongencryptedpasswd
+        Receives a string and returns another
+        padded with as many NUL characters to
+        fill it up to the given size, if its
+        length is less than size.
+        """
+        return "{:\0<{size}}".format(data, size=size)
+
+    def __connect_to_password_server__(self):
+        """
+        Attempts a connection to the Password Server.
+        Returns the socket used to send/receive message
         """
 
-        user_id = userutils.get_user_id(username)
+        # Create Unix Domain Socket (UDS)
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 
-        salt_data = str(user_id) + os.urandom(16)
-        salt = base64.b64encode(salt_data)
+        # Set a timeout of PASSWD_SRV_SOCK_TIMEOUT seconds
+        # for subsequent blocking socket operations.
+        sock.settimeout(PASSWD_SRV_SOCK_TIMEOUT)
 
-        encoded_password = crypt.crypt(password, "$6$%s$" % salt)
+        # Attempt connection to the password server
+        try:
+            app_log.debug("Connecting to Password Server at %s" %
+                          PASSWD_SRV_SOCK_FD)
+            sock.connect(PASSWD_SRV_SOCK_FD)
+        except socket.error, msg:
+            app_log.debug("Error connecting to Password Server: %s" % msg)
+            raise PasswordChangeError(PASSWD_SRV_GENERIC_ERR)
 
-        return encoded_password
+        return sock
 
-    def __change_user_password__(self, username, encoded_new_passwd):
-        # TODO change password using a different method after hardening
-        cmd_result = call(["sudo", "usermod", "-p",
-                           encoded_new_passwd, username])
-        return cmd_result
+    def __format_password_server_message__(self, username, current_password,
+                                           new_password):
+        """
+        Format the message sent to the Password Server.
+        The Password Server expects the following struct:
+            {opcode, username, oldpasswd, newpasswd}
+        Where:
+           - opcode is an int
+           - username is a char pointer of max size PASSWD_USERNAME_SIZE
+           - *passwd: is a char pointer of max size PASSWD_PASSWORD_SIZE
+        """
+
+        # Pack opcode as a native int with standardized size
+        message = pack('=i', PASSWD_MSG_CHG_PASSWORD)
+
+        # Add all other fields as NUL-padded char pointers
+        message += self.__pad_nul__(username, PASSWD_USERNAME_SIZE)
+        message += self.__pad_nul__(current_password, PASSWD_PASSWORD_SIZE)
+        message += self.__pad_nul__(new_password, PASSWD_PASSWORD_SIZE)
+
+        return message
+
+    def __encrypt_password_server_message__(self, username, current_password,
+                                            new_password):
+        app_log.info("Encrypting Password Server message using pubkey at %s" %
+                     PASSWD_SRV_PUB_KEY_LOC)
+
+        # Pack and format the message as expected by the Password Server
+        message = self.__format_password_server_message__(username,
+                                                          current_password,
+                                                          new_password)
+        try:
+            # Read and import the Password Server's public key
+            with open(PASSWD_SRV_PUB_KEY_LOC, 'r') as pub_key_file:
+                pub_key_str = pub_key_file.read()
+            pub_key = RSA.importKey(pub_key_str)
+
+            # Encrypt the message with the  server's key
+            cipher = PKCS1_OAEP.new(pub_key)
+            encrypted_message = cipher.encrypt(message)
+        except Exception as e:
+            app_log.debug("Failed to encrypt message: %s" % e)
+            raise PasswordChangeError(PASSWD_SRV_GENERIC_ERR)
+
+        return encrypted_message
+
+    def __change_user_password__(self, username, current_password,
+                                 new_password):
+        result = PASSWD_ERR_FATAL
+
+        sock = self.__connect_to_password_server__()
+
+        # Attempt password change
+        try:
+            message = \
+                self.__encrypt_password_server_message__(username,
+                                                         current_password,
+                                                         new_password)
+            # Send message to the Password Server
+            if sock.sendall(message) is None:
+                app_log.debug("Password server message sent successfully!")
+
+            # Reply is a single native int with standardized size
+            fmt = '=i'
+            size = calcsize(fmt)
+
+            # Receive Password Server's reply
+            # The operation times out after PASSWD_SRV_SOCK_TIMEOUT
+            # seconds, this timeout is set during socket creation
+            recv_result = sock.recv(size, socket.MSG_WAITALL)
+            result = unpack(fmt, recv_result)[0]
+            app_log.debug("Password server reply: %s" % result)
+
+        except socket.error, msg:
+            app_log.debug("Couldn't send/receive message to password  " +
+                          "server: %s" % msg)
+            raise PasswordChangeError(PASSWD_SRV_GENERIC_ERR)
+        finally:
+            sock.close()
+
+        if result != PASSWD_ERR_SUCCESS:
+            status_code = httplib.INTERNAL_SERVER_ERROR
+            error = "Unable to change password for user '%s'" % username
+            if result in (PASSWD_ERR_USER_NOT_FOUND,
+                          PASSWD_ERR_PASSWORD_NOT_MATCH,
+                          PASSWD_ERR_INVALID_USER):
+                status_code = httplib.UNAUTHORIZED
+                error = "Invalid credentials for user '%s'" % username
+
+            raise PasswordChangeError(error, status_code)
 
     def __get_username__(self, current_user):
         if USERNAME_KEY in current_user and \
@@ -73,16 +182,6 @@ class AccountController(BaseController):
             return current_user[USERNAME_KEY]
         else:
             raise NotAuthenticated("No user currently logged in")
-
-    def __verify_old_password__(self, username, password):
-        req = DummyRequestHandler()
-        req.set_argument(USERNAME_KEY, username)
-        req.set_argument(OLD_PASSWORD_KEY, password)
-
-        # Simulate a login with a dummy RequestHandler
-        # to verify the user's password
-        if not userauth.handle_user_login(req):
-            raise AuthenticationFailed("Wrong username or password")
 
     @gen.coroutine
     def update(self, item_id, data, current_user, query_args):
@@ -102,23 +201,12 @@ class AccountController(BaseController):
         account_info = RestObject.from_json(data)
         self.validator.validate_update(username, account_info)
 
-        # Verify user's current password
-        self.__verify_old_password__(username,
-                                     account_info.configuration.password)
+        # Get user's current and new passwords
+        current_password = account_info.configuration.password
+        new_password = account_info.configuration.new_password
 
-        # Encode new password
-        unencoded_passwd = account_info.configuration.new_password
-        encoded_new_passwd = self.__get_encrypted_password__(username,
-                                                             unencoded_passwd)
-        try:
-            cmd_result = self.__change_user_password__(username,
-                                                       encoded_new_passwd)
-            if cmd_result != 0:
-                error = "Unable to change password for user '%s'" % username
-                raise TransactionFailed(error)
-        except KeyError:
-            error = "An error occurred while updating account information"
-            raise TransactionFailed(error)
+        # Attempt password change
+        self.__change_user_password__(username, current_password, new_password)
 
     @gen.coroutine
     def get_all(self, current_user, selector=None, query_args=None):
@@ -139,30 +227,3 @@ class AccountController(BaseController):
         account_info[OVSDB_SCHEMA_STATUS][USER_PERMISSIONS_KEY] = permissions
 
         return account_info
-
-
-class DummyRequestHandler:
-
-    '''
-    ops-aaa-utils' userauth is tightly coupled with Tornado.
-    This dummy class is used to check the user's old password
-    by simulating a login with a dummy object that resembles
-    a Tornado RequestHandler, as expected by userauth. This
-    "hack" will be removed in the future when proper RBAC
-    support is present (e.g. by using a password server).
-    '''
-
-    def __init__(self):
-        self.__arguments = {}
-
-    def get_argument(self, argument):
-        if argument in self.__arguments:
-            return self.__arguments[argument]
-        else:
-            return None
-
-    def set_argument(self, argument, value):
-        self.__arguments[argument] = value
-
-    def set_secure_cookie(self, name, value):
-        pass

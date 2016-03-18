@@ -99,3 +99,10 @@ class ForbiddenMethod(APIException):
 class InternalError(APIException):
     status_code = httplib.INTERNAL_SERVER_ERROR
     status = httplib.responses[status_code]
+
+
+class PasswordChangeError(APIException):
+    def __init__(self, detail=None, status_code=httplib.INTERNAL_SERVER_ERROR):
+        self.detail = detail
+        self.status_code = status_code
+        self.status = httplib.responses[status_code]
