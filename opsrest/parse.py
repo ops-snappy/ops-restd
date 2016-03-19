@@ -199,6 +199,7 @@ def verify_back_reference(resource, new_resource, schema,
 
     # Look for back reference using the index
     if index_list is not None:
+        index_list.append(str(resource.row))
         row = verify_index(new_resource, None, index_list, schema, idl)
         if row.__getattr__(_refCol).uuid == resource.row:
             return True
@@ -238,9 +239,6 @@ def verify_index(resource, parent, index_values, schema, idl):
         app_log.debug('verifying key/value type reference')
         row = utils.kv_index_to_row(index_values, parent, idl)
     else:
-        dbtable = idl.tables[resource.table]
         table_schema = schema.ovs_tables[resource.table]
-
-        row = utils.index_to_row(index_values, table_schema, dbtable)
-
+        row = utils.index_to_row(index_values, table_schema, idl)
     return row

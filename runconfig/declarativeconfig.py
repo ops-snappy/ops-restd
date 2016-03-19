@@ -163,6 +163,9 @@ def _get_table_data(table_name, schema, idl):
             continue
         table_data[table_name].update(row_data)
 
+    if len(table_data[table_name]) == 0:
+        return None
+
     return table_data
 
 
@@ -203,7 +206,7 @@ def setup_row(index_values, table, row_data, txn, reflist, schema, idl,
     else:
         row = utils.index_to_row(index_values,
                                  schema.ovs_tables[table],
-                                 idl.tables[table])
+                                 idl)
 
     # Create a new row if not found in DB
     if row is None:
@@ -374,7 +377,7 @@ def setup_row(index_values, table, row_data, txn, reflist, schema, idl,
                 # Iterate over each child_row
                 for child_index, child_row_data in row_data[key].iteritems():
                     child_index_values = utils.escaped_split(child_index)
-
+                    child_index_values.append(str(row.uuid))
                     (child_row, is_child_new) = setup_row(child_index_values,
                                                           child_table,
                                                           child_row_data,

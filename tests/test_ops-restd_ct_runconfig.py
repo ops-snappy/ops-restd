@@ -95,7 +95,6 @@ class configTest (OpsVsiTest):
         assert res == -1, "\n### Write was not successful ###\n"
         info("\n### Write was successful ###\n")
 
-@pytest.mark.skipif(True,reason="Disabling until this test is fixed for the current schema")
 class Test_config:
     def setup(self):
         pass

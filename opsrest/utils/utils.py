@@ -502,32 +502,31 @@ def list_to_json(data, value_type=None):
     return data_json
 
 
-def index_to_row(index_values, table_schema, dbtable):
+def index_to_row(index_values, table_schema, idl):
     """
     This subroutine fetches the row reference using index_values.
     index_values is a list which contains the combination indices
     that are used to identify a resource.
     """
-    indexes = table_schema.indexes
+
+    if len(index_values) == 0:
+        return None
+
+    if len(table_schema.indexes) == 1 and table_schema.indexes[0] == 'uuid':
+        if not ovs.ovsuuid.is_valid_string(index_values[0]):
+            # If the index value is not a valid uuid - it
+            # was auto-generated - will never match
+            return None
+        uuid = ovs.ovsuuid.from_string(index_values[0])
+        return idl.tables[table_schema.name].rows[uuid]
+
+    indexes = table_schema.index_columns
+
     if len(index_values) != len(indexes):
         return None
 
-    for row in dbtable.rows.itervalues():
-        i = 0
-        for index, value in zip(indexes, index_values):
-            if index == 'uuid':
-                if str(row.uuid) != value:
-                    break
-            elif str(row.__getattr__(index)) != value:
-                break
-
-            # matched index
-            i += 1
-
-        if i == len(indexes):
-            return row
-
-    return None
+    # Using the index map to get the row reference
+    return idl.index_to_row_lookup(index_values, table_schema.name)
 
 
 def kv_index_to_row(index_values, parent, idl):
@@ -703,7 +702,7 @@ def get_table_key(row, table_name, schema, idl, forward_ref=True):
         cur_table = schema.ovs_tables[cur_table_name]
         if cur_table.references[column_ref].kv_type:
             parent_row, key = get_parent_row(cur_table_name,
-                                            row, column_ref, schema, idl)
+                                             row, column_ref, schema, idl)
             key_list.append(str(key))
             return key_list
 
