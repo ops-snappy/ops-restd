@@ -657,8 +657,11 @@ def getDefinition(schema, table, definitions):
                                                       table.name, definitions)
     properties_full = copy.deepcopy(properties_config)
 
-    # references are included in configuration as well
+    # References are included in configuration if and only if they belong
+    # to configuration category.
     for col_name in table.references:
+        if table.references[col_name].category == "status":
+            continue
         if table.references[col_name].relation == "reference":
             sub = refProperties(schema, table, col_name)
             properties_config[col_name] = sub
