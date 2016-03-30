@@ -20,7 +20,7 @@ import uuid
 import ovs.db.types as ovs_types
 
 
-def escaped_split(s_in):
+def unquote_split(s_in):
     s_in = s_in.split('/')
     s_in = [urllib.unquote(i) for i in s_in if i != '']
     return s_in
@@ -116,7 +116,7 @@ def row_to_index(row, table, restschema, idl, parent_row=None):
     return index
 
 
-def index_to_row(index, table_schema, dbtable):
+def index_to_row(index, table_schema, idl):
     """
     This subroutine fetches the row reference using index.
     index is either of type uuid.UUID or is a uri escaped string which contains
@@ -125,16 +125,16 @@ def index_to_row(index, table_schema, dbtable):
     table = table_schema.name
     if isinstance(index, uuid.UUID):
         # index is of type UUID
-        if index in dbtable.rows:
-            return dbtable.rows[index]
+        if index in idl.tables[table].rows:
+            return idl.tables[table].rows[index]
         else:
             raise Exception("""resource with UUID %(i) not found
                             in table %(j)
                             """ % {"i":str(index), "j":table})
     else:
         # index is an escaped combine indices string
-        index_values = escaped_split(index)
-        indexes = table_schema.indexes
+        index_values = unquote_split(index)
+        indexes = table_schema.index_columns
 
         # if table has no indexes, we create a new entry
         if not table_schema.index_columns:
@@ -143,19 +143,5 @@ def index_to_row(index, table_schema, dbtable):
         if len(index_values) != len(indexes):
             raise Exception('Combination index error for table %s' % table)
 
-        for row in dbtable.rows.itervalues():
-            i = 0
-            for index, value in zip(indexes, index_values):
-                if index == 'uuid':
-                    if str(row.uuid) != value:
-                        break
-                elif str(row.__getattr__(index)) != value:
-                    break
-
-                # matched index
-                i += 1
-
-            if i == len(indexes):
-                return row
-
-        return None
+        # find in IDL index_map
+        return idl.index_to_row_lookup(index_values, table_schema.name)

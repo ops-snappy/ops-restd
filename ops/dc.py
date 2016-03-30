@@ -1,4 +1,4 @@
-#  Copyright (C) 2015 Hewlett Packard Enterprise Development LP
+#  Copyright (C) 2016 Hewlett Packard Enterprise Development LP
 #
 #   Licensed under the Apache License, Version 2.0 (the "License"); you may
 #   not use this file except in compliance with the License. You may obtain
@@ -13,7 +13,7 @@
 #   under the License.
 
 import _read, _write
-import ops.constants
+import ops.constants, ops.opsidl
 
 from ovs.db.idl import SchemaHelper, Idl
 
@@ -53,7 +53,7 @@ def register(extschema, ovsschema, ovsremote):
 
         schema_helper.register_columns(str(tablename), register_columns)
 
-    idl = Idl(ovsremote, schema_helper)
+    idl = ops.opsidl.OpsIdl(ovsremote, schema_helper)
     return idl
 
 

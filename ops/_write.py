@@ -16,12 +16,18 @@ import types
 
 import ops.utils
 import ops.constants
+import urllib
 
 
-def _delete(row, table, schema, idl, txn):
-    for key in schema.ovs_tables[table].children:
-        if key in schema.ovs_tables[table].references:
-            child_table_name = schema.ovs_tables[table].references[key].ref_table
+global_ref_list = {}
+
+# FIXME:
+default_tables = ['Bridge', 'VRF']
+
+def _delete(row, table, extschema, idl, txn):
+    for key in extschema.ovs_tables[table].children:
+        if key in extschema.ovs_tables[table].references:
+            child_table_name = extschema.ovs_tables[table].references[key].ref_table
             child_ref_list = row.__getattr__(key)
             if isinstance(child_ref_list, types.DictType):
                 child_ref_list = child_ref_list.values()
@@ -31,47 +37,52 @@ def _delete(row, table, schema, idl, txn):
                     child_uuid_list.append(item.uuid)
                 while child_uuid_list:
                     child = idl.tables[child_table_name].rows[child_uuid_list[0]]
-                    _delete(child, child_table_name, schema, idl, txn)
+                    _delete(child, child_table_name, extschema, idl, txn)
                     child_uuid_list.pop(0)
     row.delete()
 
 
-def setup_table(table_name, data, schema, idl, txn):
+def setup_table(table_name, data, extschema, idl, txn):
+
+    mutable = extschema.ovs_tables[table_name].mutable and table_name not in default_tables
+
+    # table is missing from config json
     if table_name not in data:
-        table_rows = idl.tables[table_name].rows.values()
-        while table_rows:
-            _delete(table_rows[0], table_name, schema, idl, txn)
+        if mutable:
+            # if mutable, empty table
             table_rows = idl.tables[table_name].rows.values()
-
+            while table_rows:
+                _delete(table_rows[0], table_name, extschema, idl, txn)
+                table_rows = idl.tables[table_name].rows.values()
         return
-
-    # update table
-    tabledata = data[table_name]
-
-    for rowindex, rowdata in tabledata.iteritems():
-        # TODO: This has an unfortunate effect of searching through
-        # the table from the beginning in index_to_row call. If we
-        # had indexes mapped to Rows then this issue will go away
-        setup_row({rowindex:rowdata}, table_name, schema, idl, txn)
+    else:
+        # update table
+        tabledata = data[table_name]
+        for rowindex, rowdata in tabledata.iteritems():
+            setup_row({rowindex:rowdata}, table_name, extschema, idl, txn)
 
 
-def setup_references(table, data, schema, idl):
+def setup_references(table, data, extschema, idl):
     if table not in data:
         return
 
     tabledata = data[table]
 
     for rowindex, rowdata in tabledata.iteritems():
-        setup_row_references({rowindex:rowdata}, table, schema, idl)
+        setup_row_references({rowindex:rowdata}, table, extschema, idl)
 
 
-def setup_row_references(rowdata, table, schema, idl):
+def setup_row_references(rowdata, table, extschema, idl):
     row_index = rowdata.keys()[0]
     row_data = rowdata.values()[0]
-    table_schema = schema.ovs_tables[table]
-    idl_table = idl.tables[table]
+    table_schema = extschema.ovs_tables[table]
 
-    row = ops.utils.index_to_row(row_index, table_schema, idl_table)
+    row = ops.utils.index_to_row(row_index, table_schema, idl)
+    if row is None and table in global_ref_list:
+        if row_index in global_ref_list[table]:
+            row = global_ref_list[table][row_index]
+        else:
+            raise Exception('reference not found')
 
     # set references for this row
     for name, column in table_schema.references.iteritems():
@@ -85,10 +96,10 @@ def setup_row_references(rowdata, table, schema, idl):
             reflist = []
             reftable = column.ref_table
             refidl = idl.tables[reftable]
-            refschema = schema.ovs_tables[reftable]
+            refschema = extschema.ovs_tables[reftable]
 
             for refindex in row_data[name]:
-                refrow = ops.utils.index_to_row(refindex, refschema, refidl)
+                refrow = ops.utils.index_to_row(refindex, refschema, idl)
                 reflist.append(refrow)
             row.__setattr__(name, reflist)
 
@@ -107,24 +118,35 @@ def setup_row_references(rowdata, table, schema, idl):
             child_table = child
 
         for index, data in child_data.iteritems():
-            setup_row_references({index:data}, child_table, schema, idl)
+            if child_table in extschema.ovs_tables[table].children and\
+                    child_table not in extschema.ovs_tables[table].references:
+                        index = str(row.uuid) + '/' + index
+            setup_row_references({index:data}, child_table, extschema, idl)
 
 
-def setup_row(rowdata, table_name, schema, idl, txn):
+def setup_row(rowdata, table_name, extschema, idl, txn):
     """
     set up rows recursively
     """
     row_index = rowdata.keys()[0]
     row_data = rowdata.values()[0]
-    table_schema = schema.ovs_tables[table_name]
-    idl_table = idl.tables[table_name]
+    table_schema = extschema.ovs_tables[table_name]
+    mutable = table_schema.mutable and table_name not in default_tables
 
     # get row reference from table
     _new = False
-    row = ops.utils.index_to_row(row_index, table_schema, idl_table)
+    row = ops.utils.index_to_row(row_index, table_schema, idl)
     if row is None:
+        # do not add row to an immutable table
+        if not mutable:
+            return (None, None)
+
         row = txn.insert(idl.tables[table_name])
         _new = True
+
+        if table_name not in global_ref_list:
+            global_ref_list[table_name] = {}
+        global_ref_list[table_name][row_index] = row
 
     # NOTE: populate configuration data
     config_keys = table_schema.config.keys()
@@ -153,7 +175,7 @@ def setup_row(rowdata, table_name, schema, idl, txn):
             if key is 'uuid':
                 continue
 
-            if key not in table_schema.config.keys():
+            if key not in table_schema.config.keys() and key in row_data:
                 row.__setattr__(key, row_data[key])
 
     # NOTE: set up child references
@@ -190,23 +212,27 @@ def setup_row(rowdata, table_name, schema, idl, txn):
                             current_list = current_list.values()
                         delete_list = []
                         for item in current_list:
-                            index = ops.utils.row_to_index(item, child_table_name, schema, idl)
+                            index = ops.utils.row_to_index(item, child_table_name, extschema, idl)
                             if index not in new_data:
                                 delete_list.append(item)
 
                         while delete_list:
-                            _delete(delete_list[0], child_table_name, schema, idl, txn)
+                            _delete(delete_list[0], child_table_name, extschema, idl, txn)
                             delete_list.pop(0)
 
                 # setup children
                 children = {}
                 for index, child_data in new_data.iteritems():
-                    (_child, is_new) = setup_row({index:child_data}, child_table_name, schema, idl, txn)
+                    (_child, is_new) = setup_row({index:child_data}, child_table_name, extschema, idl, txn)
+                    # NOTE: None is returned when attempting to add a new row in an immutable table
+                    if _child is None:
+                        continue
+
                     children.update(_child)
 
                 # NOTE: If the child table doesn't have indexes, replace json index
                 # with row.uuid
-                if not schema.ovs_tables[child_table_name].index_columns:
+                if not extschema.ovs_tables[child_table_name].index_columns:
                     for k,v in children.iteritems():
                         new_data[v.uuid] = new_data[k]
                         del new_data[k]
@@ -226,7 +252,7 @@ def setup_row(rowdata, table_name, schema, idl, txn):
 
             # get list of all 'backward' references
             column_name = None
-            for x, y in schema.ovs_tables[key].references.iteritems():
+            for x, y in extschema.ovs_tables[key].references.iteritems():
                 if y.relation == ops.constants.OVSDB_SCHEMA_PARENT:
                     column_name = x
                     break
@@ -251,18 +277,25 @@ def setup_row(rowdata, table_name, schema, idl, txn):
                         delete_list = current_list
                     else:
                         for item in current_list:
-                            index = ops.utils.row_to_index(item,key, schema, idl)
+                            index = ops.utils.row_to_index(item,key, extschema, idl)
                             if index not in new_data:
                                 delete_list.append(item)
 
                     while delete_list:
-                        _delete(delete_list[0], key, schema, idl, txn)
+                        _delete(delete_list[0], key, extschema, idl, txn)
                         delete_list.pop(0)
 
                 # set up children rows
                 if new_data is not None:
                     for x,y in new_data.iteritems():
-                        (child, is_new) = setup_row({x:y}, key, schema, idl, txn)
+                        # NOTE: adding parent UUID to index
+                        split_x = ops.utils.unquote_split(x)
+                        split_x.insert(extschema.ovs_tables[key].index_columns.index(column_name),str(row.uuid))
+                        tmp = []
+                        for _x in split_x:
+                            tmp.append(urllib.quote(str(_x), safe=''))
+                        x = '/'.join(tmp)
+                        (child, is_new) = setup_row({x:y}, key, extschema, idl, txn)
 
                         # fill the parent reference column
                         if is_new:
