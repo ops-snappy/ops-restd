@@ -71,7 +71,8 @@ def validate_by_method(validator, method, validation_args):
     if method == constants.REQUEST_TYPE_CREATE:
         validation_args.is_new = True
         validator.validate_modification(validation_args)
-    elif method == constants.REQUEST_TYPE_UPDATE:
+    elif method == constants.REQUEST_TYPE_UPDATE or \
+         method == constants.REQUEST_TYPE_PATCH:
         validation_args.is_new = False
         validator.validate_modification(validation_args)
     elif method == constants.REQUEST_TYPE_DELETE:

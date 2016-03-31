@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2015 Hewlett-Packard Enterprise Development Company, L.P.
+# Copyright (C) 2015-2016 Hewlett-Packard Enterprise Development Company, L.P.
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -39,9 +39,17 @@ from restparser import RESTSchema
 from restparser import normalizeName
 from restparser import parseSchema
 
-CUSTOM_RESOURCE_OPS = ["get_all", "get_id",
-                       "post", "put", "patch",
-                       "delete"]
+OP_GET_ALL = 0
+OP_GET_ID = 1
+OP_GET_OBJ = 2
+OP_POST = 3
+OP_PUT = 4
+OP_PUT_OBJ = 5
+OP_PATCH = 6
+OP_DELETE = 7
+
+DEFAULT_CUSTOM_OPS = [OP_GET_ALL, OP_GET_ID, OP_POST,
+                      OP_PUT, OP_PATCH, OP_DELETE]
 
 
 def addCommonResponse(responses):
@@ -293,7 +301,7 @@ def genGetParams(table, is_instance=False):
 
 def genGetResource(table, parent_plurality, parents, resource_name, is_plural):
     op = {}
-    op["summary"] = "Get operation"
+    op["summary"] = "Get a list of resources"
     op["description"] = "Get a list of resources"
     op["tags"] = [table.name]
 
@@ -335,7 +343,7 @@ def genGetResource(table, parent_plurality, parents, resource_name, is_plural):
 def genPostResource(table, parent_plurality,
                     parents, resource_name, is_plural):
     op = {}
-    op["summary"] = "Post operation"
+    op["summary"] = "Create a new resource instance"
     op["description"] = "Create a new resource instance"
     op["tags"] = [table.name]
 
@@ -367,7 +375,7 @@ def genPostResource(table, parent_plurality,
 def genGetInstance(table, parent_plurality, parents, resource_name, is_plural):
     if table.config or table.status or table.stats:
         op = {}
-        op["summary"] = "Get operation"
+        op["summary"] = "Get a set of attributes"
         op["description"] = "Get a set of attributes"
         op["tags"] = [table.name]
 
@@ -409,7 +417,7 @@ def genGetInstance(table, parent_plurality, parents, resource_name, is_plural):
 def genPutInstance(table, parent_plurality, parents, resource_name, is_plural):
     if table.config:
         op = {}
-        op["summary"] = "Put operation"
+        op["summary"] = "Update configuration"
         op["description"] = "Update configuration"
         op["tags"] = [table.name]
 
@@ -444,7 +452,7 @@ def genPutInstance(table, parent_plurality, parents, resource_name, is_plural):
 def genPatchInstance(table, parent_plurality, parents, resource_name, is_plural):
     if table.config:
         op = {}
-        op["summary"] = "Patch operation"
+        op["summary"] = "Update configuration"
         op["description"] = "Update configuration"
         op["tags"] = [table.name]
 
@@ -481,7 +489,7 @@ def genPatchInstance(table, parent_plurality, parents, resource_name, is_plural)
 
 def genDelInstance(table, parent_plurality, parents, resource_name, is_plural):
     op = {}
-    op["summary"] = "Delete operation"
+    op["summary"] = "Delete a resource instance"
     op["description"] = "Delete a resource instance"
     op["tags"] = [table.name]
 
@@ -649,8 +657,11 @@ def getDefinition(schema, table, definitions):
                                                       table.name, definitions)
     properties_full = copy.deepcopy(properties_config)
 
-    # references are included in configuration as well
+    # References are included in configuration if and only if they belong
+    # to configuration category.
     for col_name in table.references:
+        if table.references[col_name].category == "status":
+            continue
         if table.references[col_name].relation == "reference":
             sub = refProperties(schema, table, col_name)
             properties_config[col_name] = sub
@@ -1022,18 +1033,27 @@ def genCustomDef(resource_name, definitions):
     definitions[resource_name + "ConfigOnly"] = {"properties": properties,
                                                  "required": ["configuration"]}
 
+    properties = {}
+    sub = {}
+    sub["$ref"] = "#/definitions/" + resource_name + "Status"
+    sub["description"] = "Status of " + resource_name
+    properties["status"] = sub
+
+    definitions[resource_name + "StatusOnly"] = {"properties": properties,
+                                                 "required": ["status"]}
+
 
 def genCustomAPI(resource_name, path, paths,
-                 operations=CUSTOM_RESOURCE_OPS):
+                 operations=DEFAULT_CUSTOM_OPS, get_only='All'):
     '''
     Creates Custom Resource API
     '''
     ops_id = {}
     ops = {}
-    if "get_all" in operations:
+    if OP_GET_ALL in operations:
         # Get All Operation
         op = {}
-        op["summary"] = "Get operation"
+        op["summary"] = "Get a list of resources"
         op["description"] = "Get a list of resources"
         op["tags"] = [resource_name]
 
@@ -1057,10 +1077,10 @@ def genCustomAPI(resource_name, path, paths,
         op["responses"] = responses
         ops["get"] = op
 
-    if "get_id" in operations:
+    if OP_GET_ID in operations:
         # Get by id Operation
         op = {}
-        op["summary"] = "Get operation"
+        op["summary"] = "Get a set of attributes"
         op["description"] = "Get a set of attributes"
         op["tags"] = [resource_name]
 
@@ -1077,17 +1097,36 @@ def genCustomAPI(resource_name, path, paths,
         responses = {}
         response = {}
         response["description"] = "OK"
-        response["schema"] = {'$ref': "#/definitions/" + resource_name + "All"}
+        response["schema"] = {'$ref': "#/definitions/" +
+                              resource_name + get_only}
         responses["200"] = response
 
         addGetResponse(responses)
         op["responses"] = responses
         ops_id["get"] = op
 
-    if "post" in operations:
+    if OP_GET_OBJ in operations:
+        # Get object Operation
+        op = {}
+        op["summary"] = "Get a set of attributes"
+        op["description"] = "Get a set of attributes"
+        op["tags"] = [resource_name]
+
+        responses = {}
+        response = {}
+        response["description"] = "OK"
+        response["schema"] = {'$ref': "#/definitions/" +
+                              resource_name + get_only}
+        responses["200"] = response
+
+        addGetResponse(responses)
+        op["responses"] = responses
+        ops["get"] = op
+
+    if OP_POST in operations:
         # Post Operation
         op = {}
-        op["summary"] = "Post operation"
+        op["summary"] = "Create a new resource instance"
         op["description"] = "Create a new resource instance"
         op["tags"] = [resource_name]
 
@@ -1107,10 +1146,10 @@ def genCustomAPI(resource_name, path, paths,
         op["responses"] = responses
         ops["post"] = op
 
-    if "put" in operations:
+    if OP_PUT in operations:
         # Update Operation
         op = {}
-        op["summary"] = "Put operation"
+        op["summary"] = "Update configuration"
         op["description"] = "Update configuration"
         op["tags"] = [resource_name]
 
@@ -1138,10 +1177,33 @@ def genCustomAPI(resource_name, path, paths,
         op["responses"] = responses
         ops_id["put"] = op
 
-    if "patch" in operations:
+    if OP_PUT_OBJ in operations:
         # Update Operation
         op = {}
-        op["summary"] = "PATCH operation"
+        op["summary"] = "Update configuration"
+        op["description"] = "Update configuration"
+        op["tags"] = [resource_name]
+
+        params = []
+        param = {}
+        param["name"] = "data"
+        param["in"] = "body"
+        param["description"] = "configuration"
+        param["required"] = True
+        param["schema"] = {'$ref': "#/definitions/" +
+                           resource_name + "ConfigOnly"}
+        params.append(param)
+        op["parameters"] = params
+
+        responses = {}
+        addPutResponse(responses)
+        op["responses"] = responses
+        ops["put"] = op
+
+    if OP_PATCH in operations:
+        # Update Operation
+        op = {}
+        op["summary"] = "Update configuration"
         op["description"] = "Update configuration using JSON PATCH Specification"
         op["tags"] = [resource_name]
 
@@ -1172,10 +1234,10 @@ def genCustomAPI(resource_name, path, paths,
         op["responses"] = responses
         ops_id["patch"] = op
 
-    if "delete" in operations:
+    if OP_DELETE in operations:
         # Delete Operation
         op = {}
-        op["summary"] = "Delete operation"
+        op["summary"] = "Delete a resource instance"
         op["description"] = "Delete a resource instance"
         op["tags"] = [resource_name]
 
@@ -1209,7 +1271,7 @@ def genFullConfigAPI(paths):
 
     ops = {}
     op = {}
-    op["summary"] = "Get full configuration"
+    op["summary"] = "Get full declarative configuration"
     op["description"] = "Fetch full declarative configuration"
     op["tags"] = ["FullConfiguration"]
 
@@ -1236,7 +1298,7 @@ def genFullConfigAPI(paths):
     ops["get"] = op
 
     op = {}
-    op["summary"] = "Update full configuration"
+    op["summary"] = "Update full declarative configuration"
     op["description"] = "Update full declarative configuration"
     op["tags"] = ["FullConfiguration"]
 
@@ -1287,7 +1349,7 @@ def genUserLogin(paths):
     params.append(param)
     param = {}
     param["name"] = "password"
-    param["in"] = "body"
+    param["in"] = "query"
     param["description"] = "Password"
     param["required"] = True
     param["type"] = "string"
@@ -1310,6 +1372,173 @@ def genUserLogin(paths):
     ops["post"] = op
 
     paths[path] = ops
+
+
+def genLogsAPI(paths, definitions):
+    path = "/logs"
+    ops = {}
+    op = {}
+    op["summary"] = "Log entries"
+    op["description"] = "Get log entries"
+    op["tags"] = ["Logs"]
+
+    params = []
+    param = {}
+    param["name"] = "priority"
+    param["in"] = "query"
+    param["description"] = "Log priority levels. Valid values 0-7."
+    param["required"] = False
+    param["type"] = "integer"
+    params.append(param)
+
+    param = {}
+    param["name"] = "after-cursor"
+    param["in"] = "query"
+    param["description"] = ("Cursor string from the previous response " +
+                            "last log entry.")
+    param["required"] = False
+    param["type"] = "string"
+    params.append(param)
+
+    param = {}
+    param["name"] = "since"
+    param["in"] = "query"
+    param["description"] = ("Fetch logs since the time specified. " +
+                            "Valid format: YYYY-MM-DD hh:mm:ss. " +
+                            "Relative words like yesterday, today, now," +
+                            "1 day ago, 10 hours ago, 12 minutes ago are " +
+                            "accepted. Words like hour ago, minute ago " +
+                            "and day ago must precede with a positive " +
+                            "integer and can be in plural form too.")
+    param["required"] = False
+    param["type"] = "string"
+    params.append(param)
+
+    param = {}
+    param["name"] = "until"
+    param["in"] = "query"
+    param["description"] = ("Fetch logs until the time specified. " +
+                            "Valid format: YYYY-MM-DD hh:mm:ss. " +
+                            "Relative words like yesterday, today, now," +
+                            "1 day ago, 10 hours ago, 12 minutes ago are " +
+                            "accepted. Words like hour ago, minute ago " +
+                            "and day ago must precede with a positive " +
+                            "integer and can be in plural form too.")
+    param["required"] = False
+    param["type"] = "string"
+    params.append(param)
+    param = {}
+    param["name"] = "offset"
+    param["in"] = "query"
+    param["description"] = ("Offset is the starting log entry, starts " +
+                            "with 0. Offset will be the previous " +
+                            "offset + limit on the next request.")
+    param["required"] = False
+    param["type"] = "integer"
+    params.append(param)
+
+    param = {}
+    param["name"] = "limit"
+    param["in"] = "query"
+    param["description"] = ("Number of log entries in the response." +
+                            "Valid range is 1-1000")
+    param["required"] = False
+    param["type"] = "integer"
+    params.append(param)
+
+    param = {}
+    param["name"] = "MESSAGE"
+    param["in"] = "query"
+    param["description"] = "Exact log message that is expected to be matched."
+    param["required"] = False
+    param["type"] = "string"
+    params.append(param)
+
+    param = {}
+    param["name"] = "MESSAGE_ID"
+    param["in"] = "query"
+    param["description"] = ("A 128-bit message identifier for recognizing " +
+                            "certain message types. All openswitch events " +
+                            "are stored with the message ID " +
+                            "50c0fa81c2a545ec982a54293f1b1945 in the " +
+                            "systemd journal. Use this MESSAGE_ID to " +
+                            "query all of the OPS events.")
+    param["required"] = False
+    param["type"] = "string"
+    params.append(param)
+
+    param = {}
+    param["name"] = "PRIORITY"
+    param["in"] = "query"
+    param["description"] = "Log priority level."
+    param["required"] = False
+    param["type"] = "integer"
+    params.append(param)
+
+    param = {}
+    param["name"] = "SYSLOG_IDENTIFIER"
+    param["in"] = "query"
+    param["description"] = ("This is the module generating the log message. " +
+                            "Use this field to filter logs by a specific " +
+                            "module.")
+    param["required"] = False
+    param["type"] = "string"
+    params.append(param)
+
+    param = {}
+    param["name"] = "_PID"
+    param["in"] = "query"
+    param["description"] = ("The Process ID of the process that is " +
+                            "generating the log entry.")
+    param["required"] = False
+    param["type"] = "integer"
+    params.append(param)
+
+    param = {}
+    param["name"] = "_GID"
+    param["in"] = "query"
+    param["description"] = ("The Group ID of the process that is " +
+                            "generating the log entry.")
+    param["required"] = False
+    param["type"] = "integer"
+    params.append(param)
+
+    param = {}
+    param["name"] = "_UID"
+    param["in"] = "query"
+    param["description"] = ("The User ID of the process that is " +
+                            "generating the log entry.")
+    param["required"] = False
+    param["type"] = "integer"
+    params.append(param)
+
+    op["parameters"] = params
+
+    responses = {}
+    response = {}
+    schema = {}
+    schema["type"] = "array"
+    item = {}
+    item["description"] = "List of log entries"
+    item["$ref"] = "#/definitions/LogEntry"
+    schema["items"] = item
+    schema["description"] = "A list of KV pairs"
+
+    response["description"] = "Get a list of log entries"
+    response["schema"] = schema
+    responses["200"] = response
+    addGetResponse(responses)
+    op["responses"] = responses
+
+    ops["get"] = op
+    paths[path] = ops
+    # Generate logs definitions
+    item = {}
+    properties = {}
+    item["type"] = "string"
+    item["description"] = "Key-Value pairs for log entry"
+    properties["string"] = item
+    definitions["LogEntry"] = {"properties": properties}
 
 
 def getFullAPI(schema):
@@ -1376,6 +1605,14 @@ def getFullAPI(schema):
 
     # Creating the login URL
     genUserLogin(paths)
+
+    # Creating the logs URL
+    genLogsAPI(paths, definitions)
+
+    # Custom APIs
+    genCustomDef("Account", definitions)
+    genCustomAPI("Account", "/account", paths,
+                 [OP_GET_OBJ, OP_PUT_OBJ], get_only='StatusOnly')
 
     api["paths"] = paths
 
@@ -1470,7 +1707,7 @@ if __name__ == "__main__":
         sys.stderr.write("%s\n" % e.msg)
         sys.exit(1)
     except Exception, e:
-        sys.stderr.write("%s\n" % e.msg)
+        sys.stderr.write("%s\n" % e)
         sys.exit(1)
 
 # Local variables:

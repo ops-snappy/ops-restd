@@ -13,16 +13,15 @@
 #  under the License.
 
 from tornado import gen
-from tornado.concurrent import Future
 
 import json
 import httplib
 
-from runconfig import runconfig, startupconfig
-
 from opsrest.constants import *
-from opsrest.utils.utils import *
+import opsrest.utils.startupconfig
 from opsrest.handlers.base import BaseHandler
+from opsrest.transaction import OvsdbTransactionResult
+import ops.dc
 
 from tornado.log import app_log
 
@@ -31,72 +30,83 @@ class ConfigHandler(BaseHandler):
 
     def prepare(self):
 
-        # Call parent's prepare to check authentication
-        super(ConfigHandler, self).prepare()
+        try:
+            # Call parent's prepare to check authentication
+            super(ConfigHandler, self).prepare()
 
-        self.request_type = self.get_argument('type', 'running')
-        app_log.debug('request type: %s', self.request_type)
+            self.request_type = self.get_argument('type', 'running')
+            app_log.debug('request type: %s', self.request_type)
 
-        if self.request_type == 'running':
-            self.config_util = runconfig.RunConfigUtil(self.idl,
-                                                       self.schema)
-        elif self.request_type == 'startup':
-            self.config_util = startupconfig.StartupConfigUtil()
-        else:
-            self.set_status(httplib.BAD_REQUEST)
+            if self.request_type not in ['running', 'startup']:
+                self.set_status(httplib.BAD_REQUEST)
+                self.finish()
+
+        except APIException as e:
+            self.on_exception(e)
+            self.finish()
+
+        except Exception, e:
+            self.on_exception(e)
             self.finish()
 
     @gen.coroutine
     def get(self):
-
-        result, error = yield self._get_config()
-        app_log.debug('Transaction result: %s, Transaction error: %s',
-                      result, error)
-
-        if result is None:
+        try:
             if self.request_type == 'running':
-                self.set_status(httplib.INTERNAL_SERVER_ERROR)
+                result = ops.dc.read(self.schema, self.idl)
             else:
-                self.set_status(httplib.NOT_FOUND)
-        else:
-            self.set_status(httplib.OK)
-            self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
-            self.write(json.dumps(result))
+                # FIXME: This is a blocking call
+                result = opsrest.utils.startupconfig.read()
+
+            if result is None:
+                if self.request_type == 'running':
+                    self.set_status(httplib.INTERNAL_SERVER_ERROR)
+                else:
+                    self.set_status(httplib.NOT_FOUND)
+            else:
+                self.set_status(httplib.OK)
+                self.set_header(HTTP_HEADER_CONTENT_TYPE,
+                        HTTP_CONTENT_TYPE_JSON)
+                self.write(json.dumps(result))
+
+        except Exception as e:
+            self.on_exception(e)
 
         self.finish()
-
-    def _get_config(self):
-        waiter = Future()
-        waiter.set_result((self.config_util.get_config(), True))
-        return waiter
 
     @gen.coroutine
     def put(self):
+        try:
 
-        if HTTP_HEADER_CONTENT_LENGTH in self.request.headers:
+            if HTTP_HEADER_CONTENT_LENGTH not in self.request.headers:
+                raise LengthRequired
 
-            # get the config
-            config_data = json.loads(self.request.body)
-            result, error = yield self._write_config(config_data)
-            app_log.debug('Transaction result: %s, Transaction error: %s',
-                          result, error)
+            data = json.loads(self.request.body)
+            status = None
+            error = None
 
-            if result.lower() == 'unchanged':
-                self.set_status(httplib.NOT_MODIFIED)
-            elif result.lower() == 'success':
-                self.set_status(httplib.OK)
+            if self.request_type == 'running':
+                self.txn = self.ref_object.manager.get_new_transaction()
+                result = OvsdbTransactionResult(ops.dc.write(data, self.schema,
+                                                self.idl, self.txn.txn))
+                status = result.status
+                if status == INCOMPLETE:
+                    self.ref_object.manager.monitor_transaction(self.txn)
+                    yield self.txn.event.wait()
+                    status = self.txn.status
+
             else:
-                if type(error) is list:
-                    self.write(json.dumps({"error": error}))
+                # FIXME: This is a blocking call.
+                (status, error) = opsrest.utils.startupconfig.write(data)
 
-                self.set_status(httplib.BAD_REQUEST)
+            if status == SUCCESS:
+                self.set_status(httplib.OK)
+            elif status == UNCHANGED:
+                self.set_status(httplib.NOT_MODIFIED)
+            else:
+                raise APIException(error)
 
-        else:
-            self.set_status(httplib.LENGTH_REQUIRED)
+        except Exception as e:
+            self.on_exception(e)
 
         self.finish()
-
-    def _write_config(self, config_data):
-        waiter = Future()
-        waiter.set_result(self.config_util.write_config_to_db(config_data))
-        return waiter

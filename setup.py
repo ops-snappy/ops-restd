@@ -19,7 +19,7 @@ setup(
     name='restd',
     version='1.0',
     py_modules=['restd'],
-    packages=['opsrest', 'opsrest.handlers',
+    packages=['ops', 'opsrest', 'opsrest.handlers',
               'opsrest.utils', 'opsrest.custom',
               'opslib', 'runconfig', 'opsvalidator'],
     entry_points={

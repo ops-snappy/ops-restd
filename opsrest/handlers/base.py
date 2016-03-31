@@ -14,14 +14,17 @@
 
 import re
 import userauth
+import rbac
 import httplib
 import hashlib
 import json
 
 from tornado import web
+
 from opsrest.constants import *
 from opsrest.exceptions import APIException, TransactionFailed, \
-    ParameterNotAllowed, NotAuthenticated
+    ParameterNotAllowed, NotAuthenticated, \
+    AuthenticationFailed, ForbiddenMethod
 from opsrest.settings import settings
 from opsrest.utils.auditlogutils import audit_log_user_msg
 from opsrest.utils.getutils import get_query_arg
@@ -68,8 +71,10 @@ class BaseHandler(web.RequestHandler):
                 is_authenticated = True
 
             if not is_authenticated:
-                self.set_header("Link", "/login")
                 raise NotAuthenticated
+
+            # Check user's permissions
+            self.check_method_permission()
 
             sort = get_query_arg(REST_QUERY_PARAM_SORTING,
                                  self.request.query_arguments)
@@ -108,10 +113,15 @@ class BaseHandler(web.RequestHandler):
 
         # uncaught exceptions
         if not isinstance(e, APIException):
-            app_log.debug("Caught APIException:\n%s" % e)
-            self.set_status(httplib.INTERNAL_SERVER_ERROR)
-        else:
             app_log.debug("Caught unexpected exception:\n%s" % e)
+            self.set_status(httplib.INTERNAL_SERVER_ERROR)
+        elif isinstance(e, NotAuthenticated) or \
+                isinstance(e, AuthenticationFailed):
+            app_log.debug("Caught Authentication Exception:\n%s" % e)
+            self.set_header(HTTP_HEADER_LINK, REST_LOGIN_PATH)
+            self.set_status(e.status_code)
+        else:
+            app_log.debug("Caught APIException:\n%s" % e)
             self.set_status(e.status_code)
 
         self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
@@ -205,8 +215,8 @@ class BaseHandler(web.RequestHandler):
             user = None
             cfgdata = self.request.body
             if path == REST_LOGIN_PATH and \
-               USER_KEY_NAME in self.request.arguments:
-                user = self.request.arguments['username'][0]
+               USERNAME_KEY in self.request.arguments:
+                user = self.request.arguments[USERNAME_KEY][0]
             if not user and self.get_current_user():
                 user = self.get_current_user()
             hostname = self.request.host
@@ -214,3 +224,19 @@ class BaseHandler(web.RequestHandler):
             # HTTP/1.1 Status Code Successful 2xx validation
             result = int(200 <= self.get_status() < 300)
             audit_log_user_msg(op, cfgdata, user, hostname, addr, result)
+
+    def check_method_permission(self):
+
+        method = self.request.method
+
+        # Check permissions only if authentication is enabled
+        # Plus, OPTIONS is allowed for unauthenticated users
+        if method != REQUEST_TYPE_OPTIONS:
+            username = self.get_current_user()
+            if username is None:
+                if settings['auth_enabled']:
+                    raise NotAuthenticated
+            else:
+                permissions = rbac.get_user_permissions(username)
+                if METHOD_PERMISSION_MAP[method] not in permissions:
+                    raise ForbiddenMethod

@@ -19,6 +19,7 @@ enable_pretty_logging()
 
 
 def main():
+    options.parse_command_line()
 
     app_log.debug("Creating OVSDB API Application!")
     app = OvsdbApiApplication(settings)
