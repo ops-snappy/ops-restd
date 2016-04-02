@@ -43,8 +43,10 @@ REST_LOGS_PARAM_GID = "_GID"
 REST_LOGS_PARAM_SYSLOG_IDENTIFIER = "SYSLOG_IDENTIFIER"
 JOURNALCTL_CMD = "journalctl"
 OUTPUT_FORMAT = "--output=json"
-RECENT_ENTRIES = "-n1000"
-MAXLIMIT = 1000
+REVERSE_RECENT_ENTRIES = "-r"
+NEWEST_ENTRY = 0
+TRUNCATE_ENTRIES = 1000
+MAXLIMIT = 10000
 DATETIME_REGEX = '\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d'
 MAXPRIORITY = 7
 MINPRIORITY = 0
@@ -167,6 +169,7 @@ class LogController(BaseController):
     # desired by the user
     def get_log_cmd_options(self, query_args):
         log_cmd_options = [JOURNALCTL_CMD]
+        log_cmd_options.append(REVERSE_RECENT_ENTRIES)
         if query_args:
             for k, v in query_args.iteritems():
                 if k not in self.FILTER_KEYWORDS[LOGS_PAGINATION]:
@@ -174,8 +177,6 @@ class LogController(BaseController):
                         log_cmd_options.append(str(k) + "=" + str(v[0]))
                     else:
                         log_cmd_options.append("--" + str(k) + "=" + str(v[0]))
-        else:
-            log_cmd_options.append(RECENT_ENTRIES)
 
         log_cmd_options.append(OUTPUT_FORMAT)
 
@@ -217,9 +218,13 @@ class LogController(BaseController):
             if REST_QUERY_PARAM_OFFSET in query_args:
                 offset = int(getutils.get_query_arg(REST_QUERY_PARAM_OFFSET,
                              query_args))
+            else:
+                offset = NEWEST_ENTRY
             if REST_QUERY_PARAM_LIMIT in query_args:
                 limit = int(getutils.get_query_arg(REST_QUERY_PARAM_LIMIT,
                             query_args))
+            else:
+                limit = TRUNCATE_ENTRIES
 
             if offset is not None or limit is not None:
                 response = getutils.paginate_get_results(response,
