@@ -22,7 +22,7 @@ import userauth
 from opsrest.handlers import base
 from opsrest.exceptions import APIException, AuthenticationFailed
 from opsrest.constants import USERNAME_KEY
-from opsrest.utils.userutils import is_user_login_authorized
+from opsrest.utils.userutils import check_user_login_authorization
 from opsrest.utils.utils import redirect_http_to_https
 
 
@@ -30,7 +30,7 @@ class LoginHandler(base.BaseHandler):
 
     # pass the application reference to the handlers
     def initialize(self, ref_object):
-        pass
+        self.error_message = None
 
     # Overwrite BaseHandler's prepare, as LoginHandler does not
     # require authentication check prior to other operations
@@ -67,12 +67,12 @@ class LoginHandler(base.BaseHandler):
 
             username = self.get_argument(USERNAME_KEY)
 
-            if not is_user_login_authorized(username):
-                raise AuthenticationFailed
+            check_user_login_authorization(username)
 
             login_success = userauth.handle_user_login(self)
             if not login_success:
-                raise AuthenticationFailed
+                raise AuthenticationFailed('invalid username/password '
+                                           'combination')
             else:
                 self.set_status(httplib.OK)
 

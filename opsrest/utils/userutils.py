@@ -19,6 +19,7 @@ import rbac
 
 from subprocess import PIPE, Popen
 
+from opsrest.exceptions import AuthenticationFailed
 from opsrest.constants import ALLOWED_LOGIN_PERMISSIONS
 
 
@@ -70,9 +71,14 @@ def get_group_user_count(group_name):
     return len(get_group_members(group_name))
 
 
-def is_user_login_authorized(username):
+def check_user_login_authorization(username):
     if username and user_exists(username):
         permissions = set(rbac.get_user_permissions(username))
+        if not permissions:
+            raise AuthenticationFailed('user has no associated permissions')
         # isdisjoint is True if user's permissions and
         # allowed permissions intersection is empty
-        return not permissions.isdisjoint(ALLOWED_LOGIN_PERMISSIONS)
+        if permissions.isdisjoint(ALLOWED_LOGIN_PERMISSIONS):
+            raise AuthenticationFailed('user permissions not authorized')
+    else:
+        raise AuthenticationFailed('username does not exist')

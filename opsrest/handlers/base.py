@@ -26,7 +26,7 @@ from opsrest.exceptions import APIException, TransactionFailed, \
     ParameterNotAllowed, NotAuthenticated, \
     AuthenticationFailed, ForbiddenMethod
 from opsrest.settings import settings
-from opsrest.utils.auditlogutils import audit_log_user_msg
+from opsrest.utils.auditlogutils import audit_log_user_msg, audit
 from opsrest.utils.getutils import get_query_arg
 from opsrest.utils.utils import redirect_http_to_https
 
@@ -41,6 +41,7 @@ class BaseHandler(web.RequestHandler):
         self.schema = self.ref_object.restschema
         self.idl = self.ref_object.manager.idl
         self.request.path = re.sub("/{2,}", "/", self.request.path).rstrip('/')
+        self.error_message = None
 
     def set_default_headers(self):
         self.set_header("Cache-control", "no-cache")
@@ -99,6 +100,8 @@ class BaseHandler(web.RequestHandler):
         if hasattr(self, 'txn'):
             self.txn.abort()
 
+        self.error_message = str(e)
+
         # uncaught exceptions
         if not isinstance(e, APIException):
             app_log.debug("Caught unexpected exception:\n%s" % e)
@@ -113,7 +116,7 @@ class BaseHandler(web.RequestHandler):
             self.set_status(e.status_code)
 
         self.set_header(HTTP_HEADER_CONTENT_TYPE, HTTP_CONTENT_TYPE_JSON)
-        self.write(str(e))
+        self.write(self.error_message)
 
     def compute_etag(self, data=None):
         if data is None:
@@ -199,19 +202,22 @@ class BaseHandler(web.RequestHandler):
         # AuditLog call
         op = self.request.method
         if op in AUDIT_LOG_ACCEPTED_REQUESTS:
-            path = self.request.path
+            uri = self.request.path
             user = None
+            auditlog_type = audit.AUDIT_USYS_CONFIG
             cfgdata = self.request.body
-            if path == REST_LOGIN_PATH and \
-               USERNAME_KEY in self.request.arguments:
-                user = self.request.arguments[USERNAME_KEY][0]
+            if uri == REST_LOGIN_PATH:
+                auditlog_type = audit.AUDIT_USER_LOGIN
+                if USERNAME_KEY in self.request.arguments:
+                    user = self.request.arguments[USERNAME_KEY][0]
             if not user and self.get_current_user():
                 user = self.get_current_user()
             hostname = self.request.host
             addr = self.request.remote_ip
             # HTTP/1.1 Status Code Successful 2xx validation
             result = int(200 <= self.get_status() < 300)
-            audit_log_user_msg(op, cfgdata, user, hostname, addr, result)
+            audit_log_user_msg(op, auditlog_type, uri, cfgdata, user,
+                               hostname, addr, result, self.error_message)
 
     def check_method_permission(self):
 
