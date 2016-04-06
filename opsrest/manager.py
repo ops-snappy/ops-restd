@@ -16,9 +16,10 @@ import time
 from tornado.ioloop import IOLoop
 from tornado.log import app_log
 
-from ovs.db.idl import Idl, SchemaHelper
 from ovs.db import error
+from ovs.db.idl import SchemaHelper
 
+from ops.opsidl import OpsIdl
 from opsrest.transaction import OvsdbTransactionList, OvsdbTransaction
 from opsrest.constants import \
     OVSDB_DEFAULT_CONNECTION_TIMEOUT,\
@@ -43,7 +44,7 @@ class OvsdbConnectionManager:
                 self.idl.close()
             self.schema_helper = SchemaHelper(self.schema)
             self.schema_helper.register_all()
-            self.idl = Idl(self.remote, self.schema_helper)
+            self.idl = OpsIdl(self.remote, self.schema_helper)
             self.curr_seqno = self.idl.change_seqno
 
             # We do not reset transactions when the DB connection goes down
