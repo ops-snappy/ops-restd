@@ -1555,7 +1555,7 @@ def getFullAPI(schema):
     # at the same port as the Swagger UI
     api["host"] = ""
     # Should be changed to use https instead
-    api["schemes"] = ["http"]
+    api["schemes"] = ["https"]
     api["basePath"] = "/rest/v1"
     api["produces"] = ["application/json"]
 
