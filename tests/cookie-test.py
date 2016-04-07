@@ -31,7 +31,7 @@ step 2: Use the secret cookie to use authenticated session to GET /system
 
 print("\n############## running POST ##############\n")
 http = httplib2.Http()
-url = 'http://172.17.0.2:8091/login'
+url = 'https://172.17.0.2/login'
 body = {'username': 'oleg', 'password': 'oleg'}
 headers = {"Content-type": "application/x-www-form-urlencoded",
            "Accept": "text/plain"}
@@ -47,7 +47,7 @@ headers = {'Cookie': response['set-cookie']}
 
 # GET to fetch system info from the DB
 print("\n############## running GET ##############\n")
-url = 'http://172.17.0.9:8091/rest/v1/system'
+url = 'https://172.17.0.9/rest/v1/system'
 response, content = http.request(url, 'GET', headers=headers)
 print(response)
 #print(content)

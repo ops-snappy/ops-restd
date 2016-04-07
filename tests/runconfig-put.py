@@ -30,7 +30,7 @@ http = httplib2.Http()
 
 _headers = {"Content-type": "application/x-www-form-urlencoded",
             "Accept": "text/plain"}
-url = 'http://172.17.0.39:8091/rest/v1/system/full-configuration?type=running'
+url = 'https://172.17.0.39/rest/v1/system/full-configuration?type=running'
 
 _headers = {"Content-type": "multipart/form-data", "Accept": "text/plain"}
 response, content = http.request(url, 'PUT', headers=_headers,

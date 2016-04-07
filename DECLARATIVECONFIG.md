@@ -43,7 +43,7 @@ When a user sends a PUT request, the write function is invoked, and works as fol
 The ```validatoradapter.py``` module provides validations for resource creating, updating, and deleting. For more details, refer to ```custom_validators_design.md```.
 
 ## Usage
-A user can send a GET request with a url ```http://x.x.x.x:8091/rest/v1/system/full-configuration?type=running``` to get the running configuration of a switch.
+A user can send a GET request with a url ```https://x.x.x.x/rest/v1/system/full-configuration?type=running``` to get the running configuration of a switch.
 
 A user can give the full configuration data, from the body of a REST API's PUT request, to update OVSDB with that configuration.
 

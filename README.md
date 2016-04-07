@@ -5,7 +5,7 @@ What is ops-restd?
 The ops-restd is a module that provides REST API access to OpenSwitch's OVSDB database. It's an application written using Python using the Tornado (www.tornado.org) web framework and d
 oes the following:
 
- - Runs an HTTP server that listens to incoming HTTP requests on 8091 port.
+ - Runs an HTTP server that listens to incoming HTTPS requests on port 443.
  - Runs the REST API application that provides read/write access to the OVSDB database.
 
 What is the structure of the repository?
