@@ -36,6 +36,7 @@ class CustomRESTHandler(BaseHandler):
         self.ref_object = ref_object
         self.controller = controller_class(ref_object)
         self.request.path = re.sub("/{2,}", "/", self.request.path).rstrip('/')
+        self.error_message = None
 
     # Parse the url and http params.
     def prepare(self):
