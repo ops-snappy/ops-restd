@@ -12,7 +12,8 @@
 #  License for the specific language governing permissions and limitations
 #  under the License.
 
-
+settings = {}
 settings['ovs_remote'] = 'unix:/var/run/openvswitch/db.sock'
 settings['ovs_schema'] = '/usr/share/openvswitch/vswitch.ovsschema'
 settings['ext_schema'] = '/usr/share/openvswitch/vswitch.extschema'
+settings['cfg_db_schema'] = '/usr/share/openvswitch/configdb.ovsschema'

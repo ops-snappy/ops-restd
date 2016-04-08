@@ -15,8 +15,9 @@
 
 import json
 import time
+import base64
 
-from opsrest.settings import settings
+from ops.settings import settings
 from ovs.db.idl import Idl, SchemaHelper, Transaction
 
 
@@ -53,7 +54,8 @@ def read():
         if row_type and row_type == 'startup':
                 config = ovs_rec.__getattr__('config')
                 if config:
-                    return json.loads(config)
+                    data = base64.b64decode(config)
+                    return json.loads(data)
 
     return None
 
@@ -81,7 +83,8 @@ def write(data):
         row.__setattr__('type', 'startup')
         is_new = True
 
-    row.__setattr__('config', json.dumps(data))
+    base64data = base64.b64encode(json.dumps(data))
+    row.__setattr__('config', base64data)
 
     result = txn.commit_block()
     error = txn.get_error()

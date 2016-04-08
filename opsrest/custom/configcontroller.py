@@ -17,7 +17,7 @@ from tornado import gen
 
 # Local imports
 import ops.dc
-import opsrest.utils.startupconfig
+import ops.cfgd
 from opsrest.exceptions import DataValidationFailed,\
     NotModified, InternalError, NotFound, APIException
 from opsrest.transaction import OvsdbTransactionResult
@@ -51,7 +51,7 @@ class ConfigController(BaseController):
                 status = self.txn.status
         else:
             # FIXME: This is a blocking call.
-            (status, error) = opsrest.utils.startupconfig.write(data)
+            (status, error) = ops.cfgd.write(data)
         if status != SUCCESS:
             if status == UNCHANGED:
                 raise NotModified
@@ -67,7 +67,7 @@ class ConfigController(BaseController):
             result = ops.dc.read(self.schema, self.idl)
         else:
             # FIXME: This is a blocking call
-            result = opsrest.utils.startupconfig.read()
+            result = ops.cfgd.read()
         if result is None:
             if request_type == CONFIG_TYPE_RUNNING:
                 raise InternalError

@@ -21,8 +21,13 @@ import urllib
 
 global_ref_list = {}
 
-# FIXME:
-default_tables = ['Bridge', 'VRF']
+# FIXME: ideally this info should come from extschema
+def is_immutable_table(table, extschema):
+    default_tables = ['Bridge', 'VRF']
+    if extschema.ovs_tables[table].mutable and table not in default_tables:
+        return False
+    return True
+
 
 def _delete(row, table, extschema, idl, txn):
     for key in extschema.ovs_tables[table].children:
@@ -44,11 +49,9 @@ def _delete(row, table, extschema, idl, txn):
 
 def setup_table(table_name, data, extschema, idl, txn):
 
-    mutable = extschema.ovs_tables[table_name].mutable and table_name not in default_tables
-
     # table is missing from config json
     if table_name not in data:
-        if mutable:
+        if not is_immutable_table(table_name, extschema):
             # if mutable, empty table
             table_rows = idl.tables[table_name].rows.values()
             while table_rows:
@@ -103,8 +106,8 @@ def setup_row_references(rowdata, table, extschema, idl):
                 reflist.append(refrow)
             row.__setattr__(name, reflist)
 
-    for child in table_schema.children:
 
+    for child in table_schema.children:
         # check if child data exists
         if child not in row_data:
             continue
@@ -116,11 +119,11 @@ def setup_row_references(rowdata, table, extschema, idl):
             child_table = table_schema.references[child].ref_table
         else:
             child_table = child
-
         for index, data in child_data.iteritems():
             if child_table in extschema.ovs_tables[table].children and\
                     child_table not in extschema.ovs_tables[table].references:
                         index = str(row.uuid) + '/' + index
+
             setup_row_references({index:data}, child_table, extschema, idl)
 
 
@@ -131,14 +134,14 @@ def setup_row(rowdata, table_name, extschema, idl, txn):
     row_index = rowdata.keys()[0]
     row_data = rowdata.values()[0]
     table_schema = extschema.ovs_tables[table_name]
-    mutable = table_schema.mutable and table_name not in default_tables
 
     # get row reference from table
     _new = False
     row = ops.utils.index_to_row(row_index, table_schema, idl)
     if row is None:
+
         # do not add row to an immutable table
-        if not mutable:
+        if is_immutable_table(table_name, extschema):
             return (None, None)
 
         row = txn.insert(idl.tables[table_name])
@@ -154,7 +157,7 @@ def setup_row(rowdata, table_name, extschema, idl, txn):
 
         # TODO: return error if trying to set an immutable column
         # skip if trying to set an immutable column for an existing row
-        if not _new and table_schema.config[key].mutable is False:
+        if not _new and not table_schema.config[key].mutable:
             continue
 
         if key not in row_data:
@@ -186,18 +189,17 @@ def setup_row(rowdata, table_name, extschema, idl, txn):
 
             child_table_name = table_schema.references[key].ref_table
 
-            # skip immutable column
-            if not _new and not table_schema.references[key].mutable:
-                continue
-
-            # set up empty reference list
-            if key not in row_data:
-                if _new or row.__getattr__(key) is None:
-                    continue
-                else:
-                   value = ops.utils.get_empty_by_basic_type(row.__getattr__(key))
-                row.__setattr__(key, value)
-
+            # set up empty reference list if table entry is missing
+            # Do this only for mutable tables
+            if key not in row_data or not row_data[key]:
+                if is_immutable_table(child_table_name, extschema):
+                    if _new or row.__getattr__(key) is None:
+                        continue
+                    else:
+                       value = ops.utils.get_empty_by_basic_type(row.__getattr__(key))
+                    # set only if its immutable child table
+                    if not is_immutable_table(table_name, extschema):
+                        row.__setattr__(key, value)
             else:
                 new_data = row_data[key]
 
@@ -216,9 +218,10 @@ def setup_row(rowdata, table_name, extschema, idl, txn):
                             if index not in new_data:
                                 delete_list.append(item)
 
-                        while delete_list:
-                            _delete(delete_list[0], child_table_name, extschema, idl, txn)
-                            delete_list.pop(0)
+                        if not is_immutable_table(child_table_name, extschema):
+                            while delete_list:
+                                _delete(delete_list[0], child_table_name, extschema, idl, txn)
+                                delete_list.pop(0)
 
                 # setup children
                 children = {}
@@ -281,9 +284,11 @@ def setup_row(rowdata, table_name, extschema, idl, txn):
                             if index not in new_data:
                                 delete_list.append(item)
 
-                    while delete_list:
-                        _delete(delete_list[0], key, extschema, idl, txn)
-                        delete_list.pop(0)
+                    # NOTE: delete only from immutable table
+                    if not is_immutable_table(key, extschema):
+                        while delete_list:
+                            _delete(delete_list[0], key, extschema, idl, txn)
+                            delete_list.pop(0)
 
                 # set up children rows
                 if new_data is not None:
@@ -298,7 +303,7 @@ def setup_row(rowdata, table_name, extschema, idl, txn):
                         (child, is_new) = setup_row({x:y}, key, extschema, idl, txn)
 
                         # fill the parent reference column
-                        if is_new:
+                        if child is not None and is_new:
                             child.values()[0].__setattr__(column_name, row)
 
     return ({row_index:row}, _new)

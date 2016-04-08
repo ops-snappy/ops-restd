@@ -58,12 +58,6 @@ def get_row_data(row, table_name, schema, idl, index=None):
         children_data = {}
         indexer = 0
         if child_name in table_schema.references:
-
-            # Only include configurable children
-            if (table_schema.references[child_name].category
-                    != ops.constants.OVSDB_SCHEMA_CONFIG):
-                continue
-
             column_data = row.__getattr__(child_name)
             child_table_name = table_schema.references[child_name].ref_table
 
@@ -82,10 +76,16 @@ def get_row_data(row, table_name, schema, idl, index=None):
                     data = get_row_data(
                         item, child_table_name, schema,
                         idl, kv_index)
+                    if data is None:
+                        continue
+
                     children_data.update({keys[count]: data.values()[0]})
                     count = count + 1
                 else:
                     data = get_row_data(item, child_table_name, schema, idl)
+                    if data is None:
+                        continue
+
                     _indexes = schema.ovs_tables[child_table_name].indexes
                     if len(_indexes) == 1 and _indexes[0] == 'uuid':
                         indexer = indexer + 1
@@ -141,6 +141,9 @@ def get_row_data(row, table_name, schema, idl, index=None):
 
             row_data[refname] = refdata
 
+    if not row_data:
+        return None
+
     return {index: row_data}
 
 
@@ -158,8 +161,11 @@ def get_table_data(table_name, schema, idl):
 
     for row in table.rows.itervalues():
         row_data = get_row_data(row, table_name, schema, idl)
-        if row_data is None or row_data == [] or row_data == {}:
+        if row_data is None:
             continue
         table_data[table_name].update(row_data)
 
-    return table_data
+    if not table_data.values()[0]:
+        return None
+    else:
+        return table_data
