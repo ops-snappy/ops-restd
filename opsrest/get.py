@@ -215,9 +215,6 @@ def get_row_json(row, table, schema, idl, uri, selector=None,
         elif stats_keys and category == OVSDB_SCHEMA_STATS:
             stats_data.update({key: reference_data})
 
-        elif (depth_counter >= depth):
-            depth = 0
-
         elif status_keys and category == OVSDB_SCHEMA_STATUS:
             status_data.update({key: reference_data})
 
