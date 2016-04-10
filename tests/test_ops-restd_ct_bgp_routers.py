@@ -21,7 +21,7 @@ import pytest
 from opsvsi.docker import *
 from opsvsi.opsvsitest import *
 from opsvsiutils.restutils.utils import execute_request, get_switch_ip, \
-    get_json, rest_sanity_check
+    get_json, rest_sanity_check, login
 import json
 import httplib
 import urllib
@@ -45,6 +45,11 @@ _DATA_COPY = copy.deepcopy(_DATA)
 del _DATA_COPY['configuration']['asn']
 
 
+@pytest.fixture
+def netop_login(request):
+    request.cls.test_var.cookie_header = login(request.cls.test_var.SWITCH_IP)
+
+
 class myTopo(Topo):
     def build(self, hsts=0, sws=1, **_opts):
         self.hsts = hsts
@@ -65,20 +70,23 @@ class QueryBGPRoutersTest (OpsVsiTest):
 
         self.path_bgp = '/rest/v1/system/vrfs/vrf_default/bgp_routers'
         self.path_id = '/rest/v1/system/vrfs/vrf_default/bgp_routers/6004'
+        self.cookie_header = None
 
-    def post_setup(self):
-
+    def post_setup(self, cookie_header=None):
+        if cookie_header is None:
+            cookie_header = login(self.SWITCH_IP)
         status_code, response_data = execute_request(
             self.path_bgp, "POST", json.dumps(_DATA),
-            self.SWITCH_IP, False, None)
+            self.SWITCH_IP, False, xtra_header=cookie_header)
         assert status_code == httplib.CREATED, ("Wrong status code %s " %
                                                 status_code)
 
-    def delete_teardown(self):
-
+    def delete_teardown(self, cookie_header=None):
+        if cookie_header is None:
+            cookie_header = login(self.SWITCH_IP)
         status_code, response_data = execute_request(
             self.path_id, "DELETE", None,
-            self.SWITCH_IP, False, None)
+            self.SWITCH_IP, False, xtra_header=cookie_header)
         assert (status_code == httplib.NO_CONTENT or
                 status_code == httplib.NOT_FOUND), ("Wrong status code %s " %
                                                     status_code)
@@ -90,7 +98,7 @@ class QueryBGPRoutersTest (OpsVsiTest):
 
         status_code, response_data = execute_request(
             self.path_id, "GET", None,
-            self.SWITCH_IP, False, None)
+            self.SWITCH_IP, False, xtra_header=self.cookie_header)
         status_code == httplib.OK, ("Wrong status code %s " %
                                     status_code)
 
@@ -108,13 +116,13 @@ class QueryBGPRoutersTest (OpsVsiTest):
 
         status_code, response_data = execute_request(
             self.path_bgp, "POST", json.dumps(_DATA),
-            self.SWITCH_IP, False, None)
+            self.SWITCH_IP, False, xtra_header=self.cookie_header)
         assert status_code == httplib.CREATED, ("Wrong status code %s " %
                                                 status_code)
 
         status_code, response_data = execute_request(
             self.path_id, "GET", None,
-            self.SWITCH_IP, False, None)
+            self.SWITCH_IP, False, xtra_header=self.cookie_header)
         assert status_code == httplib.OK, ("Wrong status code %s " %
                                            status_code)
 
@@ -131,13 +139,13 @@ class QueryBGPRoutersTest (OpsVsiTest):
         _DATA_COPY['configuration']['networks'] = ["10.10.1.0/24"]
         status_code, response_data = execute_request(
             self.path_id, "PUT", json.dumps(_DATA_COPY),
-            self.SWITCH_IP, False, None)
+            self.SWITCH_IP, False, xtra_header=self.cookie_header)
         assert status_code == httplib.OK, ("Wrong status code %s " %
                                            status_code)
 
         status_code, response_data = execute_request(
             self.path_id, "GET", None,
-            self.SWITCH_IP, False, None)
+            self.SWITCH_IP, False, xtra_header=self.cookie_header)
         status_code == httplib.OK, ("Wrong status code %s " %
                                     status_code)
 
@@ -155,14 +163,14 @@ class QueryBGPRoutersTest (OpsVsiTest):
         # DELETE the bgp_router
         status_code, response_data = execute_request(
             self.path_id, "DELETE", None,
-            self.SWITCH_IP, False, None)
+            self.SWITCH_IP, False, xtra_header=self.cookie_header)
         assert status_code == httplib.NO_CONTENT, ("Wrong status code %s " %
                                                    status_code)
 
         # GET after deleting the bgp_router
         status_code, response_data = execute_request(
             self.path_id, "GET", None,
-            self.SWITCH_IP, False, None)
+            self.SWITCH_IP, False, xtra_header=self.cookie_header)
         assert status_code == httplib.NOT_FOUND, ("Wrong status code %s " %
                                                   status_code)
         info('Successful\n')
@@ -191,14 +199,14 @@ class Test_bgp_routers:
     def __def__(self):
         del self.test_var
 
-    def test_get(self):
+    def test_get(self, netop_login):
         self.test_var.verify_get_bgp_routers()
 
-    def test_post(self):
+    def test_post(self, netop_login):
         self.test_var.verify_post_bgp_routers()
 
-    def test_put(self):
+    def test_put(self, netop_login):
         self.test_var.verify_put_bgp_routers()
 
-    def test_delete(self):
+    def test_delete(self, netop_login):
         self.test_var.verify_delete_bgp_routers()
