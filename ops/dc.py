@@ -15,7 +15,7 @@
 import _read, _write
 import ops.constants, ops.opsidl
 
-from ovs.db.idl import SchemaHelper, Idl
+from ovs.db.idl import SchemaHelper, Idl, Transaction
 
 def register(extschema, ovsschema, ovsremote):
     """Register interest in all configuration and index
@@ -90,7 +90,7 @@ def read(extschema, idl):
     config[ops.constants.OVSDB_SCHEMA_SYSTEM_TABLE] = config[ops.constants.OVSDB_SCHEMA_SYSTEM_TABLE].values()[0]
     return config
 
-def write(data, extschema, idl, txn):
+def write(data, extschema, idl, txn=None, block=False):
     """Write a new configuration to OpenSwitch OVSDB database
 
     Args:
@@ -101,11 +101,17 @@ def write(data, extschema, idl, txn):
         idl (ovs.db.idl.Idl): This is the IDL object that
             represents the OVSDB IDL.
         txn (ovs.db.idl.Transaction): OVSDB transaction object.
+        block (boolean): if block is True, commit_block() is used
 
     Returns:
-        (result, error) : A tuple containing the result of the transaction and
-            error, if any, is returned
-   """
+        result : The result of transaction commit
+    """
+    if txn is None:
+        try:
+            txn = Transaction(idl)
+            block = True
+        except AssertionError as e:
+            return e
 
     # dc.read returns config db with 'System' table
     # indexed to 'System' keyword. Replace it with
@@ -133,4 +139,9 @@ def write(data, extschema, idl, txn):
 
         _write.setup_references(table_name, data, extschema, idl)
 
-    return txn.commit()
+    if not block:
+        # txn maybe be incomplete
+        return txn.commit()
+    else:
+        # txn is completed but will block until it is done
+        return txn.commit_block()
