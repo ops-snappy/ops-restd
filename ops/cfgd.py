@@ -14,12 +14,11 @@
 #  under the License.
 
 import json
-import time
 import base64
 
 from ops.settings import settings
 from ovs.db.idl import Idl, SchemaHelper, Transaction
-
+import ovs.poller
 
 def connect():
     ovsschema = settings.get('cfg_db_schema')
@@ -33,7 +32,9 @@ def connect():
         idl.run()
         if change_seqno != idl.change_seqno:
             break
-        time.sleep(0.001)
+        poller = ovs.poller.Poller()
+        idl.wait(poller)
+        poller.block()
 
     return idl
 
