@@ -79,7 +79,7 @@ def get_row_data(row, table_name, schema, idl, index=None):
                     if data is None:
                         continue
 
-                    children_data.update({keys[count]: data.values()[0]})
+                    children_data.update({str(keys[count]): data.values()[0]})
                     count = count + 1
                 else:
                     data = get_row_data(item, child_table_name, schema, idl)

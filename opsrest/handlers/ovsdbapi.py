@@ -33,6 +33,7 @@ from opsrest import get, post, delete, put, patch
 class OVSDBAPIHandler(base.BaseHandler):
 
     # parse the url and http params.
+    @gen.coroutine
     def prepare(self):
         try:
             # Call parent's prepare to check authentication
@@ -60,7 +61,8 @@ class OVSDBAPIHandler(base.BaseHandler):
                                               "allowed in %s"
                                               % REQUEST_TYPE_READ)
                 # If Match support
-                match = self.process_if_match()
+                match = yield self.process_if_match()
+                app_log.debug("If-Match result: %s" % match)
                 if not match:
                     self.finish()
 

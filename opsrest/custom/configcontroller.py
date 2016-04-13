@@ -31,32 +31,41 @@ class ConfigController(BaseController):
     def initialize(self):
         self.idl = self.context.manager.idl
         self.schema = self.context.restschema
+        self.txn = None
 
     @gen.coroutine
     def update(self, item_id, data, current_user, query_args):
-        request_type = self.get_request_type(query_args)
-        self.check_config_type(request_type)
-        status = None
-        error = None
-        if request_type == CONFIG_TYPE_RUNNING:
-            self.txn = self.context.manager.get_new_transaction()
-            result = OvsdbTransactionResult(ops.dc.write(data, self.schema,
-                                                         self.idl,
-                                                         self.txn.txn))
-            status = result.status
-            app_log.debug('Transaction result: %s', status)
-            if status == INCOMPLETE:
-                self.context.manager.monitor_transaction(self.txn)
-                yield self.txn.event.wait()
-                status = self.txn.status
-        else:
-            # FIXME: This is a blocking call.
-            (status, error) = ops.cfgd.write(data)
-        if status != SUCCESS:
-            if status == UNCHANGED:
-                raise NotModified
+        try:
+            request_type = self.get_request_type(query_args)
+            self.check_config_type(request_type)
+            status = None
+            error = None
+            if request_type == CONFIG_TYPE_RUNNING:
+                self.txn = self.context.manager.get_new_transaction()
+                result = OvsdbTransactionResult(ops.dc.write(data, self.schema,
+                                                             self.idl,
+                                                             self.txn.txn))
+                status = result.status
+                app_log.debug('Transaction result: %s', status)
+                if status == INCOMPLETE:
+                    self.context.manager.monitor_transaction(self.txn)
+                    yield self.txn.event.wait()
+                    status = self.txn.status
             else:
-                raise APIException(error)
+                # FIXME: This is a blocking call.
+                (status, error) = ops.cfgd.write(data)
+            if status != SUCCESS:
+                if status == UNCHANGED:
+                    raise NotModified
+                else:
+                    if request_type == CONFIG_TYPE_RUNNING:
+                        error = self.txn.get_error()
+                        self.txn.abort()
+                    raise APIException("Error: %s" % error)
+        except Exception as e:
+            if self.txn:
+                self.txn.abort()
+            raise APIException("Error: %s" % str(e))
 
     @gen.coroutine
     def get_all(self, current_user, selector, query_args):
@@ -90,3 +99,9 @@ class ConfigController(BaseController):
                     "types allowed: %s, %s" %\
                     (CONFIG_TYPE_RUNNING, CONFIG_TYPE_STARTUP)
             raise DataValidationFailed(error)
+
+    @gen.coroutine
+    def get_patch(self, item_id=None, current_user=None, selector=None,
+                  query_args=None):
+        result = yield self.get_all(current_user, selector, query_args)
+        raise gen.Return(result)
