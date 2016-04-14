@@ -14,13 +14,14 @@
 
 from tornado import gen
 from tornado.log import app_log
-
+from tornado.web import MissingArgumentError
 import re
 import httplib
 import userauth
 
 from opsrest.handlers import base
-from opsrest.exceptions import APIException, AuthenticationFailed
+from opsrest.exceptions import APIException, AuthenticationFailed,\
+    DataValidationFailed
 from opsrest.constants import USERNAME_KEY
 from opsrest.utils.userutils import check_user_login_authorization
 from opsrest.utils.utils import redirect_http_to_https
@@ -75,6 +76,10 @@ class LoginHandler(base.BaseHandler):
                                            'combination')
             else:
                 self.set_status(httplib.OK)
+
+        except MissingArgumentError as e:
+            self.on_exception(DataValidationFailed('Missing username or '
+                                                   'password'))
 
         except APIException as e:
             self.on_exception(e)
