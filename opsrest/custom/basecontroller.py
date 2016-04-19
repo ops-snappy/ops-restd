@@ -59,11 +59,18 @@ class BaseController():
             self.base_uri_path + "/" + item_id
 
     @gen.coroutine
+    def get_patch(self, item_id=None, current_user=None, selector=None,
+                  query_args=None):
+        result = yield self.get(item_id, current_user, selector, query_args)
+        raise gen.Return(result)
+
+    @gen.coroutine
     def patch(self, item_id, data, current_user=None, query_args=None):
         try:
             # Get the resource's JSON to patch
-            resource_json = self.get(item_id, current_user,
-                                     OVSDB_SCHEMA_CONFIG)
+            resource_json = yield self.get_patch(item_id, current_user,
+                                                 OVSDB_SCHEMA_CONFIG,
+                                                 query_args)
 
             if resource_json is None:
                 raise NotFound
@@ -78,7 +85,7 @@ class BaseController():
             # patch can contain PATCH_OP_TEST operations
             # only, which do not modify the resource
             if needs_update:
-                self.update(item_id, patched_resource, current_user)
+                yield self.update(item_id, patched_resource, current_user, query_args)
 
         # In case the resource doesn't implement GET/PUT
         except MethodNotAllowed:

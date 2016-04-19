@@ -39,6 +39,7 @@ class CustomRESTHandler(BaseHandler):
         self.error_message = None
 
     # Parse the url and http params.
+    @gen.coroutine
     def prepare(self):
         try:
             # Call parent's prepare to check authentication
@@ -48,7 +49,8 @@ class CustomRESTHandler(BaseHandler):
             self.current_user["username"] = self.get_current_user()
 
             # If Match support
-            match = self.process_if_match()
+            match = yield self.process_if_match()
+            app_log.debug("If-Match result: %s" % match)
             if not match:
                 self.finish()
 
@@ -120,7 +122,6 @@ class CustomRESTHandler(BaseHandler):
 
     @gen.coroutine
     def put(self, resource_id=None):
-        app_log.debug('PUT request custom')
         try:
             if HTTP_HEADER_CONTENT_LENGTH not in self.request.headers:
                 raise LengthRequired
@@ -143,7 +144,7 @@ class CustomRESTHandler(BaseHandler):
         self.finish()
 
     @gen.coroutine
-    def patch(self, resource_id):
+    def patch(self, resource_id=None):
         try:
 
             if HTTP_HEADER_CONTENT_LENGTH not in self.request.headers:
