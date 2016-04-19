@@ -12,7 +12,7 @@
 #  License for the specific language governing permissions and limitations
 #  under the License.
 
-import os.path
+import os
 import custom
 
 from tornado.options import define
@@ -28,12 +28,12 @@ settings['logging'] = 'info'
 settings["static_path"] = os.path.join(os.path.dirname(__file__), "static")
 settings["template_path"] = os.path.join(os.path.dirname(__file__),
                                          "templates")
-settings['ovs_remote'] = 'unix:/var/run/openvswitch/db.sock'
-settings['ovs_schema'] = '/usr/share/openvswitch/vswitch.ovsschema'
-settings['ext_schema'] = '/usr/share/openvswitch/vswitch.extschema'
+settings['ovs_remote'] = "unix:%s/var/run/openvswitch/db.sock" % os.environ.get("OPENSWITCH_DATA_PATH")
+settings['ovs_schema'] = "%s/usr/share/openvswitch/vswitch.ovsschema" % os.environ.get("OPENSWITCH_INSTALL_PATH")
+settings['ext_schema'] = "%s/usr/share/openvswitch/vswitch.extschema" % os.environ.get("OPENSWITCH_INSTALL_PATH")
 settings['auth_enabled'] = False
 settings['cookie_secret'] = '61oETzKXQAGaYdkL5gEmGeJJFuYh7EQnp2XdTP1o/Vo='
-settings['cfg_db_schema'] = '/usr/share/openvswitch/configdb.ovsschema'
+settings['cfg_db_schema'] = "%s/usr/share/openvswitch/configdb.ovsschema" % os.environ.get("OPENSWITCH_INSTALL_PATH")
 
 settings["account_schema"] = os.path.join(os.path.dirname(custom.__file__),
                                           'schemas/Account.json')
