@@ -16,6 +16,7 @@
 from ovs.db.idl import Idl, Row
 import ovs
 
+
 class OpsIdl(Idl):
     """
     OpsIdl inherits from Class Idl. The index to row mapping feature
@@ -25,66 +26,30 @@ class OpsIdl(Idl):
     """
     def __init__(self, remote, schema):
         Idl.__init__(self, remote, schema)
-        for table in self.tables.itervalues():
-            table.index_map = {}
+        self._clear_all_index_maps()
 
     def _Idl__clear(self):
-        changed = False
+        self._clear_all_index_maps()
+        Idl._Idl__clear(self)
 
+    def _clear_all_index_maps(self):
         for table in self.tables.itervalues():
-            if table.rows:
-                changed = True
-                table.rows = {}
-                table.index_map = {}
-
-        if changed:
-            self.change_seqno += 1
+            table.index_map = {}
 
     # Overriding parent process_update
     def _Idl__process_update(self, table, uuid, old, new):
         """Returns True if a column changed, False otherwise."""
         row = table.rows.get(uuid)
-        changed = False
+        changed = Idl._Idl__process_update(self, table, uuid, old, new)
+
         if not new:
-            # Delete row.
             if row:
+                # Delete row.
                 self._update_index_map(row, table, ovs.db.idl.ROW_DELETE)
-                del table.rows[uuid]
-                changed = True
-                self.notify(ovs.db.idl.ROW_DELETE, row)
-            else:
-                # XXX rate-limit
-                vlog.warn("cannot delete missing row %s from table %s"
-                          % (uuid, table.name))
-        elif not old:
-            # Insert row.
-            if not row:
-                row = self._Idl__create_row(table, uuid)
-                changed = True
-            else:
-                # XXX rate-limit
-                vlog.warn("cannot add existing row %s to table %s"
-                          % (uuid, table.name))
-            if self._Idl__row_update(table, row, new):
-                changed = True
-                self.notify(ovs.db.idl.ROW_CREATE, row)
-
+        elif not old or not row:
+            # Create row.
+            row = table.rows.get(uuid)
             self._update_index_map(row, table, ovs.db.idl.ROW_CREATE, new)
-        else:
-            op = ovs.db.idl.ROW_UPDATE
-            if not row:
-                row = self._Idl__create_row(table, uuid)
-                changed = True
-                op = ovs.db.idl.ROW_CREATE
-                # XXX rate-limit
-                vlog.warn("cannot modify missing row %s in table %s"
-                          % (uuid, table.name))
-            if self._Idl__row_update(table, row, new):
-                changed = True
-                self.notify(op, row, Row.from_json(self, table, uuid, old))
-
-            if op == ovs.db.idl.ROW_CREATE:
-                self._update_index_map(row, table, ovs.db.idl.ROW_CREATE, new)
 
         return changed
 
