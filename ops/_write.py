@@ -91,6 +91,9 @@ def setup_row_references(rowdata, table, extschema, idl):
     # set references for this row
     for name, column in table_schema.references.iteritems():
 
+        if column.category != ops.constants.OVSDB_SCHEMA_CONFIG:
+            continue
+
         if name in table_schema.children or column.relation == ops.constants.OVSDB_SCHEMA_PARENT:
             continue
 
