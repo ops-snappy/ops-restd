@@ -31,7 +31,7 @@ settings["template_path"] = os.path.join(os.path.dirname(__file__),
 settings['ovs_remote'] = "unix:%s/var/run/openvswitch/db.sock" % os.environ.get("OPENSWITCH_DATA_PATH")
 settings['ovs_schema'] = "%s/usr/share/openvswitch/vswitch.ovsschema" % os.environ.get("OPENSWITCH_INSTALL_PATH")
 settings['ext_schema'] = "%s/usr/share/openvswitch/vswitch.extschema" % os.environ.get("OPENSWITCH_INSTALL_PATH")
-settings['auth_enabled'] = False
+settings['auth_enabled'] = True
 settings['cookie_secret'] = '61oETzKXQAGaYdkL5gEmGeJJFuYh7EQnp2XdTP1o/Vo='
 settings['cfg_db_schema'] = "%s/usr/share/openvswitch/configdb.ovsschema" % os.environ.get("OPENSWITCH_INSTALL_PATH")
 

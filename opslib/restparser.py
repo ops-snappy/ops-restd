@@ -235,6 +235,31 @@ class OVSReference(object):
         self.type = base_type.type
 
 
+class OVSColumnCategory(object):
+    def __init__(self, value):
+        self.category = None
+        if isinstance(value, dict):
+            self.perValue = value.get("perValue", None)
+            self.follows = value.get("follows", None)
+            self.category = "configuration"
+        elif isinstance(value, (str, unicode)):
+            self.category = value
+
+    def __str__(self):
+        return self.category
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        elif isinstance(other, (str, unicode)):
+            return self.category == other
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+
 class OVSTable(object):
     """__init__() functions as the class constructor"""
     def __init__(self, name, is_root, is_many=True):
@@ -305,7 +330,11 @@ class OVSTable(object):
 
         for column_name, column_json in columns_json.iteritems():
             parser = ovs.db.parser.Parser(column_json, "column %s" % name)
-            category = parser.get_optional("category", [str, unicode])
+            # The category can be a str or a object. The object inside can
+            # have the following keys:
+            # perValue: matches the possible value with the desired category
+            # follows: Reference to the column used to determine the column category
+            category = OVSColumnCategory(parser.get_optional("category", [str, unicode, dict]))
             relationship = parser.get_optional("relationship", [str, unicode])
             mutable = parser.get_optional("mutable", [bool], True)
             ephemeral = parser.get_optional("ephemeral", [bool], False)

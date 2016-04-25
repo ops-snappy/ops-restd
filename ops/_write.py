@@ -81,6 +81,7 @@ def setup_row_references(rowdata, table, extschema, idl):
     table_schema = extschema.ovs_tables[table]
 
     row = ops.utils.index_to_row(row_index, table_schema, idl)
+
     if row is None and table in global_ref_list:
         if row_index in global_ref_list[table]:
             row = global_ref_list[table][row_index]
@@ -89,6 +90,9 @@ def setup_row_references(rowdata, table, extschema, idl):
 
     # set references for this row
     for name, column in table_schema.references.iteritems():
+
+        if column.category != ops.constants.OVSDB_SCHEMA_CONFIG:
+            continue
 
         if name in table_schema.children or column.relation == ops.constants.OVSDB_SCHEMA_PARENT:
             continue
@@ -100,18 +104,23 @@ def setup_row_references(rowdata, table, extschema, idl):
             reftable = column.ref_table
             refidl = idl.tables[reftable]
             refschema = extschema.ovs_tables[reftable]
-
             for refindex in row_data[name]:
                 refrow = ops.utils.index_to_row(refindex, refschema, idl)
+                if refrow is None and reftable in global_ref_list:
+                    if refindex in global_ref_list[reftable]:
+                        refrow = global_ref_list[reftable][refindex]
+                    else:
+                        raise Exception('reference not found')
                 reflist.append(refrow)
+
             row.__setattr__(name, reflist)
 
 
     for child in table_schema.children:
+
         # check if child data exists
         if child not in row_data:
             continue
-
         # get the child table name
         child_data = row_data[child]
         child_table = None
@@ -119,11 +128,11 @@ def setup_row_references(rowdata, table, extschema, idl):
             child_table = table_schema.references[child].ref_table
         else:
             child_table = child
+
         for index, data in child_data.iteritems():
             if child_table in extschema.ovs_tables[table].children and\
                     child_table not in extschema.ovs_tables[table].references:
                         index = str(row.uuid) + '/' + index
-
             setup_row_references({index:data}, child_table, extschema, idl)
 
 
@@ -139,7 +148,6 @@ def setup_row(rowdata, table_name, extschema, idl, txn):
     _new = False
     row = ops.utils.index_to_row(row_index, table_schema, idl)
     if row is None:
-
         # do not add row to an immutable table
         if is_immutable_table(table_name, extschema):
             return (None, None)
@@ -150,7 +158,6 @@ def setup_row(rowdata, table_name, extschema, idl, txn):
         if table_name not in global_ref_list:
             global_ref_list[table_name] = {}
         global_ref_list[table_name][row_index] = row
-
     # NOTE: populate configuration data
     config_keys = table_schema.config.keys()
     for key in config_keys:

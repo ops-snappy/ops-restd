@@ -21,9 +21,12 @@ import ovs.db.types as ovs_types
 
 
 def unquote_split(s_in):
-    s_in = s_in.split('/')
-    s_in = [urllib.unquote(i) for i in s_in if i != '']
-    return s_in
+    if isinstance(s_in, str):
+        s_in = s_in.split('/')
+        s_in = [urllib.unquote(i) for i in s_in if i != '']
+        return s_in
+    else:
+        return [str(s_in)]
 
 
 def get_empty_by_basic_type(data):
